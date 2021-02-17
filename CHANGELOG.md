@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 
 ## [v0.1.0]
-- Initial creation
+- Initial release
 
 [Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.1.0..HEAD
 [v0.1.0]: https://github.com/xmidt-org/ancla/compare/0.0.0...v0.1.0
