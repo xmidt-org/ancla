@@ -3,6 +3,7 @@ package xwebhook
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -155,7 +156,7 @@ func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) 
 	// always set duration to default
 	webhook.Duration = defaultWebhookExpiration
 
-	if &webhook.Until == nil || webhook.Until.Equal(time.Time{}) {
+	if webhook.Until.Equal(time.Time{}) {
 		webhook.Until = time.Now().Add(webhook.Duration)
 	}
 
@@ -165,7 +166,8 @@ func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) 
 func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {
 	w.Header().Set(contentTypeHeader, jsonContentType)
 	code := http.StatusInternalServerError
-	if sc, ok := err.(kithttp.StatusCoder); ok {
+	var sc kithttp.StatusCoder
+	if errors.As(err, &sc) {
 		code = sc.StatusCode()
 	}
 	w.WriteHeader(code)
