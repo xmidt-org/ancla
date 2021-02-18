@@ -59,11 +59,11 @@ func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	}
 	webhooks := []Webhook{}
 	for _, item := range items {
-		webhook, err := itemToWebhook(&item)
+		webhook, err := itemToWebhook(item)
 		if err != nil {
 			continue
 		}
-		webhooks = append(webhooks, *webhook)
+		webhooks = append(webhooks, webhook)
 	}
 
 	return webhooks, nil
@@ -91,15 +91,15 @@ func webhookToItem(w *Webhook) (*model.Item, error) {
 	}, nil
 }
 
-func itemToWebhook(i *model.Item) (*Webhook, error) {
-	w := new(Webhook)
+func itemToWebhook(i model.Item) (Webhook, error) {
+	var w Webhook
 	encodedWebhook, err := json.Marshal(i.Data)
 	if err != nil {
-		return nil, err
+		return Webhook{}, err
 	}
-	err = json.Unmarshal(encodedWebhook, w)
+	err = json.Unmarshal(encodedWebhook, &w)
 	if err != nil {
-		return nil, err
+		return Webhook{}, err
 	}
 	return w, nil
 }
@@ -155,11 +155,11 @@ func createArgusListener(watches ...Watch) chrysom.Listener {
 func itemsToWebhooks(items []model.Item) []Webhook {
 	webhooks := []Webhook{}
 	for _, item := range items {
-		webhook, err := itemToWebhook(&item)
+		webhook, err := itemToWebhook(item)
 		if err != nil {
 			continue
 		}
-		webhooks = append(webhooks, *webhook)
+		webhooks = append(webhooks, webhook)
 	}
 	return webhooks
 }
