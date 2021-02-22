@@ -67,8 +67,9 @@ func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{},
 
 	err = json.Unmarshal(requestPayload, &webhook)
 	if err != nil {
-		//TODO: we should get rid of this if we can. It's not listed in our swagger page but I'm keeping it just to
-		// match the current behavior.
+		// TODO: This is not part of our swagger but I decided to keep it as it was part of the
+		// codebase: https://github.com/xmidt-org/webpa-common/blob/7740b009eb2cada45954289240d73626e82ccb0d/webhook/webhook.go#L76
+		// We could add a counter to see if this is hit in production and decide to remove it based on that.
 		webhook, err = getFirstFromList(requestPayload)
 		if err != nil {
 			return nil, err
