@@ -20,13 +20,14 @@ package ancla
 import (
 	"net/http"
 
+	"github.com/go-kit/kit/metrics/provider"
 	kithttp "github.com/go-kit/kit/transport/http"
 )
 
-func NewAddWebhookHandler(s Service) http.Handler {
+func NewAddWebhookHandler(s Service, config HandlerConfig) http.Handler {
 	return kithttp.NewServer(
 		newAddWebhookEndpoint(s),
-		decodeAddWebhookRequest,
+		addWebhookRequestDecoder(newTransportConfig(config)),
 		encodeAddWebhookResponse,
 		kithttp.ServerErrorEncoder(errorEncoder),
 	)
@@ -39,4 +40,18 @@ func NewGetAllWebhooksHandler(s Service) http.Handler {
 		encodeGetAllWebhooksResponse,
 		kithttp.ServerErrorEncoder(errorEncoder),
 	)
+}
+
+// HandlerConfig contains configuration related to
+type HandlerConfig struct {
+	MetricsProvider provider.Provider
+}
+
+func newTransportConfig(hConfig HandlerConfig) transportConfig {
+	if hConfig.MetricsProvider == nil {
+		hConfig.MetricsProvider = provider.NewDiscardProvider()
+	}
+	return transportConfig{
+		webhookLegacyDecodeCount: hConfig.MetricsProvider.NewCounter(WebhookLegacyDecodeCount),
+	}
 }

@@ -24,8 +24,8 @@ import (
 
 // Names
 const (
-	PollCounter          = "webhook_polls_total"
-	WebhookListSizeGauge = "webhook_list_size_value"
+	WebhookListSizeGauge     = "webhook_list_size_value"
+	WebhookLegacyDecodeCount = "webhook_legacy_decodings_total"
 )
 
 // Labels
@@ -46,6 +46,12 @@ func Metrics() []xmetrics.Metric {
 			Name: WebhookListSizeGauge,
 			Type: xmetrics.GaugeType,
 			Help: "Size of the current list of webhooks.",
+		},
+		{
+			Name: WebhookLegacyDecodeCount,
+			Type: xmetrics.CounterType,
+			Help: "Number of times a webhook is registered with a legacy decoding strategy.",
+			//TODO: we should probably add webhook.config.url as a label
 		},
 	}
 	metrics = append(metrics, chrysom.Metrics()...)
