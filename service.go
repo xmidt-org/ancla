@@ -6,13 +6,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 )
+
+var errMigrationOwnerEmpty = errors.New("owner is required when migration section is provided in config")
 
 // Service describes the core operations around webhook subscriptions.
 // Initialize() provides a service ready to use and the controls around watching for updates.
@@ -26,6 +27,17 @@ type Service interface {
 	AllWebhooks(owner string) ([]Webhook, error)
 }
 
+// MigrationConfig contains fields to capture webhooks items migrated
+// from SNS to Argus.
+type MigrationConfig struct {
+	// Bucket from which to fetch the webhook items.
+	// (Optional). Defaults to 'webhooks'
+	Bucket string
+
+	// Owner of the items.
+	Owner string
+}
+
 // Config contains information needed to initialize the webhook service.
 type Config struct {
 	// Argus contains configuration to initialize an Argus client.
@@ -35,6 +47,15 @@ type Config struct {
 	// will be stored.
 	// (Optional). Defaults to 'webhooks'
 	Bucket string
+
+	// Migration provides info for capturing webhook items that
+	// were recently migrated from SNS to Argus. This should
+	// match the migration configuration Hecate uses.
+	// If this config section is left blank, migrated items won't be
+	// captured.
+	// if the section is specified but owner is not provided, a validation
+	// error should be given.
+	Migration *MigrationConfig
 }
 
 type loggerGroup struct {
@@ -64,22 +85,63 @@ func (s *service) Add(owner string, w Webhook) error {
 	return errors.New("operation to add webhook to db failed")
 }
 
+// AllWebhooks returns the set of all webhooks associated with the given owner.
+// Note: While webhooks stored through Argus have this item to owner relationship
+// information, those stored through SNS do not have that piece of information.
+// This opens the possibility of not capturing those items that were just migrated
+// from SNS to Argus. For this reason, when migration configuration is provided,
+// AllWebhooks provides a set with data from both the migrated list from SNS and the
+// existing Argus webhooks.
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
-	s.loggers.Debug.Log("msg", "AllWebhooks called", "owner", owner)
+	webhookSet := make(map[string]Webhook)
+	if s.config.Migration != nil {
+		err := s.captureMigratedItems(webhookSet)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	items, err := s.argus.GetItems(s.config.Bucket, owner)
 	if err != nil {
 		return nil, err
 	}
-	webhooks := []Webhook{}
+
 	for _, item := range items {
 		webhook, err := itemToWebhook(item)
 		if err != nil {
-			continue
+			return nil, err
 		}
+		webhookSet[item.ID] = webhook
+	}
+
+	return toSlice(webhookSet), nil
+}
+
+func (s *service) captureMigratedItems(webhookSet map[string]Webhook) error {
+	items, err := s.argus.GetItems(s.config.Migration.Bucket, s.config.Migration.Owner)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range items {
+		webhook, err := itemToWebhook(item)
+		if err != nil {
+			return err
+		}
+		webhookSet[item.ID] = webhook
+	}
+
+	return nil
+}
+
+func toSlice(webhookSet map[string]Webhook) []Webhook {
+	webhooks := []Webhook{}
+
+	for _, webhook := range webhookSet {
 		webhooks = append(webhooks, webhook)
 	}
 
-	return webhooks, nil
+	return webhooks
 }
 
 func webhookToItem(w Webhook) (model.Item, error) {
@@ -128,10 +190,22 @@ func newLoggerGroup(root log.Logger) *loggerGroup {
 	}
 
 }
-func validateConfig(cfg *Config) {
-	if len(strings.TrimSpace(cfg.Bucket)) == 0 {
+func validateConfig(cfg *Config) error {
+	if cfg.Bucket == "" {
 		cfg.Bucket = "webhooks"
 	}
+
+	if cfg.Migration != nil {
+		if cfg.Migration.Owner == "" {
+			return errMigrationOwnerEmpty
+		}
+
+		if cfg.Migration.Bucket == "" {
+			cfg.Migration.Bucket = "webhooks"
+		}
+	}
+
+	return nil
 }
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
