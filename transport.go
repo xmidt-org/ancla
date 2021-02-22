@@ -36,7 +36,7 @@ type getAllWebhooksRequest struct {
 
 type addWebhookRequest struct {
 	owner   string
-	webhook *Webhook
+	webhook Webhook
 }
 
 func decodeGetAllWebhooksRequest(ctx context.Context, r *http.Request) (interface{}, error) {
@@ -63,9 +63,9 @@ func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{},
 	if err != nil {
 		return nil, err
 	}
-	webhook := new(Webhook)
+	var webhook Webhook
 
-	err = json.Unmarshal(requestPayload, webhook)
+	err = json.Unmarshal(requestPayload, &webhook)
 	if err != nil {
 		//TODO: we should get rid of this if we can. It's not listed in our swagger page but I'm keeping it just to
 		// match the current behavior.
@@ -75,7 +75,7 @@ func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{},
 		}
 	}
 
-	err = validateWebhook(webhook, r.RemoteAddr)
+	err = validateWebhook(&webhook, r.RemoteAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -110,18 +110,18 @@ func getOwner(r *http.Request) (owner string) {
 	return
 }
 
-func getFirstFromList(requestPayload []byte) (*Webhook, error) {
+func getFirstFromList(requestPayload []byte) (Webhook, error) {
 	var webhooks []Webhook
 
 	err := json.Unmarshal(requestPayload, &webhooks)
 	if err != nil {
-		return nil, err
+		return Webhook{}, err
 	}
 
 	if len(webhooks) < 1 {
-		return nil, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
+		return Webhook{}, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
 	}
-	return &webhooks[0], nil
+	return webhooks[0], nil
 }
 
 func obfuscateSecrets(webhooks []Webhook) {
