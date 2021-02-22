@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -25,11 +26,14 @@ type Service interface {
 	AllWebhooks(owner string) ([]Webhook, error)
 }
 
-// Config provides the different options for the initializing the wehbook service.
+// Config contains information needed to initialize the webhook service.
 type Config struct {
-	// Argus contains all the argus specific configurations
+	// Argus contains configuration to initialize an Argus client.
 	Argus chrysom.ClientConfig
 
+	// Bucket is the name of the Argus partition in which the webhook items
+	// will be stored.
+	// (Optional). Defaults to 'webhooks'
 	Bucket string
 }
 
@@ -124,10 +128,16 @@ func newLoggerGroup(root log.Logger) *loggerGroup {
 	}
 
 }
+func validateConfig(cfg *Config) {
+	if len(strings.TrimSpace(cfg.Bucket)) == 0 {
+		cfg.Bucket = "webhooks"
+	}
+}
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
 func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
+	validateConfig(&cfg)
 	watches = append(watches, webhookListSizeWatch(cfg.Argus.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 
 	cfg.Argus.Listener = createArgusListener(watches...)
