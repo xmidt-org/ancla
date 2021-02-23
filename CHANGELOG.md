@@ -5,8 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Bump argus client version to v0.3.11 [#20](https://github.com/xmidt-org/ancla/pull/20)
 ### Fixed
-- Fix linting warnings. [#6] (https://github.com/xmidt-org/ancla/pull/6)
+- Fix linting warnings. [#6](https://github.com/xmidt-org/ancla/pull/6)
 ## [v0.1.0]
 - Initial release
 
