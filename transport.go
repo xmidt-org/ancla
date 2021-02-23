@@ -36,7 +36,7 @@ type getAllWebhooksRequest struct {
 
 type addWebhookRequest struct {
 	owner   string
-	webhook *Webhook
+	webhook Webhook
 }
 
 func decodeGetAllWebhooksRequest(ctx context.Context, r *http.Request) (interface{}, error) {
@@ -63,19 +63,20 @@ func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{},
 	if err != nil {
 		return nil, err
 	}
-	webhook := new(Webhook)
+	var webhook Webhook
 
-	err = json.Unmarshal(requestPayload, webhook)
+	err = json.Unmarshal(requestPayload, &webhook)
 	if err != nil {
-		//TODO: we should get rid of this if we can. It's not listed in our swagger page but I'm keeping it just to
-		// match the current behavior.
+		// TODO: This is not part of our swagger but I decided to keep it as it was part of the
+		// codebase: https://github.com/xmidt-org/webpa-common/blob/7740b009eb2cada45954289240d73626e82ccb0d/webhook/webhook.go#L76
+		// We could add a counter to see if this is hit in production and decide to remove it based on that.
 		webhook, err = getFirstFromList(requestPayload)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	err = validateWebhook(webhook, r.RemoteAddr)
+	err = validateWebhook(&webhook, r.RemoteAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -110,18 +111,18 @@ func getOwner(r *http.Request) (owner string) {
 	return
 }
 
-func getFirstFromList(requestPayload []byte) (*Webhook, error) {
+func getFirstFromList(requestPayload []byte) (Webhook, error) {
 	var webhooks []Webhook
 
 	err := json.Unmarshal(requestPayload, &webhooks)
 	if err != nil {
-		return nil, err
+		return Webhook{}, err
 	}
 
 	if len(webhooks) < 1 {
-		return nil, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
+		return Webhook{}, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
 	}
-	return &webhooks[0], nil
+	return webhooks[0], nil
 }
 
 func obfuscateSecrets(webhooks []Webhook) {
