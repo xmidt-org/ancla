@@ -9,8 +9,10 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/themis/xlog"
 )
 
 var errMigrationOwnerEmpty = errors.New("owner is required when migration section is provided in config")
@@ -51,22 +53,28 @@ type Config struct {
 	// Migration provides info for capturing webhook items that
 	// were recently migrated from SNS to Argus. This should
 	// match the migration configuration Hecate uses.
+	// (Optional)
 	// If this config section is left blank, migrated items won't be
 	// captured.
 	// if the section is specified but owner is not provided, a validation
 	// error should be given.
 	Migration *MigrationConfig
-}
 
-type loggerGroup struct {
-	Error log.Logger
-	Debug log.Logger
+	// Logger for this package.
+	// Gets passed to Argus config before initializing the client.
+	// (Optional). Defaults to a no op logger.
+	Logger log.Logger
+
+	// MetricsProvider for instrumenting this package.
+	// Gets passed to Argus config before initializing the client.
+	// (Optional). Defaults to a no op provider.
+	MetricsProvider provider.Provider
 }
 
 type service struct {
-	argus   *chrysom.Client
-	loggers *loggerGroup
-	config  Config
+	argus  *chrysom.Client
+	logger log.Logger
+	config Config
 }
 
 func (s *service) Add(owner string, w Webhook) error {
@@ -179,17 +187,6 @@ func itemToWebhook(i model.Item) (Webhook, error) {
 	return w, nil
 }
 
-func newLoggerGroup(root log.Logger) *loggerGroup {
-	if root == nil {
-		root = log.NewNopLogger()
-	}
-
-	return &loggerGroup{
-		Debug: log.WithPrefix(root, level.Key(), level.DebugValue()),
-		Error: log.WithPrefix(root, level.Key(), level.ErrorValue()),
-	}
-
-}
 func validateConfig(cfg *Config) error {
 	if cfg.Bucket == "" {
 		cfg.Bucket = "webhooks"
@@ -205,6 +202,14 @@ func validateConfig(cfg *Config) error {
 		}
 	}
 
+	if cfg.Logger == nil {
+		cfg.Logger = log.NewNopLogger()
+	}
+
+	if cfg.MetricsProvider == nil {
+		cfg.MetricsProvider = provider.NewDiscardProvider()
+	}
+
 	return nil
 }
 
@@ -212,9 +217,11 @@ func validateConfig(cfg *Config) error {
 // function when you are done watching for updates.
 func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 	validateConfig(&cfg)
-	watches = append(watches, webhookListSizeWatch(cfg.Argus.MetricsProvider.NewGauge(WebhookListSizeGauge)))
+	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 
-	cfg.Argus.Listener = createArgusListener(watches...)
+	cfg.Argus.Logger = cfg.Logger
+	cfg.Argus.MetricsProvider = cfg.MetricsProvider
+	cfg.Argus.Listener = createArgusListener(cfg.Logger, watches...)
 
 	argus, err := chrysom.NewClient(cfg.Argus)
 	if err != nil {
@@ -222,8 +229,9 @@ func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 	}
 
 	svc := &service{
-		loggers: newLoggerGroup(cfg.Argus.Logger),
-		argus:   argus,
+		logger: cfg.Logger,
+		argus:  argus,
+		config: cfg,
 	}
 
 	argus.Start(context.Background())
@@ -231,26 +239,27 @@ func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 	return svc, func() { argus.Stop(context.Background()) }, nil
 }
 
-func createArgusListener(watches ...Watch) chrysom.Listener {
-	if len(watches) < 1 {
-		return nil
-	}
+func createArgusListener(logger log.Logger, watches ...Watch) chrysom.Listener {
 	return chrysom.ListenerFunc(func(items chrysom.Items) {
-		webhooks := itemsToWebhooks(items)
+		webhooks, err := itemsToWebhooks(items)
+		if err != nil {
+			level.Error(logger).Log(xlog.MessageKey(), "Failed to convert items to webhooks", "err", err)
+			return
+		}
 		for _, watch := range watches {
 			watch.Update(webhooks)
 		}
 	})
 }
 
-func itemsToWebhooks(items []model.Item) []Webhook {
+func itemsToWebhooks(items []model.Item) ([]Webhook, error) {
 	webhooks := []Webhook{}
 	for _, item := range items {
 		webhook, err := itemToWebhook(item)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		webhooks = append(webhooks, webhook)
 	}
-	return webhooks
+	return webhooks, nil
 }
