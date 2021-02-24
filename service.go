@@ -15,7 +15,12 @@ import (
 	"github.com/xmidt-org/themis/xlog"
 )
 
-var errMigrationOwnerEmpty = errors.New("owner is required when migration section is provided in config")
+var (
+	errMigrationOwnerEmpty     = errors.New("owner is required when migration section is provided in config")
+	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
+	errFailedWebhookPush       = errors.New("operation to push webhook item failed")
+	errFailedWebhookConversion = errors.New("failed to convert webhook to item")
+)
 
 // Service describes the core operations around webhook subscriptions.
 // Initialize() provides a service ready to use and the controls around watching for updates.
@@ -72,7 +77,7 @@ type Config struct {
 }
 
 type service struct {
-	argus  *chrysom.Client
+	argus  chrysom.PushReader
 	logger log.Logger
 	config Config
 }
@@ -80,17 +85,17 @@ type service struct {
 func (s *service) Add(owner string, w Webhook) error {
 	item, err := webhookToItem(w)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", errFailedWebhookConversion, err)
 	}
 	result, err := s.argus.PushItem(item.ID, s.config.Bucket, owner, item)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %v", errFailedWebhookPush, err)
 	}
 
 	if result == chrysom.CreatedPushResult || result == chrysom.UpdatedPushResult {
 		return nil
 	}
-	return errors.New("operation to add webhook to db failed")
+	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
 }
 
 // AllWebhooks returns the set of all webhooks associated with the given owner.
