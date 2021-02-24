@@ -1,12 +1,16 @@
 package ancla
 
 import (
+	"errors"
 	"io/ioutil"
 	"testing"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/provider"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/store"
 )
 
 type validateTestconfig struct {
@@ -52,7 +56,65 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestAdd(t *testing.T) {
-	//TODO:
+	type pushItemResults struct {
+		result chrysom.PushResult
+		err    error
+	}
+	type testCase struct {
+		Description     string
+		Owner           string
+		InputWebhook    Webhook
+		PushItemResults pushItemResults
+		ExpectedErr     error
+	}
+
+	tcs := []testCase{
+		{
+			Description: "PushItem fails",
+			PushItemResults: pushItemResults{
+				err: errors.New("push item failed"),
+			},
+			ExpectedErr: errFailedWebhookPush,
+		},
+		{
+			Description: "Unknown push result",
+			PushItemResults: pushItemResults{
+				result: "unknownResult",
+			},
+			ExpectedErr: errNonSuccessPushResult,
+		},
+		{
+			Description: "Item created",
+			PushItemResults: pushItemResults{
+				result: chrysom.CreatedPushResult,
+			},
+		},
+		{
+			Description: "Item update",
+			PushItemResults: pushItemResults{
+				result: chrysom.UpdatedPushResult,
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Description, func(t *testing.T) {
+			assert := assert.New(t)
+			m := new(mockPushReader)
+			svc := service{
+				logger: log.NewNopLogger(),
+				config: Config{},
+				argus:  m,
+			}
+			m.On("PushItem", store.Sha256HexDigest(tc.InputWebhook.Address), svc.config.Bucket, tc.Owner,
+				mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
+			err := svc.Add(tc.Owner, tc.InputWebhook)
+			if tc.ExpectedErr != nil {
+				assert.True(errors.Is(err, tc.ExpectedErr))
+			}
+			m.AssertExpectations(t)
+		})
+	}
 }
 
 // Test AllWebhooks
