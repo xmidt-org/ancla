@@ -51,6 +51,15 @@ func TestValidateConfig(t *testing.T) {
 	}
 }
 
+func TestAdd(t *testing.T) {
+	//TODO:
+}
+
+// Test AllWebhooks
+func TestAllWebhooks(t *testing.T) {
+	//TODO:
+}
+
 func getIncompleteButValidConfig() validateTestconfig {
 	return validateTestconfig{
 		input: &Config{
@@ -96,13 +105,4 @@ func getInvalidConfig() validateTestconfig {
 			},
 		},
 	}
-}
-
-func TestAdd(t *testing.T) {
-	//TODO:
-}
-
-// Test AllWebhooks
-func TestAllWebhooks(t *testing.T) {
-	//TODO:
 }
