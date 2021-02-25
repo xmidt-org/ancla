@@ -16,10 +16,13 @@ import (
 )
 
 var (
-	errMigrationOwnerEmpty     = errors.New("owner is required when migration section is provided in config")
-	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
-	errFailedWebhookPush       = errors.New("operation to push webhook item failed")
-	errFailedWebhookConversion = errors.New("failed to convert webhook to item")
+	errMigrationOwnerEmpty         = errors.New("owner is required when migration section is provided in config")
+	errNonSuccessPushResult        = errors.New("got a push result but was not of success type")
+	errFailedWebhookPush           = errors.New("failed to add webhook to registry")
+	errFailedWebhookConversion     = errors.New("failed to convert webhook to argus item")
+	errFailedItemConversion        = errors.New("failed to convert argus item to webhook")
+	errFailedMigratedWebhooksFetch = errors.New("failed to fetch migrated webhooks")
+	errFailedWebhooksFetch         = errors.New("failed to fetch webhooks")
 )
 
 // Service describes the core operations around webhook subscriptions.
@@ -108,21 +111,21 @@ func (s *service) Add(owner string, w Webhook) error {
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	webhookSet := make(map[string]Webhook)
 	if s.config.Migration != nil {
-		err := s.captureMigratedItems(webhookSet)
+		err := s.captureMigratedWebhooks(webhookSet)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: %v", errFailedMigratedWebhooksFetch, err)
 		}
 	}
 
 	items, err := s.argus.GetItems(s.config.Bucket, owner)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", errFailedWebhooksFetch, err)
 	}
 
 	for _, item := range items {
 		webhook, err := itemToWebhook(item)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: %v", errFailedItemConversion, err)
 		}
 		webhookSet[item.ID] = webhook
 	}
@@ -130,7 +133,7 @@ func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	return toSlice(webhookSet), nil
 }
 
-func (s *service) captureMigratedItems(webhookSet map[string]Webhook) error {
+func (s *service) captureMigratedWebhooks(webhookSet map[string]Webhook) error {
 	items, err := s.argus.GetItems(s.config.Migration.Bucket, s.config.Migration.Owner)
 	if err != nil {
 		return err
