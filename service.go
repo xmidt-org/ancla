@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -106,8 +107,10 @@ func (s *service) Add(owner string, w Webhook) error {
 // information, those stored through SNS do not have that piece of information.
 // This opens the possibility of not capturing those items that were just migrated
 // from SNS to Argus. For this reason, when migration configuration is provided,
-// AllWebhooks provides a set with data from both the migrated list from SNS and the
-// existing Argus webhooks.
+// AllWebhooks provides a set with data from both the migrated list of webhooks
+// from SNS and those already on Argus.
+// Webhooks are returned sorted by the config.url field. If there is need, we
+// could make this configurable or user-provided in future releases.
 func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	webhookSet := make(map[string]Webhook)
 	if s.config.Migration != nil {
@@ -129,8 +132,12 @@ func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 		}
 		webhookSet[item.ID] = webhook
 	}
+	webhookList := toSlice(webhookSet)
+	sort.Slice(webhookList, func(i, j int) bool {
+		return webhookList[i].Config.URL < webhookList[j].Config.URL
+	})
 
-	return toSlice(webhookSet), nil
+	return webhookList, nil
 }
 
 func (s *service) captureMigratedWebhooks(webhookSet map[string]Webhook) error {
