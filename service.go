@@ -16,6 +16,8 @@ import (
 	"github.com/xmidt-org/themis/xlog"
 )
 
+const errFmt = "%w: %v"
+
 var (
 	errMigrationOwnerEmpty         = errors.New("owner is required when migration section is provided in config")
 	errNonSuccessPushResult        = errors.New("got a push result but was not of success type")
@@ -89,11 +91,11 @@ type service struct {
 func (s *service) Add(owner string, w Webhook) error {
 	item, err := webhookToItem(w)
 	if err != nil {
-		return fmt.Errorf("%w: %v", errFailedWebhookConversion, err)
+		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
 	result, err := s.argus.PushItem(item.ID, s.config.Bucket, owner, item)
 	if err != nil {
-		return fmt.Errorf("%w: %v", errFailedWebhookPush, err)
+		return fmt.Errorf(errFmt, errFailedWebhookPush, err)
 	}
 
 	if result == chrysom.CreatedPushResult || result == chrysom.UpdatedPushResult {
@@ -116,19 +118,19 @@ func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
 	if s.config.Migration != nil {
 		err := s.captureMigratedWebhooks(webhookSet)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errFailedMigratedWebhooksFetch, err)
+			return nil, fmt.Errorf(errFmt, errFailedMigratedWebhooksFetch, err)
 		}
 	}
 
 	items, err := s.argus.GetItems(s.config.Bucket, owner)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errFailedWebhooksFetch, err)
+		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
 
 	for _, item := range items {
 		webhook, err := itemToWebhook(item)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errFailedItemConversion, err)
+			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
 		}
 		webhookSet[item.ID] = webhook
 	}
