@@ -18,7 +18,6 @@ import (
 const errFmt = "%w: %v"
 
 var (
-	errMigrationOwnerEmpty     = errors.New("owner is required when migration section is provided in config")
 	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
 	errFailedWebhookPush       = errors.New("failed to add webhook to registry")
 	errFailedWebhookConversion = errors.New("failed to convert webhook to argus item")
@@ -35,17 +34,6 @@ type Service interface {
 
 	// AllWebhooks lists all the current registered webhooks.
 	AllWebhooks() ([]Webhook, error)
-}
-
-// MigrationConfig contains fields to capture webhooks items migrated
-// from SNS to Argus.
-type MigrationConfig struct {
-	// Bucket from which to fetch the webhook items.
-	// (Optional). Defaults to 'webhooks'
-	Bucket string
-
-	// Owner of the items.
-	Owner string
 }
 
 // Config contains information needed to initialize the webhook service.
