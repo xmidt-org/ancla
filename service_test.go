@@ -196,14 +196,14 @@ func getWebhooks() []Webhook {
 		refTime     = getRefTime()
 		webhookZero = Webhook{
 			Address: "http://webhook-requester-to-argus.example",
-			Config: WebhookConfig{
+			Config: DeliveryConfig{
 				URL: "http://events-webhook0-here.example",
 			},
 			Until: refTime.Add(5 * time.Second),
 		}
 		webhookOne = Webhook{
 			Address: "http://webhook-requester-to-argus.example",
-			Config: WebhookConfig{
+			Config: DeliveryConfig{
 				URL: "http://events-webhook1-here.example",
 			},
 			Until: refTime.Add(10 * time.Second),

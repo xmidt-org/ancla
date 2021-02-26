@@ -4,8 +4,8 @@ import (
 	"time"
 )
 
-// WebhookConfig is a Webhook substructure with data related to event delivery.
-type WebhookConfig struct {
+// DeliveryConfig is a Webhook substructure with data related to event delivery.
+type DeliveryConfig struct {
 	// URL is the HTTP URL to deliver messages to.
 	URL string `json:"url"`
 
@@ -26,7 +26,7 @@ type Webhook struct {
 	Address string `json:"registered_from_address"`
 
 	// Config contains data to inform how events are delivered.
-	Config WebhookConfig `json:"config"`
+	Config DeliveryConfig `json:"config"`
 
 	// FailureURL is the URL used to notify subscribers when they've been cut off due to event overflow.
 	// Optional, set to "" to disable notifications.
