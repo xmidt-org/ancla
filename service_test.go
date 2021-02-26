@@ -14,38 +14,6 @@ import (
 	"github.com/xmidt-org/argus/store"
 )
 
-var (
-	refTime              = getRefTime()
-	migrationWebhookZero = Webhook{
-		Address: "http://webhook-requester-to-sns.example",
-		Config: WebhookConfig{
-			URL: "http://events-webhook0-here.example",
-		},
-		Until: refTime,
-	}
-	migrationWebhookTwo = Webhook{
-		Address: "http://webhook-requester-to-sns.example",
-		Config: WebhookConfig{
-			URL: "http://events-webhook2-here.example",
-		},
-		Until: refTime.Add(8 * time.Second),
-	}
-	webhookZero = Webhook{
-		Address: "http://webhook-requester-to-argus.example",
-		Config: WebhookConfig{
-			URL: "http://events-webhook0-here.example",
-		},
-		Until: refTime.Add(5 * time.Second),
-	}
-	webhookOne = Webhook{
-		Address: "http://webhook-requester-to-argus.example",
-		Config: WebhookConfig{
-			URL: "http://events-webhook1-here.example",
-		},
-		Until: refTime.Add(10 * time.Second),
-	}
-)
-
 type validateTestconfig struct {
 	input    *Config
 	expected *Config
@@ -60,30 +28,21 @@ func TestValidateConfig(t *testing.T) {
 
 	tcs := []testCase{
 		{
-			Description: "Migration config provided without an item owner",
-			Data:        getInvalidConfig(),
+			Description: "DefaultedValues",
+			Data:        getDefaultedValuesConfig(),
 			ExpectedErr: errMigrationOwnerEmpty,
 		},
 		{
-			Description: "Incomplete but valid config",
-			Data:        getIncompleteButValidConfig(),
-		},
-		{
-			Description: "No migration section but still valid",
-			Data:        getNoMigrationValidConfig(),
+			Description: "Given values",
+			Data:        getValuesGivenConfig(),
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			err := validateConfig(tc.Data.input)
-			if tc.ExpectedErr != nil {
-				assert.Equal(tc.ExpectedErr, err)
-			} else {
-				assert.Nil(err)
-				assert.EqualValues(tc.Data.expected, tc.Data.input)
-			}
+			validateConfig(tc.Data.input)
+			assert.EqualValues(tc.Data.expected, tc.Data.input)
 		})
 	}
 }
@@ -151,112 +110,39 @@ func TestAdd(t *testing.T) {
 }
 
 func TestAllWebhooks(t *testing.T) {
-	type getItemsMockResp struct {
-		Items chrysom.Items
-		Err   error
-	}
-
 	type testCase struct {
-		Description          string
-		Owner                string
-		CaptureMigratedItems bool
-		CaptureItems         bool
-		MigrationItemsResp   getItemsMockResp
-		ItemsResp            getItemsMockResp
-		ExpectedWebhooks     []Webhook
-		ExpectedErr          error
-	}
-
-	migrationItemsResp := getItemsMockResp{
-		Items: getTestMigrationItems(),
-	}
-
-	itemsResp := getItemsMockResp{
-		Items: getTestItems(),
+		Description      string
+		GetItemsResp     chrysom.Items
+		GetItemsErr      error
+		ExpectedWebhooks []Webhook
+		ExpectedErr      error
 	}
 
 	tcs := []testCase{
 		{
-			Description:          "Fetching migrated webhooks fails",
-			Owner:                "Owner",
-			CaptureMigratedItems: true,
-			CaptureItems:         false,
-			MigrationItemsResp: getItemsMockResp{
-				Err: errors.New("db failed"),
-			},
-			ItemsResp:   itemsResp,
-			ExpectedErr: errFailedMigratedWebhooksFetch,
-		},
-
-		{
-			Description:          "Fetching argus webhooks fails",
-			Owner:                "Owner",
-			CaptureMigratedItems: true,
-			CaptureItems:         true,
-			MigrationItemsResp:   migrationItemsResp,
-			ItemsResp: getItemsMockResp{
-				Err: errors.New("db failed"),
-			},
+			Description: "Fetching argus webhooks fails",
+			GetItemsErr: errors.New("db failed"),
 			ExpectedErr: errFailedWebhooksFetch,
 		},
 		{
-			Description:          "Migration capture disabled. Webhooks fetch success",
-			Owner:                "Owner",
-			CaptureMigratedItems: false,
-			CaptureItems:         true,
-			MigrationItemsResp:   migrationItemsResp,
-			ItemsResp:            itemsResp,
-			ExpectedWebhooks:     getWebhooksFromArgusOnly(),
-		},
-		{
-			Description:          "Only Migrated webhooks",
-			Owner:                "Owner",
-			CaptureMigratedItems: true,
-			CaptureItems:         true,
-			MigrationItemsResp:   migrationItemsResp,
-			ItemsResp: getItemsMockResp{
-				Items: chrysom.Items{},
-			},
-			ExpectedWebhooks: getWebhooksFromMigrationOnly(),
-		},
-		{
-			Description:          "Success fetch from both sources",
-			Owner:                "Owner",
-			CaptureMigratedItems: true,
-			CaptureItems:         true,
-			MigrationItemsResp:   migrationItemsResp,
-			ItemsResp:            itemsResp,
-			ExpectedWebhooks:     getWebhooksFromMixedSources(),
+			Description:      "Webhooks fetch success",
+			GetItemsResp:     getTestItems(),
+			ExpectedWebhooks: getWebhooks(),
 		},
 	}
+
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
-			migrationCfg := &MigrationConfig{
-				Bucket: "webhooks",
-				Owner:  "migration-owner",
-			}
-			cfg := Config{}
-			if tc.CaptureMigratedItems {
-				cfg.Migration = migrationCfg
-			}
 
 			svc := service{
 				argus:  m,
 				logger: log.NewNopLogger(),
-				config: cfg,
+				config: Config{},
 			}
-			if tc.CaptureMigratedItems {
-				m.On("GetItems", migrationCfg.Bucket, migrationCfg.Owner).
-					Return(tc.MigrationItemsResp.Items, tc.MigrationItemsResp.Err)
-			}
-
-			if tc.CaptureItems {
-				m.On("GetItems", svc.config.Bucket, tc.Owner).Return(tc.ItemsResp.Items, tc.ItemsResp.Err)
-			}
-
-			webhooks, err := svc.AllWebhooks(tc.Owner)
+			m.On("GetItems", svc.config.Bucket, "").Return(tc.GetItemsResp, tc.GetItemsErr)
+			webhooks, err := svc.AllWebhooks()
 
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
@@ -265,39 +151,12 @@ func TestAllWebhooks(t *testing.T) {
 				assert.EqualValues(tc.ExpectedWebhooks, webhooks)
 			}
 
-			if !tc.CaptureMigratedItems {
-				m.AssertNotCalled(t, "GetItems", migrationCfg.Bucket, migrationCfg.Owner)
-			}
-
-			if !tc.CaptureItems {
-				m.AssertNotCalled(t, "GetItems", svc.config.Bucket, tc.Owner)
-			}
-
 			m.AssertExpectations(t)
 		})
 	}
 }
 
-func getIncompleteButValidConfig() validateTestconfig {
-	return validateTestconfig{
-		input: &Config{
-			Migration: &MigrationConfig{
-				Owner: "owner-provided",
-			},
-		},
-		expected: &Config{
-			Bucket: "webhooks",
-			Migration: &MigrationConfig{
-				Owner:  "owner-provided",
-				Bucket: "webhooks",
-			},
-			Logger:          log.NewNopLogger(),
-			MetricsProvider: provider.NewDiscardProvider(),
-		},
-	}
-}
-
-func getNoMigrationValidConfig() validateTestconfig {
+func getValuesGivenConfig() validateTestconfig {
 	logger := log.NewJSONLogger(ioutil.Discard)
 	metricsProvider := provider.NewExpvarProvider()
 
@@ -315,12 +174,13 @@ func getNoMigrationValidConfig() validateTestconfig {
 	}
 }
 
-func getInvalidConfig() validateTestconfig {
+func getDefaultedValuesConfig() validateTestconfig {
 	return validateTestconfig{
-		input: &Config{
-			Migration: &MigrationConfig{
-				Bucket: "myBucket",
-			},
+		input: &Config{},
+		expected: &Config{
+			Bucket:          "webhooks",
+			Logger:          log.NewNopLogger(),
+			MetricsProvider: provider.NewDiscardProvider(),
 		},
 	}
 }
@@ -350,41 +210,25 @@ func getTestItems() chrysom.Items {
 	}
 }
 
-func getTestMigrationItems() chrysom.Items {
-	return chrysom.Items{
-		{
-			ID: "d73ec0f8e6137f50284453bf1da67f94659fae70cefef8745a94a638bab41b90",
-			Data: map[string]interface{}{
-				"registered_from_address": "http://webhook-requester-to-sns.example",
-				"config": map[string]interface{}{
-					"url": "http://events-webhook0-here.example",
-				},
-				"until": "2021-01-02T15:04:00Z",
+func getWebhooks() []Webhook {
+	var (
+		refTime     = getRefTime()
+		webhookZero = Webhook{
+			Address: "http://webhook-requester-to-argus.example",
+			Config: WebhookConfig{
+				URL: "http://events-webhook0-here.example",
 			},
-		},
-		{
-			ID: "4f4908c2d545216b8996a701866ce1c0312bec2bf316e4cfecf2465634bf8398",
-			Data: map[string]interface{}{
-				"registered_from_address": "http://webhook-requester-to-sns.example",
-				"config": map[string]interface{}{
-					"url": "http://events-webhook2-here.example",
-				},
-				"until": "2021-01-02T15:04:08Z",
+			Until: refTime.Add(5 * time.Second),
+		}
+		webhookOne = Webhook{
+			Address: "http://webhook-requester-to-argus.example",
+			Config: WebhookConfig{
+				URL: "http://events-webhook1-here.example",
 			},
-		},
-	}
-}
-
-func getWebhooksFromArgusOnly() []Webhook {
+			Until: refTime.Add(10 * time.Second),
+		}
+	)
 	return []Webhook{webhookZero, webhookOne}
-}
-
-func getWebhooksFromMigrationOnly() []Webhook {
-	return []Webhook{migrationWebhookZero, migrationWebhookTwo}
-}
-
-func getWebhooksFromMixedSources() []Webhook {
-	return []Webhook{webhookZero, webhookOne, migrationWebhookTwo}
 }
 
 func getRefTime() time.Time {
