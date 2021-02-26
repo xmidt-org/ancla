@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -19,13 +18,12 @@ import (
 const errFmt = "%w: %v"
 
 var (
-	errMigrationOwnerEmpty         = errors.New("owner is required when migration section is provided in config")
-	errNonSuccessPushResult        = errors.New("got a push result but was not of success type")
-	errFailedWebhookPush           = errors.New("failed to add webhook to registry")
-	errFailedWebhookConversion     = errors.New("failed to convert webhook to argus item")
-	errFailedItemConversion        = errors.New("failed to convert argus item to webhook")
-	errFailedMigratedWebhooksFetch = errors.New("failed to fetch migrated webhooks")
-	errFailedWebhooksFetch         = errors.New("failed to fetch webhooks")
+	errMigrationOwnerEmpty     = errors.New("owner is required when migration section is provided in config")
+	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
+	errFailedWebhookPush       = errors.New("failed to add webhook to registry")
+	errFailedWebhookConversion = errors.New("failed to convert webhook to argus item")
+	errFailedItemConversion    = errors.New("failed to convert argus item to webhook")
+	errFailedWebhooksFetch     = errors.New("failed to fetch webhooks")
 )
 
 // Service describes the core operations around webhook subscriptions.
@@ -35,9 +33,8 @@ type Service interface {
 	// succeeds, a non-nil error is returned.
 	Add(owner string, w Webhook) error
 
-	// AllWebhooks lists all the current webhooks for the given owner.
-	// If an owner is not provided, all webhooks are returned.
-	AllWebhooks(owner string) ([]Webhook, error)
+	// AllWebhooks lists all the current registered webhooks.
+	AllWebhooks() ([]Webhook, error)
 }
 
 // MigrationConfig contains fields to capture webhooks items migrated
@@ -60,16 +57,6 @@ type Config struct {
 	// will be stored.
 	// (Optional). Defaults to 'webhooks'
 	Bucket string
-
-	// Migration provides info for capturing webhook items that
-	// were recently migrated from SNS to Argus. This should
-	// match the migration configuration Hecate uses.
-	// (Optional)
-	// If this config section is left blank, migrated items won't be
-	// captured.
-	// if the section is specified but owner is not provided, a validation
-	// error should be given.
-	Migration *MigrationConfig
 
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
@@ -104,69 +91,25 @@ func (s *service) Add(owner string, w Webhook) error {
 	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
 }
 
-// AllWebhooks returns the set of all webhooks associated with the given owner.
-// Note: While webhooks stored through Argus have this item to owner relationship
-// information, those stored through SNS do not have that piece of information.
-// This opens the possibility of not capturing those items that were just migrated
-// from SNS to Argus. For this reason, when migration configuration is provided,
-// AllWebhooks provides a set with data from both the migrated list of webhooks
-// from SNS and those already on Argus.
-// Webhooks are returned sorted by the config.url field. If there is need, we
-// could make this configurable or user-provided in future releases.
-func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
-	webhookSet := make(map[string]Webhook)
-	if s.config.Migration != nil {
-		err := s.captureMigratedWebhooks(webhookSet)
-		if err != nil {
-			return nil, fmt.Errorf(errFmt, errFailedMigratedWebhooksFetch, err)
-		}
-	}
-
-	items, err := s.argus.GetItems(s.config.Bucket, owner)
+// AllWebhooks returns all webhooks found on the configured webhooks partition
+// of Argus.
+func (s *service) AllWebhooks() ([]Webhook, error) {
+	items, err := s.argus.GetItems(s.config.Bucket, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
+
+	webhooks := []Webhook{}
 
 	for _, item := range items {
 		webhook, err := itemToWebhook(item)
 		if err != nil {
 			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
 		}
-		webhookSet[item.ID] = webhook
-	}
-	webhookList := toSlice(webhookSet)
-	sort.Slice(webhookList, func(i, j int) bool {
-		return webhookList[i].Config.URL < webhookList[j].Config.URL
-	})
-
-	return webhookList, nil
-}
-
-func (s *service) captureMigratedWebhooks(webhookSet map[string]Webhook) error {
-	items, err := s.argus.GetItems(s.config.Migration.Bucket, s.config.Migration.Owner)
-	if err != nil {
-		return err
-	}
-
-	for _, item := range items {
-		webhook, err := itemToWebhook(item)
-		if err != nil {
-			return err
-		}
-		webhookSet[item.ID] = webhook
-	}
-
-	return nil
-}
-
-func toSlice(webhookSet map[string]Webhook) []Webhook {
-	webhooks := []Webhook{}
-
-	for _, webhook := range webhookSet {
 		webhooks = append(webhooks, webhook)
 	}
 
-	return webhooks
+	return webhooks, nil
 }
 
 func webhookToItem(w Webhook) (model.Item, error) {
@@ -204,19 +147,9 @@ func itemToWebhook(i model.Item) (Webhook, error) {
 	return w, nil
 }
 
-func validateConfig(cfg *Config) error {
+func validateConfig(cfg *Config) {
 	if cfg.Bucket == "" {
 		cfg.Bucket = "webhooks"
-	}
-
-	if cfg.Migration != nil {
-		if cfg.Migration.Owner == "" {
-			return errMigrationOwnerEmpty
-		}
-
-		if cfg.Migration.Bucket == "" {
-			cfg.Migration.Bucket = "webhooks"
-		}
 	}
 
 	if cfg.Logger == nil {
@@ -226,8 +159,6 @@ func validateConfig(cfg *Config) error {
 	if cfg.MetricsProvider == nil {
 		cfg.MetricsProvider = provider.NewDiscardProvider()
 	}
-
-	return nil
 }
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
