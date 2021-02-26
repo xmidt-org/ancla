@@ -14,35 +14,45 @@ import (
 	"github.com/xmidt-org/argus/store"
 )
 
-type validateTestconfig struct {
-	input    *Config
-	expected *Config
-}
-
 func TestValidateConfig(t *testing.T) {
 	type testCase struct {
-		Description string
-		Data        validateTestconfig
-		ExpectedErr error
+		Description    string
+		InputConfig    *Config
+		ExpectedConfig *Config
 	}
 
+	logger := log.NewJSONLogger(ioutil.Discard)
+	metricsProvider := provider.NewExpvarProvider()
 	tcs := []testCase{
 		{
 			Description: "DefaultedValues",
-			Data:        getDefaultedValuesConfig(),
-			ExpectedErr: errMigrationOwnerEmpty,
+			InputConfig: &Config{},
+			ExpectedConfig: &Config{
+				Bucket:          "webhooks",
+				Logger:          log.NewNopLogger(),
+				MetricsProvider: provider.NewDiscardProvider(),
+			},
 		},
 		{
 			Description: "Given values",
-			Data:        getValuesGivenConfig(),
+			InputConfig: &Config{
+				Bucket:          "myBucket",
+				Logger:          logger,
+				MetricsProvider: metricsProvider,
+			},
+			ExpectedConfig: &Config{
+				Bucket:          "myBucket",
+				Logger:          logger,
+				MetricsProvider: metricsProvider,
+			},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			validateConfig(tc.Data.input)
-			assert.EqualValues(tc.Data.expected, tc.Data.input)
+			validateConfig(tc.InputConfig)
+			assert.EqualValues(tc.ExpectedConfig, tc.InputConfig)
 		})
 	}
 }
@@ -153,35 +163,6 @@ func TestAllWebhooks(t *testing.T) {
 
 			m.AssertExpectations(t)
 		})
-	}
-}
-
-func getValuesGivenConfig() validateTestconfig {
-	logger := log.NewJSONLogger(ioutil.Discard)
-	metricsProvider := provider.NewExpvarProvider()
-
-	return validateTestconfig{
-		input: &Config{
-			Bucket:          "myBucket",
-			Logger:          logger,
-			MetricsProvider: metricsProvider,
-		},
-		expected: &Config{
-			Bucket:          "myBucket",
-			Logger:          logger,
-			MetricsProvider: metricsProvider,
-		},
-	}
-}
-
-func getDefaultedValuesConfig() validateTestconfig {
-	return validateTestconfig{
-		input: &Config{},
-		expected: &Config{
-			Bucket:          "webhooks",
-			Logger:          log.NewNopLogger(),
-			MetricsProvider: provider.NewDiscardProvider(),
-		},
 	}
 }
 
