@@ -18,7 +18,7 @@ func NewAddWebhookHandler(s Service) http.Handler {
 func NewGetAllWebhooksHandler(s Service) http.Handler {
 	return kithttp.NewServer(
 		newGetAllWebhooksEndpoint(s),
-		decodeGetAllWebhooksRequest,
+		kithttp.NopRequestDecoder,
 		encodeGetAllWebhooksResponse,
 		kithttp.ServerErrorEncoder(errorEncoder),
 	)

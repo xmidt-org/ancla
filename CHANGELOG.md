@@ -6,7 +6,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 ### Changed
-- Bump argus client version to v0.3.11 [#20](https://github.com/xmidt-org/ancla/pull/20)
+- Bump argus client version to v0.3.11. [#20](https://github.com/xmidt-org/ancla/pull/20)
+- Make it so AllWebhooks() doesn't filter on owner yet. [#31](https://github.com/xmidt-org/ancla/pull/31)
+- Remove loggerGroup. [#31](https://github.com/xmidt-org/ancla/pull/31)
+
 ### Fixed
 - Fix linting warnings. [#6](https://github.com/xmidt-org/ancla/pull/6)
 - Update package name in go files. [#25](https://github.com/xmidt-org/ancla/pull/25)

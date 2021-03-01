@@ -6,12 +6,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/themis/xlog"
+)
+
+const errFmt = "%w: %v"
+
+var (
+	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
+	errFailedWebhookPush       = errors.New("failed to add webhook to registry")
+	errFailedWebhookConversion = errors.New("failed to convert webhook to argus item")
+	errFailedItemConversion    = errors.New("failed to convert argus item to webhook")
+	errFailedWebhooksFetch     = errors.New("failed to fetch webhooks")
 )
 
 // Service describes the core operations around webhook subscriptions.
@@ -21,9 +32,8 @@ type Service interface {
 	// succeeds, a non-nil error is returned.
 	Add(owner string, w Webhook) error
 
-	// AllWebhooks lists all the current webhooks for the given owner.
-	// If an owner is not provided, all webhooks are returned.
-	AllWebhooks(owner string) ([]Webhook, error)
+	// AllWebhooks lists all the current registered webhooks.
+	AllWebhooks() ([]Webhook, error)
 }
 
 // Config contains information needed to initialize the webhook service.
@@ -35,46 +45,54 @@ type Config struct {
 	// will be stored.
 	// (Optional). Defaults to 'webhooks'
 	Bucket string
-}
 
-type loggerGroup struct {
-	Error log.Logger
-	Debug log.Logger
+	// Logger for this package.
+	// Gets passed to Argus config before initializing the client.
+	// (Optional). Defaults to a no op logger.
+	Logger log.Logger
+
+	// MetricsProvider for instrumenting this package.
+	// Gets passed to Argus config before initializing the client.
+	// (Optional). Defaults to a no op provider.
+	MetricsProvider provider.Provider
 }
 
 type service struct {
-	argus   *chrysom.Client
-	loggers *loggerGroup
-	config  Config
+	argus  chrysom.PushReader
+	logger log.Logger
+	config Config
 }
 
 func (s *service) Add(owner string, w Webhook) error {
 	item, err := webhookToItem(w)
 	if err != nil {
-		return err
+		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
 	result, err := s.argus.PushItem(item.ID, s.config.Bucket, owner, item)
 	if err != nil {
-		return err
+		return fmt.Errorf(errFmt, errFailedWebhookPush, err)
 	}
 
 	if result == chrysom.CreatedPushResult || result == chrysom.UpdatedPushResult {
 		return nil
 	}
-	return errors.New("operation to add webhook to db failed")
+	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
 }
 
-func (s *service) AllWebhooks(owner string) ([]Webhook, error) {
-	s.loggers.Debug.Log("msg", "AllWebhooks called", "owner", owner)
-	items, err := s.argus.GetItems(s.config.Bucket, owner)
+// AllWebhooks returns all webhooks found on the configured webhooks partition
+// of Argus.
+func (s *service) AllWebhooks() ([]Webhook, error) {
+	items, err := s.argus.GetItems(s.config.Bucket, "")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
+
 	webhooks := []Webhook{}
+
 	for _, item := range items {
 		webhook, err := itemToWebhook(item)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
 		}
 		webhooks = append(webhooks, webhook)
 	}
@@ -117,20 +135,17 @@ func itemToWebhook(i model.Item) (Webhook, error) {
 	return w, nil
 }
 
-func newLoggerGroup(root log.Logger) *loggerGroup {
-	if root == nil {
-		root = log.NewNopLogger()
-	}
-
-	return &loggerGroup{
-		Debug: log.WithPrefix(root, level.Key(), level.DebugValue()),
-		Error: log.WithPrefix(root, level.Key(), level.ErrorValue()),
-	}
-
-}
 func validateConfig(cfg *Config) {
-	if len(strings.TrimSpace(cfg.Bucket)) == 0 {
+	if cfg.Bucket == "" {
 		cfg.Bucket = "webhooks"
+	}
+
+	if cfg.Logger == nil {
+		cfg.Logger = log.NewNopLogger()
+	}
+
+	if cfg.MetricsProvider == nil {
+		cfg.MetricsProvider = provider.NewDiscardProvider()
 	}
 }
 
@@ -138,9 +153,11 @@ func validateConfig(cfg *Config) {
 // function when you are done watching for updates.
 func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 	validateConfig(&cfg)
-	watches = append(watches, webhookListSizeWatch(cfg.Argus.MetricsProvider.NewGauge(WebhookListSizeGauge)))
+	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 
-	cfg.Argus.Listener = createArgusListener(watches...)
+	cfg.Argus.Logger = cfg.Logger
+	cfg.Argus.MetricsProvider = cfg.MetricsProvider
+	cfg.Argus.Listener = createArgusListener(cfg.Logger, watches...)
 
 	argus, err := chrysom.NewClient(cfg.Argus)
 	if err != nil {
@@ -148,8 +165,9 @@ func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 	}
 
 	svc := &service{
-		loggers: newLoggerGroup(cfg.Argus.Logger),
-		argus:   argus,
+		logger: cfg.Logger,
+		argus:  argus,
+		config: cfg,
 	}
 
 	argus.Start(context.Background())
@@ -157,26 +175,27 @@ func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 	return svc, func() { argus.Stop(context.Background()) }, nil
 }
 
-func createArgusListener(watches ...Watch) chrysom.Listener {
-	if len(watches) < 1 {
-		return nil
-	}
+func createArgusListener(logger log.Logger, watches ...Watch) chrysom.Listener {
 	return chrysom.ListenerFunc(func(items chrysom.Items) {
-		webhooks := itemsToWebhooks(items)
+		webhooks, err := itemsToWebhooks(items)
+		if err != nil {
+			level.Error(logger).Log(xlog.MessageKey(), "Failed to convert items to webhooks", "err", err)
+			return
+		}
 		for _, watch := range watches {
 			watch.Update(webhooks)
 		}
 	})
 }
 
-func itemsToWebhooks(items []model.Item) []Webhook {
+func itemsToWebhooks(items []model.Item) ([]Webhook, error) {
 	webhooks := []Webhook{}
 	for _, item := range items {
 		webhook, err := itemToWebhook(item)
 		if err != nil {
-			continue
+			return nil, err
 		}
 		webhooks = append(webhooks, webhook)
 	}
-	return webhooks
+	return webhooks, nil
 }

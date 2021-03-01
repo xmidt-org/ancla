@@ -30,19 +30,9 @@ const (
 	jsonContentType   string = "application/json"
 )
 
-type getAllWebhooksRequest struct {
-	owner string
-}
-
 type addWebhookRequest struct {
 	owner   string
 	webhook Webhook
-}
-
-func decodeGetAllWebhooksRequest(ctx context.Context, r *http.Request) (interface{}, error) {
-	return &getAllWebhooksRequest{
-		owner: getOwner(r),
-	}, nil
 }
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
