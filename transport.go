@@ -80,10 +80,11 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		err = json.Unmarshal(requestPayload, &webhook)
 		if err != nil {
-			webhook, err = getFirstFromList(config.webhookLegacyDecodeCount, requestPayload)
+			webhook, err = getFirstFromList(requestPayload)
 			if err != nil {
 				return nil, err
 			}
+			config.webhookLegacyDecodeCount.With(URLLabel, webhook.Config.URL).Add(1)
 		}
 		err = validateWebhook(&webhook, r.RemoteAddr)
 		if err != nil {
@@ -121,7 +122,7 @@ func getOwner(r *http.Request) (owner string) {
 	return
 }
 
-func getFirstFromList(legacyWebhookDecodeCount metrics.Counter, requestPayload []byte) (Webhook, error) {
+func getFirstFromList(requestPayload []byte) (Webhook, error) {
 	var webhooks []Webhook
 
 	err := json.Unmarshal(requestPayload, &webhooks)
@@ -132,9 +133,7 @@ func getFirstFromList(legacyWebhookDecodeCount metrics.Counter, requestPayload [
 	if len(webhooks) < 1 {
 		return Webhook{}, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
 	}
-	first := webhooks[0]
-	legacyWebhookDecodeCount.With(URLLabel, first.Config.URL).Add(1)
-	return first, nil
+	return webhooks[0], nil
 }
 
 func obfuscateSecrets(webhooks []Webhook) {
