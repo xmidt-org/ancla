@@ -80,9 +80,6 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		err = json.Unmarshal(requestPayload, &webhook)
 		if err != nil {
-			// TODO: This is not part of our swagger but I decided to keep it as it was part of the
-			// codebase: https://github.com/xmidt-org/webpa-common/blob/7740b009eb2cada45954289240d73626e82ccb0d/webhook/webhook.go#L76
-			// We could add a counter to see if this is hit in production and decide to remove it based on that.
 			webhook, err = getFirstFromList(config.webhookLegacyDecodeCount, requestPayload)
 			if err != nil {
 				return nil, err
@@ -135,8 +132,9 @@ func getFirstFromList(legacyWebhookDecodeCount metrics.Counter, requestPayload [
 	if len(webhooks) < 1 {
 		return Webhook{}, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
 	}
-	legacyWebhookDecodeCount.Add(1)
-	return webhooks[0], nil
+	first := webhooks[0]
+	legacyWebhookDecodeCount.With(URLLabel, first.Config.URL).Add(1)
+	return first, nil
 }
 
 func obfuscateSecrets(webhooks []Webhook) {

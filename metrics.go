@@ -31,6 +31,7 @@ const (
 // Labels
 const (
 	OutcomeLabel = "outcome"
+	URLLabel     = "url"
 )
 
 // Label Values
@@ -39,7 +40,7 @@ const (
 	FailureOutcome = "failure"
 )
 
-// Metrics returns the Metrics relevant to this package
+// Metrics returns the Metrics relevant to this package.
 func Metrics() []xmetrics.Metric {
 	metrics := []xmetrics.Metric{
 		{
@@ -48,10 +49,10 @@ func Metrics() []xmetrics.Metric {
 			Help: "Size of the current list of webhooks.",
 		},
 		{
-			Name: WebhookLegacyDecodeCount,
-			Type: xmetrics.CounterType,
-			Help: "Number of times a webhook is registered with a legacy decoding strategy.",
-			//TODO: we should probably add webhook.config.url as a label
+			Name:       WebhookLegacyDecodeCount,
+			Type:       xmetrics.CounterType,
+			Help:       "Number of times a webhook is registered with a legacy decoding strategy.",
+			LabelNames: []string{URLLabel},
 		},
 	}
 	metrics = append(metrics, chrysom.Metrics()...)
