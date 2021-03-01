@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-kit/kit/metrics"
 	kithttp "github.com/go-kit/kit/transport/http"
 
 	"github.com/xmidt-org/bascule"
@@ -47,6 +48,10 @@ const (
 	jsonContentType   string = "application/json"
 )
 
+type transportConfig struct {
+	webhookLegacyDecodeCount metrics.Counter
+}
+
 type addWebhookRequest struct {
 	owner   string
 	webhook Webhook
@@ -65,33 +70,32 @@ func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, r
 	return err
 }
 
-func decodeAddWebhookRequest(ctx context.Context, r *http.Request) (interface{}, error) {
-	requestPayload, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, err
-	}
-	var webhook Webhook
-
-	err = json.Unmarshal(requestPayload, &webhook)
-	if err != nil {
-		// TODO: This is not part of our swagger but I decided to keep it as it was part of the
-		// codebase: https://github.com/xmidt-org/webpa-common/blob/7740b009eb2cada45954289240d73626e82ccb0d/webhook/webhook.go#L76
-		// We could add a counter to see if this is hit in production and decide to remove it based on that.
-		webhook, err = getFirstFromList(requestPayload)
+func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc {
+	return func(c context.Context, r *http.Request) (request interface{}, err error) {
+		requestPayload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
-	}
+		var webhook Webhook
 
-	err = validateWebhook(&webhook, r.RemoteAddr)
-	if err != nil {
-		return nil, err
-	}
+		err = json.Unmarshal(requestPayload, &webhook)
+		if err != nil {
+			webhook, err = getFirstFromList(requestPayload)
+			if err != nil {
+				return nil, err
+			}
+			config.webhookLegacyDecodeCount.With(URLLabel, webhook.Config.URL).Add(1)
+		}
+		err = validateWebhook(&webhook, r.RemoteAddr)
+		if err != nil {
+			return nil, err
+		}
 
-	return &addWebhookRequest{
-		owner:   getOwner(r),
-		webhook: webhook,
-	}, nil
+		return &addWebhookRequest{
+			owner:   getOwner(r),
+			webhook: webhook,
+		}, nil
+	}
 }
 
 func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ interface{}) error {
