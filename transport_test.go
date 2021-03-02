@@ -18,14 +18,17 @@
 package ancla
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/store"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/httpaux"
@@ -124,8 +127,8 @@ func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 	tcs := []testCase{
 		{
 			Description:      "Two webhooks",
-			InputWebhooks:    getTwoWebhooks(),
-			ExpectedJSONResp: getTwoWebhooksJSONString(),
+			InputWebhooks:    encodeGetAllInput(),
+			ExpectedJSONResp: encodeGetAllOutput(),
 		},
 		{
 			Description:      "Nil",
@@ -201,8 +204,8 @@ func TestValidateWebhook(t *testing.T) {
 		},
 		{
 			Description:     "Provided values",
-			InputWebhook:    getAllValuesInputWebhook(nowSnapShot),
-			ExpectedWebhook: getAllValuesExpectedWebhook(nowSnapShot),
+			InputWebhook:    validateWebhookInput(nowSnapShot),
+			ExpectedWebhook: validateWebhookOutput(nowSnapShot),
 		},
 	}
 
@@ -227,7 +230,90 @@ func TestValidateWebhook(t *testing.T) {
 
 }
 
-func getAllValuesInputWebhook(nowSnapShot time.Time) *Webhook {
+func TestAddWebhookRequestDecoder(t *testing.T) {
+	type testCase struct {
+		Description                 string
+		InputPayload                string
+		ExpectedLegacyDecodingCount float64
+		ExpectedErr                 error
+		ExpectedDecodedRequest      *addWebhookRequest
+	}
+
+	tcs := []testCase{
+		{
+			Description:            "Normal happy path",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(),
+		},
+		{
+			Description:                 "Legacy decoding",
+			InputPayload:                addWebhookDecoderLegacyInput(),
+			ExpectedLegacyDecodingCount: 1,
+			ExpectedDecodedRequest:      addWebhookDecoderOutput(),
+		},
+		{
+			Description:  "Failed to JSON Unmarshal",
+			InputPayload: "{",
+			ExpectedErr:  &httpaux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest},
+		},
+		{
+			Description:  "Empty legacy case",
+			InputPayload: "[]",
+			ExpectedErr:  &httpaux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest},
+		},
+		{
+			Description:  "Invalid Input",
+			InputPayload: `{"events": ["online", "offline"]}`,
+			ExpectedErr:  &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Description, func(t *testing.T) {
+			assert := assert.New(t)
+			require := require.New(t)
+			counter := new(mockCounter)
+			config := transportConfig{
+				webhookLegacyDecodeCount: counter,
+				now: func() time.Time {
+					return getRefTime()
+				},
+			}
+			decode := addWebhookRequestDecoder(config)
+			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
+			require.Nil(err)
+
+			auth := bascule.Authentication{
+				Token: bascule.NewToken("jwt", "owner-from-auth", nil),
+			}
+			ctx := bascule.WithAuthentication(r.Context(), auth)
+			r = r.WithContext(ctx)
+			r.RemoteAddr = "original-requester.example.net:443"
+
+			if tc.ExpectedLegacyDecodingCount > 0 {
+				counter.On("With", URLLabel, tc.ExpectedDecodedRequest.webhook.Config.URL).Times(int(tc.ExpectedLegacyDecodingCount))
+				counter.On("Add", float64(1)).Times(int(tc.ExpectedLegacyDecodingCount))
+			}
+
+			decodedRequest, err := decode(context.Background(), r)
+			if tc.ExpectedErr != nil {
+				assert.Equal(tc.ExpectedErr, err)
+			} else {
+				assert.Nil(err)
+				assert.EqualValues(tc.ExpectedDecodedRequest, decodedRequest)
+			}
+
+			if tc.ExpectedLegacyDecodingCount < 1 {
+				counter.AssertNotCalled(t, "With")
+				counter.AssertNotCalled(t, "Add")
+			}
+
+			counter.AssertExpectations(t)
+		})
+	}
+}
+
+func validateWebhookInput(nowSnapShot time.Time) *Webhook {
 	return &Webhook{
 		Address: "requester.example.net",
 		Config: DeliveryConfig{
@@ -242,23 +328,39 @@ func getAllValuesInputWebhook(nowSnapShot time.Time) *Webhook {
 	}
 }
 
-func getAllValuesExpectedWebhook(nowSnapShot time.Time) *Webhook {
-	webhook := getAllValuesInputWebhook(nowSnapShot)
+func validateWebhookOutput(nowSnapShot time.Time) *Webhook {
+	webhook := validateWebhookInput(nowSnapShot)
 	webhook.Duration = defaultWebhookExpiration
 	return webhook
 }
 
-// once we move to go1.16 we could just embed this from a JSON file
-// https://golang.org/doc/go1.16#library-embed
-func getTwoWebhooksJSONString() string {
+func addWebhookDecoderInput() string {
 	return `
-	[
 		{
-			"registered_from_address": "http://original-requester.example.net",
 			"config": {
 				"url": "http://deliver-here-0.example.net",
 				"content_type": "application/json",
-				"secret": "<obfuscated>"
+				"secret": "superSecretXYZ"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": 0,
+			"until": "2021-01-02T15:04:10Z"
+		}
+	`
+}
+
+func addWebhookDecoderLegacyInput() string {
+	return `
+	[
+		{
+			"config": {
+				"url": "http://deliver-here-0.example.net",
+				"content_type": "application/json",
+				"secret": "superSecretXYZ"
 			},
 			"events": ["online"],
 			"matcher": {
@@ -269,25 +371,40 @@ func getTwoWebhooksJSONString() string {
 			"until": "2021-01-02T15:04:10Z"
 		},
 		{
-			"registered_from_address": "http://original-requester.example.net",
 			"config": {
 				"url": "http://deliver-here-1.example.net",
 				"content_type": "application/json",
-				"secret": "<obfuscated>"
+				"secret": "superSecretXYZ"
 			},
-			"events": ["online"],
-			"matcher": {
-				"device_id": ["mac:aabbccddee.*"]
-			},
-			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
-			"until": "2021-01-02T15:04:20Z"
+			"events": ["online"]
 		}
 	]
 	`
 }
 
-func getTwoWebhooks() []Webhook {
+func addWebhookDecoderOutput() *addWebhookRequest {
+	return &addWebhookRequest{
+		owner: "owner-from-auth",
+		webhook: Webhook{
+			Address: "original-requester.example.net",
+			Config: DeliveryConfig{
+				URL:         "http://deliver-here-0.example.net",
+				ContentType: "application/json",
+				Secret:      "superSecretXYZ",
+			},
+			Events: []string{"online"},
+			Matcher: MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Duration:   5 * time.Minute,
+			Until:      getRefTime().Add(10 * time.Second),
+		},
+	}
+
+}
+
+func encodeGetAllInput() []Webhook {
 	return []Webhook{
 		{
 			Address: "http://original-requester.example.net",
@@ -322,4 +439,43 @@ func getTwoWebhooks() []Webhook {
 			Until:      getRefTime().Add(20 * time.Second),
 		},
 	}
+}
+
+// once we move to go1.16 we could just embed this from a JSON file
+// https://golang.org/doc/go1.16#library-embed
+func encodeGetAllOutput() string {
+	return `
+	[
+		{
+			"registered_from_address": "http://original-requester.example.net",
+			"config": {
+				"url": "http://deliver-here-0.example.net",
+				"content_type": "application/json",
+				"secret": "<obfuscated>"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": 0,
+			"until": "2021-01-02T15:04:10Z"
+		},
+		{
+			"registered_from_address": "http://original-requester.example.net",
+			"config": {
+				"url": "http://deliver-here-1.example.net",
+				"content_type": "application/json",
+				"secret": "<obfuscated>"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": 0,
+			"until": "2021-01-02T15:04:20Z"
+		}
+	]
+	`
 }
