@@ -52,6 +52,10 @@ type addWebhookRequest struct {
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	webhooks := response.([]Webhook)
+	if webhooks == nil {
+		// prefer JSON output to be "[]" instead of "<nil>"
+		webhooks = []Webhook{}
+	}
 	obfuscateSecrets(webhooks)
 	encodedWebhooks, err := json.Marshal(&webhooks)
 	if err != nil {
