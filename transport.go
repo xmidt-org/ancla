@@ -85,7 +85,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		}
 
 		return &addWebhookRequest{
-			owner:   getOwner(r),
+			owner:   getOwner(r.Context()),
 			webhook: webhook,
 		}, nil
 	}
@@ -97,8 +97,8 @@ func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ int
 	return nil
 }
 
-func getOwner(r *http.Request) string {
-	auth, ok := bascule.FromContext(r.Context())
+func getOwner(ctx context.Context) string {
+	auth, ok := bascule.FromContext(ctx)
 	if !ok {
 		return ""
 	}
