@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/argus/store"
 	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/httpaux"
 )
 
 func TestErrorEncoder(t *testing.T) {
@@ -146,6 +147,105 @@ func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 			assert.JSONEq(tc.ExpectedJSONResp, recorder.Body.String())
 		})
 	}
+}
+
+func TestValidateWebhook(t *testing.T) {
+	type testCase struct {
+		Description     string
+		InputWebhook    *Webhook
+		ExpectedErr     *httpaux.Error
+		ExpectedWebhook *Webhook
+	}
+
+	nowSnapShot := time.Now()
+	tcs := []testCase{
+		{
+			Description: "No config url",
+			InputWebhook: &Webhook{
+				Config: DeliveryConfig{
+					ContentType: "application/json",
+				},
+			},
+			ExpectedErr: &httpaux.Error{Err: errInvalidConfigURL, Code: 400},
+		},
+		{
+			Description: "No events",
+			InputWebhook: &Webhook{
+				Config: DeliveryConfig{
+					URL:         "https://deliver-here.example.net",
+					ContentType: "application/json",
+				},
+			},
+			ExpectedErr: &httpaux.Error{Err: errInvalidEvents, Code: 400},
+		},
+		{
+			Description: "Valid defaulted values",
+			InputWebhook: &Webhook{
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+			},
+			ExpectedWebhook: &Webhook{
+				Address: "requester.example.net",
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"},
+				},
+				Duration: 5 * time.Minute,
+				Until:    nowSnapShot.Add(5 * time.Minute),
+			},
+		},
+		{
+			Description:     "Provided values",
+			InputWebhook:    getAllValuesInputWebhook(nowSnapShot),
+			ExpectedWebhook: getAllValuesExpectedWebhook(nowSnapShot),
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Description, func(t *testing.T) {
+			assert := assert.New(t)
+			wv := webhookValidator{
+				now: func() time.Time {
+					return nowSnapShot
+				},
+			}
+			err := wv.validateWebhook(tc.InputWebhook, "requester.example.net:443")
+
+			if tc.ExpectedErr != nil {
+				assert.EqualValues(tc.ExpectedErr, err)
+			} else {
+				assert.Nil(err)
+				assert.EqualValues(tc.ExpectedWebhook, tc.InputWebhook)
+			}
+		})
+	}
+
+}
+
+func getAllValuesInputWebhook(nowSnapShot time.Time) *Webhook {
+	return &Webhook{
+		Address: "requester.example.net",
+		Config: DeliveryConfig{
+			URL: "https://deliver-here.example.net",
+		},
+		Events: []string{"online", "offline"},
+		Matcher: MetadataMatcherConfig{
+			DeviceID: []string{".*"},
+		},
+		Duration: 25 * time.Minute,
+		Until:    nowSnapShot.Add(1000 * time.Hour),
+	}
+}
+
+func getAllValuesExpectedWebhook(nowSnapShot time.Time) *Webhook {
+	webhook := getAllValuesInputWebhook(nowSnapShot)
+	webhook.Duration = defaultWebhookExpiration
+	return webhook
 }
 
 // once we move to go1.16 we could just embed this from a JSON file
