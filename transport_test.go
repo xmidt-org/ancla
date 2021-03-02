@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/argus/store"
@@ -109,5 +110,116 @@ func TestGetOwner(t *testing.T) {
 		}
 		owner := getOwner(ctx)
 		assert.Equal(tc.ExpectedOwner, owner)
+	}
+}
+
+func TestEncodeGetAllWebhooksResponse(t *testing.T) {
+	type testCase struct {
+		Description      string
+		InputWebhooks    []Webhook
+		ExpectedJSONResp string
+		ExpectedErr      error
+	}
+	tcs := []testCase{
+		{
+			Description:      "Two webhooks",
+			InputWebhooks:    getTwoWebhooks(),
+			ExpectedJSONResp: getTwoWebhooksJSONString(),
+		},
+		{
+			Description:      "Nil",
+			ExpectedJSONResp: "[]",
+		},
+		{
+			Description:      "Empty",
+			ExpectedJSONResp: "[]",
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Description, func(t *testing.T) {
+			assert := assert.New(t)
+			recorder := httptest.NewRecorder()
+			err := encodeGetAllWebhooksResponse(context.Background(), recorder, tc.InputWebhooks)
+			assert.Nil(err)
+			assert.Equal("application/json", recorder.Header().Get("Content-Type"))
+			assert.JSONEq(tc.ExpectedJSONResp, recorder.Body.String())
+		})
+	}
+}
+
+// once we move to go1.16 we could just embed this from a JSON file
+// https://golang.org/doc/go1.16#library-embed
+func getTwoWebhooksJSONString() string {
+	return `
+	[
+		{
+			"registered_from_address": "http://original-requester.example.net",
+			"config": {
+				"url": "http://deliver-here-0.example.net",
+				"content_type": "application/json",
+				"secret": "<obfuscated>"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": 0,
+			"until": "2021-01-02T15:04:10Z"
+		},
+		{
+			"registered_from_address": "http://original-requester.example.net",
+			"config": {
+				"url": "http://deliver-here-1.example.net",
+				"content_type": "application/json",
+				"secret": "<obfuscated>"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": 0,
+			"until": "2021-01-02T15:04:20Z"
+		}
+	]
+	`
+}
+
+func getTwoWebhooks() []Webhook {
+	return []Webhook{
+		{
+			Address: "http://original-requester.example.net",
+			Config: DeliveryConfig{
+				URL:         "http://deliver-here-0.example.net",
+				ContentType: "application/json",
+				Secret:      "superSecretXYZ",
+			},
+			Events: []string{"online"},
+			Matcher: struct {
+				DeviceID []string `json:"device_id"`
+			}{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Until:      getRefTime().Add(10 * time.Second),
+		},
+		{
+			Address: "http://original-requester.example.net",
+			Config: DeliveryConfig{
+				ContentType: "application/json",
+				URL:         "http://deliver-here-1.example.net",
+				Secret:      "doNotShare:e=mc^2",
+			},
+			Events: []string{"online"},
+			Matcher: struct {
+				DeviceID []string `json:"device_id"`
+			}{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Until:      getRefTime().Add(20 * time.Second),
+		},
 	}
 }
