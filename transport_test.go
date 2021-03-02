@@ -58,3 +58,11 @@ func TestErrorEncoder(t *testing.T) {
 		})
 	}
 }
+
+func TestEncodeWebhookResponse(t *testing.T) {
+	assert := assert.New(t)
+	recorder := httptest.NewRecorder()
+	encodeAddWebhookResponse(context.Background(), recorder, nil)
+	assert.JSONEq(`{"message": "Success"}`, recorder.Body.String())
+	assert.Equal(200, recorder.Code)
+}
