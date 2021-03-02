@@ -34,13 +34,6 @@ import (
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
-const (
-	// ClientIDHeader provides a fallback method for fetching the client ID of users
-	// registering their webhooks. The main method fetches this value from the claims of
-	// the authentication JWT.
-	ClientIDHeader = "X-Xmidt-Client-Id"
-)
-
 const defaultWebhookExpiration time.Duration = time.Minute * 5
 
 const (
@@ -104,22 +97,16 @@ func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ int
 	return nil
 }
 
-func getOwner(r *http.Request) (owner string) {
+func getOwner(r *http.Request) string {
 	auth, ok := bascule.FromContext(r.Context())
-	if ok {
-		tokenType := auth.Token.Type()
-		if tokenType == "jwt" {
-			owner = auth.Token.Principal()
-		} else if tokenType == "basic" {
-			//TODO: while a JWT's principal is its sub claim (https://tools.ietf.org/html/rfc7519#section-4.1.2)  which
-			// is recommended to have some scope of uniqueness, a basic token's principal is just the username which
-			// has no guarantees to be unique. Something to watch out for when using basic auth.
-			owner = auth.Token.Principal()
-		}
-	} else {
-		owner = r.Header.Get(ClientIDHeader)
+	if !ok {
+		return ""
 	}
-	return
+	switch auth.Token.Type() {
+	case "jwt", "basic":
+		return auth.Token.Principal()
+	}
+	return ""
 }
 
 func getFirstFromList(requestPayload []byte) (Webhook, error) {
