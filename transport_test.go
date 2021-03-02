@@ -26,6 +26,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/argus/store"
+	"github.com/xmidt-org/bascule"
 )
 
 func TestErrorEncoder(t *testing.T) {
@@ -65,4 +66,48 @@ func TestEncodeWebhookResponse(t *testing.T) {
 	encodeAddWebhookResponse(context.Background(), recorder, nil)
 	assert.JSONEq(`{"message": "Success"}`, recorder.Body.String())
 	assert.Equal(200, recorder.Code)
+}
+
+func TestGetOwner(t *testing.T) {
+	type testCase struct {
+		Description   string
+		Token         bascule.Token
+		ExpectedOwner string
+	}
+
+	tcs := []testCase{
+		{
+			Description:   "No auth token",
+			Token:         nil,
+			ExpectedOwner: "",
+		},
+		{
+			Description:   "jwt token",
+			Token:         bascule.NewToken("jwt", "sub-value-001", nil),
+			ExpectedOwner: "sub-value-001",
+		},
+		{
+			Description:   "basic token",
+			Token:         bascule.NewToken("basic", "user-001", nil),
+			ExpectedOwner: "user-001",
+		},
+
+		{
+			Description:   "unsupported",
+			Token:         bascule.NewToken("badType", "principalVal", nil),
+			ExpectedOwner: "",
+		},
+	}
+	for _, tc := range tcs {
+		assert := assert.New(t)
+		var ctx = context.Background()
+		if tc.Token != nil {
+			auth := bascule.Authentication{
+				Token: tc.Token,
+			}
+			ctx = bascule.WithAuthentication(ctx, auth)
+		}
+		owner := getOwner(ctx)
+		assert.Equal(tc.ExpectedOwner, owner)
+	}
 }
