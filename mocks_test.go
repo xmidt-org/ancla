@@ -3,6 +3,7 @@ package ancla
 import (
 	"context"
 
+	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
@@ -35,4 +36,22 @@ func (m *mockPushReader) PushItem(id, bucket, owner string, item model.Item) (ch
 func (m *mockPushReader) RemoveItem(id, bucket string, owner string) (model.Item, error) {
 	args := m.Called(id, bucket, owner)
 	return args.Get(0).(model.Item), args.Error(0)
+}
+
+type mockCounter struct {
+	mock.Mock
+}
+
+func (m *mockCounter) With(labelValues ...string) metrics.Counter {
+	args := make([]interface{}, len(labelValues))
+	for i, arg := range labelValues {
+		args[i] = arg
+	}
+
+	m.Called(args...)
+	return m
+}
+
+func (m *mockCounter) Add(delta float64) {
+	m.Called(delta)
 }
