@@ -74,6 +74,9 @@ func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, r
 }
 
 func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc {
+	wv := webhookValidator{
+		now: time.Now,
+	}
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
 		requestPayload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -89,7 +92,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 			config.webhookLegacyDecodeCount.With(URLLabel, webhook.Config.URL).Add(1)
 		}
-		err = validateWebhook(&webhook, r.RemoteAddr)
+		err = wv.validateWebhook(&webhook, r.RemoteAddr)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +142,11 @@ func obfuscateSecrets(webhooks []Webhook) {
 	}
 }
 
-func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
+type webhookValidator struct {
+	now func() time.Time
+}
+
+func (wv webhookValidator) validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
 	if strings.TrimSpace(webhook.Config.URL) == "" {
 		return &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL}
 	}
@@ -166,7 +173,7 @@ func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) 
 	webhook.Duration = defaultWebhookExpiration
 
 	if webhook.Until.Equal(time.Time{}) {
-		webhook.Until = time.Now().Add(webhook.Duration)
+		webhook.Until = wv.now().Add(webhook.Duration)
 	}
 
 	return nil
