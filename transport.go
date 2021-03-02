@@ -29,12 +29,18 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/xmidt-org/httpaux"
 
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
 const defaultWebhookExpiration time.Duration = time.Minute * 5
+
+var (
+	errInvalidConfigURL = errors.New("invalid Config URL")
+	errInvalidEvents    = errors.New("invalid events")
+)
 
 const (
 	contentTypeHeader string = "Content-Type"
@@ -135,11 +141,11 @@ func obfuscateSecrets(webhooks []Webhook) {
 
 func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
 	if strings.TrimSpace(webhook.Config.URL) == "" {
-		return &xhttp.Error{Code: http.StatusBadRequest, Text: "invalid Config URL"}
+		return &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL}
 	}
 
 	if len(webhook.Events) == 0 {
-		return &xhttp.Error{Code: http.StatusBadRequest, Text: "invalid events"}
+		return &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidEvents}
 	}
 
 	// TODO Validate content type ?  What about different types?
