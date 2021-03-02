@@ -32,23 +32,25 @@ import (
 	"github.com/xmidt-org/httpaux"
 
 	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/webpa-common/xhttp"
 )
 
-const defaultWebhookExpiration time.Duration = time.Minute * 5
-
 var (
-	errInvalidConfigURL = errors.New("invalid Config URL")
-	errInvalidEvents    = errors.New("invalid events")
+	errInvalidConfigURL         = errors.New("invalid Config URL")
+	errInvalidEvents            = errors.New("invalid events")
+	errNoWebhooksInLegacyDecode = errors.New("no webhooks to decode in legacy decoding format")
+	errFailedWebhookUnmarshal   = errors.New("failed to JSON unmarshal webhook")
 )
 
 const (
+	defaultWebhookExpiration time.Duration = time.Minute * 5
+
 	contentTypeHeader string = "Content-Type"
 	jsonContentType   string = "application/json"
 )
 
 type transportConfig struct {
 	webhookLegacyDecodeCount metrics.Counter
+	now                      func() time.Time
 }
 
 type addWebhookRequest struct {
@@ -75,7 +77,7 @@ func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, r
 
 func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc {
 	wv := webhookValidator{
-		now: time.Now,
+		now: config.now,
 	}
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
 		requestPayload, err := ioutil.ReadAll(r.Body)
@@ -127,11 +129,11 @@ func getFirstFromList(requestPayload []byte) (Webhook, error) {
 
 	err := json.Unmarshal(requestPayload, &webhooks)
 	if err != nil {
-		return Webhook{}, err
+		return Webhook{}, &httpaux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest}
 	}
 
 	if len(webhooks) < 1 {
-		return Webhook{}, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
+		return Webhook{}, &httpaux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest}
 	}
 	return webhooks[0], nil
 }
