@@ -43,15 +43,35 @@ type mockCounter struct {
 }
 
 func (m *mockCounter) With(labelValues ...string) metrics.Counter {
-	args := make([]interface{}, len(labelValues))
-	for i, arg := range labelValues {
-		args[i] = arg
-	}
-
-	m.Called(args...)
+	m.Called(interfacify(labelValues)...)
 	return m
 }
 
 func (m *mockCounter) Add(delta float64) {
 	m.Called(delta)
+}
+
+type mockGauge struct {
+	mock.Mock
+}
+
+func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
+	m.Called(interfacify(labelValues)...)
+	return m
+}
+
+func (m *mockGauge) Set(value float64) {
+	m.Called(value)
+}
+
+func (m *mockGauge) Add(delta float64) {
+	m.Called(delta)
+}
+
+func interfacify(vals []string) []interface{} {
+	transformed := make([]interface{}, len(vals))
+	for i, val := range vals {
+		transformed[i] = val
+	}
+	return transformed
 }
