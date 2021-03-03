@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Bump argus client version to v0.3.11. [#20](https://github.com/xmidt-org/ancla/pull/20)
 - Make it so AllWebhooks() doesn't filter on owner yet. [#31](https://github.com/xmidt-org/ancla/pull/31)
 - Remove loggerGroup. [#31](https://github.com/xmidt-org/ancla/pull/31)
+- Simplify owner logic for adding webhooks. [#36](https://github.com/xmidt-org/ancla/pull/36)
+- Add tests to transport.go. [#36](https://github.com/xmidt-org/ancla/pull/36)
 
 ### Fixed
 - Fix linting warnings. [#6](https://github.com/xmidt-org/ancla/pull/6)
