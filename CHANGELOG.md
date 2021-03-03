@@ -7,12 +7,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [Unreleased]
 ### Added
 - Add counter for special case for webhook decoding. [#34](https://github.com/xmidt-org/ancla/pull/34)
+- Add tests to transport.go. [#36](https://github.com/xmidt-org/ancla/pull/36)
+- Tests for watch and endpoint. [#37](https://github.com/xmidt-org/ancla/pull/37)
+
 ### Changed
 - Bump argus client version to v0.3.11. [#20](https://github.com/xmidt-org/ancla/pull/20)
 - Make it so AllWebhooks() doesn't filter on owner yet. [#31](https://github.com/xmidt-org/ancla/pull/31)
 - Remove loggerGroup. [#31](https://github.com/xmidt-org/ancla/pull/31)
 - Simplify owner logic for adding webhooks. [#36](https://github.com/xmidt-org/ancla/pull/36)
-- Add tests to transport.go. [#36](https://github.com/xmidt-org/ancla/pull/36)
 
 ### Fixed
 - Fix linting warnings. [#6](https://github.com/xmidt-org/ancla/pull/6)
