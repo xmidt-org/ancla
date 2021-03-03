@@ -26,7 +26,6 @@ import (
 func newAddWebhookEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		r := request.(*addWebhookRequest)
-
 		return nil, s.Add(r.owner, r.webhook)
 	}
 }
