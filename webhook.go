@@ -37,6 +37,12 @@ type DeliveryConfig struct {
 	AlternativeURLs []string `json:"alt_urls,omitempty"`
 }
 
+// MetadataMatcherConfig is Webhook substructure with config to match event metadata.
+type MetadataMatcherConfig struct {
+	// DeviceID is the list of regular expressions to match device id type against.
+	DeviceID []string `json:"device_id"`
+}
+
 // Webhook contains all the information needed to serve events to webhook listeners.
 type Webhook struct {
 	// Address is the subscription request origin HTTP Address.
@@ -53,10 +59,7 @@ type Webhook struct {
 	Events []string `json:"events"`
 
 	// Matcher type contains values to match against the metadata.
-	Matcher struct {
-		// DeviceID is the list of regular expressions to match device id type against.
-		DeviceID []string `json:"device_id"`
-	} `json:"matcher,omitempty"`
+	Matcher MetadataMatcherConfig `json:"matcher,omitempty"`
 
 	// Duration describes how long the subscription lasts once added.
 	// Deprecated. User input is ignored and value is always 5m.

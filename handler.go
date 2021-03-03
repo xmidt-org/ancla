@@ -19,6 +19,7 @@ package ancla
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-kit/kit/metrics/provider"
 	kithttp "github.com/go-kit/kit/transport/http"
@@ -54,5 +55,6 @@ func newTransportConfig(hConfig HandlerConfig) transportConfig {
 	}
 	return transportConfig{
 		webhookLegacyDecodeCount: hConfig.MetricsProvider.NewCounter(WebhookLegacyDecodeCount),
+		now:                      time.Now,
 	}
 }

@@ -545,6 +545,7 @@ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXf
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
+github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
@@ -573,6 +574,8 @@ github.com/xmidt-org/bascule v0.8.0/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbK
 github.com/xmidt-org/bascule v0.8.1/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbKKcVmgSHBY=
 github.com/xmidt-org/bascule v0.9.0 h1:CsMtwiDO4jjoOIh4pWe2U9tXA9A73CfohDsSvwzXm9Q=
 github.com/xmidt-org/bascule v0.9.0/go.mod h1:C64nSBtUTTK/f2/mCvvp/qJhav5raD0T+by68DCp/gU=
+github.com/xmidt-org/httpaux v0.1.1 h1:jqMPHfS/k6EuGSH+KIOedhnQ8Vs9x9AXGbnRiWshrso=
+github.com/xmidt-org/httpaux v0.1.1/go.mod h1:qZnH2uObGPwHnOz8HcPNlbcd3gKEvdmxbIK3rgbQhto=
 github.com/xmidt-org/themis v0.4.4 h1:KewitRxStW1xOehDBi0YyGZyRv3PjFdYUEDvQFf1Nmk=
 github.com/xmidt-org/themis v0.4.4/go.mod h1:0qRYFvKdrQhwjxH/1nAiTgBGT4cegJR76gfEYF5P7so=
 github.com/xmidt-org/webpa-common v1.1.0/go.mod h1:oCpKzOC+9h2vYHVzAU/06tDTQuBN4RZz+rhgIXptpOI=

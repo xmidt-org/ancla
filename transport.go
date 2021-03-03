@@ -29,27 +29,28 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/xmidt-org/httpaux"
 
 	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/webpa-common/xhttp"
+)
+
+var (
+	errInvalidConfigURL         = errors.New("invalid Config URL")
+	errInvalidEvents            = errors.New("invalid events")
+	errNoWebhooksInLegacyDecode = errors.New("no webhooks to decode in legacy decoding format")
+	errFailedWebhookUnmarshal   = errors.New("failed to JSON unmarshal webhook")
 )
 
 const (
-	// ClientIDHeader provides a fallback method for fetching the client ID of users
-	// registering their webhooks. The main method fetches this value from the claims of
-	// the authentication JWT.
-	ClientIDHeader = "X-Xmidt-Client-Id"
-)
+	defaultWebhookExpiration time.Duration = time.Minute * 5
 
-const defaultWebhookExpiration time.Duration = time.Minute * 5
-
-const (
 	contentTypeHeader string = "Content-Type"
 	jsonContentType   string = "application/json"
 )
 
 type transportConfig struct {
 	webhookLegacyDecodeCount metrics.Counter
+	now                      func() time.Time
 }
 
 type addWebhookRequest struct {
@@ -59,6 +60,10 @@ type addWebhookRequest struct {
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	webhooks := response.([]Webhook)
+	if webhooks == nil {
+		// prefer JSON output to be "[]" instead of "<nil>"
+		webhooks = []Webhook{}
+	}
 	obfuscateSecrets(webhooks)
 	encodedWebhooks, err := json.Marshal(&webhooks)
 	if err != nil {
@@ -71,6 +76,9 @@ func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, r
 }
 
 func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc {
+	wv := webhookValidator{
+		now: config.now,
+	}
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
 		requestPayload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -86,13 +94,13 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 			config.webhookLegacyDecodeCount.With(URLLabel, webhook.Config.URL).Add(1)
 		}
-		err = validateWebhook(&webhook, r.RemoteAddr)
+		err = wv.validateWebhook(&webhook, r.RemoteAddr)
 		if err != nil {
 			return nil, err
 		}
 
 		return &addWebhookRequest{
-			owner:   getOwner(r),
+			owner:   getOwner(r.Context()),
 			webhook: webhook,
 		}, nil
 	}
@@ -104,22 +112,16 @@ func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ int
 	return nil
 }
 
-func getOwner(r *http.Request) (owner string) {
-	auth, ok := bascule.FromContext(r.Context())
-	if ok {
-		tokenType := auth.Token.Type()
-		if tokenType == "jwt" {
-			owner = auth.Token.Principal()
-		} else if tokenType == "basic" {
-			//TODO: while a JWT's principal is its sub claim (https://tools.ietf.org/html/rfc7519#section-4.1.2)  which
-			// is recommended to have some scope of uniqueness, a basic token's principal is just the username which
-			// has no guarantees to be unique. Something to watch out for when using basic auth.
-			owner = auth.Token.Principal()
-		}
-	} else {
-		owner = r.Header.Get(ClientIDHeader)
+func getOwner(ctx context.Context) string {
+	auth, ok := bascule.FromContext(ctx)
+	if !ok {
+		return ""
 	}
-	return
+	switch auth.Token.Type() {
+	case "jwt", "basic":
+		return auth.Token.Principal()
+	}
+	return ""
 }
 
 func getFirstFromList(requestPayload []byte) (Webhook, error) {
@@ -127,11 +129,11 @@ func getFirstFromList(requestPayload []byte) (Webhook, error) {
 
 	err := json.Unmarshal(requestPayload, &webhooks)
 	if err != nil {
-		return Webhook{}, err
+		return Webhook{}, &httpaux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest}
 	}
 
 	if len(webhooks) < 1 {
-		return Webhook{}, &xhttp.Error{Text: "no webhooks in request data list", Code: http.StatusBadRequest}
+		return Webhook{}, &httpaux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest}
 	}
 	return webhooks[0], nil
 }
@@ -142,13 +144,17 @@ func obfuscateSecrets(webhooks []Webhook) {
 	}
 }
 
-func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
+type webhookValidator struct {
+	now func() time.Time
+}
+
+func (wv webhookValidator) validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
 	if strings.TrimSpace(webhook.Config.URL) == "" {
-		return &xhttp.Error{Code: http.StatusBadRequest, Text: "invalid Config URL"}
+		return &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL}
 	}
 
 	if len(webhook.Events) == 0 {
-		return &xhttp.Error{Code: http.StatusBadRequest, Text: "invalid events"}
+		return &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidEvents}
 	}
 
 	// TODO Validate content type ?  What about different types?
@@ -169,7 +175,7 @@ func validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) 
 	webhook.Duration = defaultWebhookExpiration
 
 	if webhook.Until.Equal(time.Time{}) {
-		webhook.Until = time.Now().Add(webhook.Duration)
+		webhook.Until = wv.now().Add(webhook.Duration)
 	}
 
 	return nil

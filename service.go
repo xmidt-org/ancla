@@ -104,14 +104,14 @@ func (s *service) AllWebhooks() ([]Webhook, error) {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
 
-	webhooks := []Webhook{}
+	webhooks := make([]Webhook, len(items))
 
-	for _, item := range items {
+	for i, item := range items {
 		webhook, err := itemToWebhook(item)
 		if err != nil {
 			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
 		}
-		webhooks = append(webhooks, webhook)
+		webhooks[i] = webhook
 	}
 
 	return webhooks, nil
