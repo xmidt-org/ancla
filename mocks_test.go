@@ -38,20 +38,54 @@ func (m *mockPushReader) RemoveItem(id, bucket string, owner string) (model.Item
 	return args.Get(0).(model.Item), args.Error(0)
 }
 
+type mockService struct {
+	mock.Mock
+}
+
+func (m *mockService) Add(owner string, w Webhook) error {
+	args := m.Called(owner, w)
+	return args.Error(0)
+}
+
+func (m *mockService) AllWebhooks() ([]Webhook, error) {
+	args := m.Called()
+	return args.Get(0).([]Webhook), args.Error(1)
+}
+
 type mockCounter struct {
 	mock.Mock
 }
 
 func (m *mockCounter) With(labelValues ...string) metrics.Counter {
-	args := make([]interface{}, len(labelValues))
-	for i, arg := range labelValues {
-		args[i] = arg
-	}
-
-	m.Called(args...)
+	m.Called(interfacify(labelValues)...)
 	return m
 }
 
 func (m *mockCounter) Add(delta float64) {
 	m.Called(delta)
+}
+
+type mockGauge struct {
+	mock.Mock
+}
+
+func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
+	m.Called(interfacify(labelValues)...)
+	return m
+}
+
+func (m *mockGauge) Set(value float64) {
+	m.Called(value)
+}
+
+func (m *mockGauge) Add(delta float64) {
+	m.Called(delta)
+}
+
+func interfacify(vals []string) []interface{} {
+	transformed := make([]interface{}, len(vals))
+	for i, val := range vals {
+		transformed[i] = val
+	}
+	return transformed
 }
