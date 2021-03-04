@@ -25,6 +25,8 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 )
 
+// NewAddWebhookHandler returns an HTTP handler for adding
+// a webhook registration.
 func NewAddWebhookHandler(s Service, config HandlerConfig) http.Handler {
 	return kithttp.NewServer(
 		newAddWebhookEndpoint(s),
@@ -34,6 +36,8 @@ func NewAddWebhookHandler(s Service, config HandlerConfig) http.Handler {
 	)
 }
 
+// NewGetAllWebhooksHandler returns an HTTP handler for fetching
+// all the currently registered webhooks.
 func NewGetAllWebhooksHandler(s Service) http.Handler {
 	return kithttp.NewServer(
 		newGetAllWebhooksEndpoint(s),

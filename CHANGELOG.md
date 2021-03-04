@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Add counter for special case for webhook decoding. [#34](https://github.com/xmidt-org/ancla/pull/34)
 - Add tests to transport.go. [#36](https://github.com/xmidt-org/ancla/pull/36)
 - Tests for watch and endpoint. [#37](https://github.com/xmidt-org/ancla/pull/37)
+- Better Go documentation. [#39](https://github.com/xmidt-org/ancla/pull/39)
 
 ### Changed
 - Bump argus client version to v0.3.11. [#20](https://github.com/xmidt-org/ancla/pull/20)
