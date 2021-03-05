@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/argus/store"
 )
 
 func TestValidateConfig(t *testing.T) {
@@ -28,7 +27,6 @@ func TestValidateConfig(t *testing.T) {
 			Description: "DefaultedValues",
 			InputConfig: &Config{},
 			ExpectedConfig: &Config{
-				Bucket:          "webhooks",
 				Logger:          log.NewNopLogger(),
 				MetricsProvider: provider.NewDiscardProvider(),
 			},
@@ -36,12 +34,10 @@ func TestValidateConfig(t *testing.T) {
 		{
 			Description: "Given values",
 			InputConfig: &Config{
-				Bucket:          "myBucket",
 				Logger:          logger,
 				MetricsProvider: metricsProvider,
 			},
 			ExpectedConfig: &Config{
-				Bucket:          "myBucket",
 				Logger:          logger,
 				MetricsProvider: metricsProvider,
 			},
@@ -108,8 +104,7 @@ func TestAdd(t *testing.T) {
 				config: Config{},
 				argus:  m,
 			}
-			m.On("PushItem", store.Sha256HexDigest(tc.InputWebhook.Address), svc.config.Bucket, tc.Owner,
-				mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
+			m.On("PushItem", tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
 			err := svc.Add(tc.Owner, tc.InputWebhook)
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
@@ -151,7 +146,7 @@ func TestAllWebhooks(t *testing.T) {
 				logger: log.NewNopLogger(),
 				config: Config{},
 			}
-			m.On("GetItems", svc.config.Bucket, "").Return(tc.GetItemsResp, tc.GetItemsErr)
+			m.On("GetItems", "").Return(tc.GetItemsResp, tc.GetItemsErr)
 			webhooks, err := svc.AllWebhooks()
 
 			if tc.ExpectedErr != nil {
