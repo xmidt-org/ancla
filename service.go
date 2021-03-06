@@ -58,11 +58,6 @@ type Config struct {
 	// Argus contains configuration to initialize an Argus client.
 	Argus chrysom.ClientConfig
 
-	// Bucket is the name of the Argus partition in which the webhook items
-	// will be stored.
-	// (Optional). Defaults to 'webhooks'
-	Bucket string
-
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
 	// (Optional). Defaults to a no op logger.
@@ -85,7 +80,7 @@ func (s *service) Add(owner string, w Webhook) error {
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
-	result, err := s.argus.PushItem(item.ID, s.config.Bucket, owner, item)
+	result, err := s.argus.PushItem(owner, item)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookPush, err)
 	}
@@ -99,7 +94,7 @@ func (s *service) Add(owner string, w Webhook) error {
 // AllWebhooks returns all webhooks found on the configured webhooks partition
 // of Argus.
 func (s *service) AllWebhooks() ([]Webhook, error) {
-	items, err := s.argus.GetItems(s.config.Bucket, "")
+	items, err := s.argus.GetItems("")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
@@ -153,10 +148,6 @@ func itemToWebhook(i model.Item) (Webhook, error) {
 }
 
 func validateConfig(cfg *Config) {
-	if cfg.Bucket == "" {
-		cfg.Bucket = "webhooks"
-	}
-
 	if cfg.Logger == nil {
 		cfg.Logger = log.NewNopLogger()
 	}
@@ -173,8 +164,8 @@ func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 
 	cfg.Argus.Logger = cfg.Logger
-	cfg.Argus.MetricsProvider = cfg.MetricsProvider
-	cfg.Argus.Listener = createArgusListener(cfg.Logger, watches...)
+	cfg.Argus.Listen.MetricsProvider = cfg.MetricsProvider
+	cfg.Argus.Listen.Listener = createArgusListener(cfg.Logger, watches...)
 
 	argus, err := chrysom.NewClient(cfg.Argus)
 	if err != nil {
