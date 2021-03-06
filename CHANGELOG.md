@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+
+## [v0.1.1]
 ### Added
 - Add counter for special case for webhook decoding. [#34](https://github.com/xmidt-org/ancla/pull/34)
 - Add tests to transport.go. [#36](https://github.com/xmidt-org/ancla/pull/36)
@@ -26,5 +29,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.1.0..HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.1.1..HEAD
+[v0.1.1]: https://github.com/xmidt-org/ancla/compare/0.1.0...v0.1.1
 [v0.1.0]: https://github.com/xmidt-org/ancla/compare/0.0.0...v0.1.0
