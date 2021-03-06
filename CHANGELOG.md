@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Make it so AllWebhooks() doesn't filter on owner yet. [#31](https://github.com/xmidt-org/ancla/pull/31)
 - Remove loggerGroup. [#31](https://github.com/xmidt-org/ancla/pull/31)
 - Simplify owner logic for adding webhooks. [#36](https://github.com/xmidt-org/ancla/pull/36)
+- Bump argus client version to v0.3.12. [#42](https://github.com/xmidt-org/ancla/pull/42)
 
 ### Fixed
 - Fix linting warnings. [#6](https://github.com/xmidt-org/ancla/pull/6)
