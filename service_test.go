@@ -62,7 +62,6 @@ func TestAdd(t *testing.T) {
 	type testCase struct {
 		Description     string
 		Owner           string
-		InputWebhook    Webhook
 		PushItemResults pushItemResults
 		ExpectedErr     error
 	}
@@ -96,6 +95,8 @@ func TestAdd(t *testing.T) {
 		},
 	}
 
+	inputWebhook := getTestWebhooks()[0]
+
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
@@ -104,9 +105,10 @@ func TestAdd(t *testing.T) {
 				logger: log.NewNopLogger(),
 				config: Config{},
 				argus:  m,
+				now:    time.Now,
 			}
 			m.On("PushItem", tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
-			err := svc.Add(tc.Owner, tc.InputWebhook)
+			err := svc.Add(tc.Owner, inputWebhook)
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
 			}
@@ -198,51 +200,168 @@ func TestItemToWebhook(t *testing.T) {
 		})
 	}
 }
-
-func getTestItems() chrysom.Items {
-	return chrysom.Items{
+func TestWebhookToItem(t *testing.T) {
+	refTime := getRefTime()
+	fixedNow := func() time.Time {
+		return refTime
+	}
+	items := getTestItems()
+	webhooks := getTestWebhooks()
+	tcs := []struct {
+		Description  string
+		InputWebhook Webhook
+		ExpectedItem model.Item
+		ShouldErr    bool
+	}{
 		{
-			ID: "d73ec0f8e6137f50284453bf1da67f94659fae70cefef8745a94a638bab41b90",
-			Data: map[string]interface{}{
-				"registered_from_address": "http://webhook-requester-to-argus.example",
-				"config": map[string]interface{}{
-					"url": "http://events-webhook0-here.example",
-				},
-				"until": "2021-01-02T15:04:05Z",
-			},
+			Description:  "Expired item",
+			InputWebhook: getExpiredWebhook(),
+			ExpectedItem: getExpiredItem(),
 		},
 		{
-			ID: "900018a2bd769407338e49693d5e8dc91301a10620b79b3e5bffdc8791e43bc6",
-			Data: map[string]interface{}{
-				"registered_from_address": "http://webhook-requester-to-argus.example",
-				"config": map[string]interface{}{
-					"url": "http://events-webhook1-here.example",
-				},
-				"until": "2021-01-02T15:04:10Z",
+			Description:  "Happy path",
+			InputWebhook: webhooks[0],
+			ExpectedItem: items[0],
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Description, func(t *testing.T) {
+			assert := assert.New(t)
+			item, err := webhookToItem(fixedNow, tc.InputWebhook)
+			if tc.ShouldErr {
+				assert.Error(err)
+			}
+			assert.Equal(tc.ExpectedItem, item)
+		})
+	}
+}
+
+func getExpiredItem() model.Item {
+	var expiresInSecs int64 = 0
+	return model.Item{
+		ID: "b3bbc3467366959e0aba3c33588a08c599f68a740fabf4aa348463d3dc7dcfe8",
+		Data: map[string]interface{}{
+			"registered_from_address": "http://original-requester.example.net",
+			"config": map[string]interface{}{
+				"url":          "http://deliver-here-0.example.net",
+				"content_type": "application/json",
+				"secret":       "superSecretXYZ",
 			},
+			"events": []interface{}{"online"},
+			"matcher": map[string]interface{}{
+				"device_id": []interface{}{"mac:aabbccddee.*"},
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration":    float64(time.Second.Nanoseconds()),
+			"until":       "1970-01-01T00:00:01Z",
+		},
+		TTL: &expiresInSecs,
+	}
+}
+
+func getExpiredWebhook() Webhook {
+	return Webhook{
+		Address: "http://original-requester.example.net",
+		Config: DeliveryConfig{
+			URL:         "http://deliver-here-0.example.net",
+			ContentType: "application/json",
+			Secret:      "superSecretXYZ",
+		},
+		Events: []string{"online"},
+		Matcher: struct {
+			DeviceID []string `json:"device_id"`
+		}{
+			DeviceID: []string{"mac:aabbccddee.*"},
+		},
+		FailureURL: "http://contact-here-when-fails.example.net",
+		Duration:   time.Second,
+		Until:      time.Unix(1, 0).UTC(),
+	}
+}
+
+func getTestItems() chrysom.Items {
+	var (
+		firstItemExpiresInSecs  int64 = 10
+		secondItemExpiresInSecs int64 = 20
+	)
+	return chrysom.Items{
+		{
+			ID: "b3bbc3467366959e0aba3c33588a08c599f68a740fabf4aa348463d3dc7dcfe8",
+			Data: map[string]interface{}{
+				"registered_from_address": "http://original-requester.example.net",
+				"config": map[string]interface{}{
+					"url":          "http://deliver-here-0.example.net",
+					"content_type": "application/json",
+					"secret":       "superSecretXYZ",
+				},
+				"events": []interface{}{"online"},
+				"matcher": map[string]interface{}{
+					"device_id": []interface{}{"mac:aabbccddee.*"},
+				},
+				"failure_url": "http://contact-here-when-fails.example.net",
+				"duration":    float64((10 * time.Second).Nanoseconds()),
+				"until":       "2021-01-02T15:04:10Z",
+			},
+			TTL: &firstItemExpiresInSecs,
+		},
+		{
+			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
+			Data: map[string]interface{}{
+				"registered_from_address": "http://original-requester.example.net",
+				"config": map[string]interface{}{
+					"url":          "http://deliver-here-1.example.net",
+					"content_type": "application/json",
+					"secret":       "doNotShare:e=mc^2",
+				},
+				"events": []interface{}{"online"},
+				"matcher": map[string]interface{}{
+					"device_id": []interface{}{"mac:aabbccddee.*"},
+				},
+				"failure_url": "http://contact-here-when-fails.example.net",
+				"duration":    float64((20 * time.Second).Nanoseconds()),
+				"until":       "2021-01-02T15:04:20Z",
+			},
+			TTL: &secondItemExpiresInSecs,
 		},
 	}
 }
 
 func getTestWebhooks() []Webhook {
-	var (
-		refTime     = getRefTime()
-		webhookZero = Webhook{
-			Address: "http://webhook-requester-to-argus.example",
+	refTime := getRefTime()
+	return []Webhook{
+		{
+			Address: "http://original-requester.example.net",
 			Config: DeliveryConfig{
-				URL: "http://events-webhook0-here.example",
+				URL:         "http://deliver-here-0.example.net",
+				ContentType: "application/json",
+				Secret:      "superSecretXYZ",
 			},
-			Until: refTime.Add(5 * time.Second),
-		}
-		webhookOne = Webhook{
-			Address: "http://webhook-requester-to-argus.example",
+			Events: []string{"online"},
+			Matcher: MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Duration:   10 * time.Second,
+			Until:      refTime.Add(10 * time.Second),
+		},
+		{
+			Address: "http://original-requester.example.net",
 			Config: DeliveryConfig{
-				URL: "http://events-webhook1-here.example",
+				ContentType: "application/json",
+				URL:         "http://deliver-here-1.example.net",
+				Secret:      "doNotShare:e=mc^2",
 			},
-			Until: refTime.Add(10 * time.Second),
-		}
-	)
-	return []Webhook{webhookZero, webhookOne}
+			Events: []string{"online"},
+			Matcher: MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Duration:   20 * time.Second,
+			Until:      refTime.Add(20 * time.Second),
+		},
+	}
 }
 
 func getRefTime() time.Time {
