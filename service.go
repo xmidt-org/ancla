@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
+	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -73,10 +75,11 @@ type service struct {
 	argus  chrysom.PushReader
 	logger log.Logger
 	config Config
+	now    func() time.Time
 }
 
 func (s *service) Add(owner string, w Webhook) error {
-	item, err := webhookToItem(w)
+	item, err := webhookToItem(s.now, w)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
@@ -112,7 +115,7 @@ func (s *service) AllWebhooks() ([]Webhook, error) {
 	return webhooks, nil
 }
 
-func webhookToItem(w Webhook) (model.Item, error) {
+func webhookToItem(now func() time.Time, w Webhook) (model.Item, error) {
 	encodedWebhook, err := json.Marshal(w)
 	if err != nil {
 		return model.Item{}, err
@@ -123,7 +126,8 @@ func webhookToItem(w Webhook) (model.Item, error) {
 		return model.Item{}, err
 	}
 
-	TTLSeconds := int64(w.Duration.Seconds())
+	SecondsToExpiry := w.Until.Sub(now()).Seconds()
+	TTLSeconds := int64(math.Max(0, SecondsToExpiry))
 
 	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(w.Config.URL)))
 
@@ -176,6 +180,7 @@ func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 		logger: cfg.Logger,
 		argus:  argus,
 		config: cfg,
+		now:    time.Now,
 	}
 
 	argus.Start(context.Background())
