@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
 )
 
 func TestValidateConfig(t *testing.T) {
@@ -132,7 +133,7 @@ func TestAllWebhooks(t *testing.T) {
 		{
 			Description:      "Webhooks fetch success",
 			GetItemsResp:     getTestItems(),
-			ExpectedWebhooks: getWebhooks(),
+			ExpectedWebhooks: getTestWebhooks(),
 		},
 	}
 
@@ -157,6 +158,43 @@ func TestAllWebhooks(t *testing.T) {
 			}
 
 			m.AssertExpectations(t)
+		})
+	}
+}
+
+func TestItemToWebhook(t *testing.T) {
+	items := getTestItems()
+	webhooks := getTestWebhooks()
+	tcs := []struct {
+		Description     string
+		InputItem       model.Item
+		ExpectedWebhook Webhook
+		ShouldErr       bool
+	}{
+		{
+			Description: "Err Marshaling",
+			InputItem: model.Item{
+				Data: map[string]interface{}{
+					"cannotUnmarshal": make(chan int),
+				},
+			},
+			ShouldErr: true,
+		},
+		{
+			Description:     "Success",
+			InputItem:       items[0],
+			ExpectedWebhook: webhooks[0],
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Description, func(t *testing.T) {
+			assert := assert.New(t)
+			w, err := itemToWebhook(tc.InputItem)
+			if tc.ShouldErr {
+				assert.Error(err)
+			}
+			assert.Equal(tc.ExpectedWebhook, w)
 		})
 	}
 }
@@ -186,7 +224,7 @@ func getTestItems() chrysom.Items {
 	}
 }
 
-func getWebhooks() []Webhook {
+func getTestWebhooks() []Webhook {
 	var (
 		refTime     = getRefTime()
 		webhookZero = Webhook{
