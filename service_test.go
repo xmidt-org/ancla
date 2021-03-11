@@ -1,6 +1,7 @@
 package ancla
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"testing"
@@ -107,8 +108,8 @@ func TestAdd(t *testing.T) {
 				argus:  m,
 				now:    time.Now,
 			}
-			m.On("PushItem", tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
-			err := svc.Add(tc.Owner, inputWebhook)
+			m.On("PushItem", context.TODO(), tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
+			err := svc.Add(context.TODO(), tc.Owner, inputWebhook)
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
 			}
@@ -149,8 +150,8 @@ func TestAllWebhooks(t *testing.T) {
 				logger: log.NewNopLogger(),
 				config: Config{},
 			}
-			m.On("GetItems", "").Return(tc.GetItemsResp, tc.GetItemsErr)
-			webhooks, err := svc.AllWebhooks()
+			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
+			webhooks, err := svc.AllWebhooks(context.TODO())
 
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))

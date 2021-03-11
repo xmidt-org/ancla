@@ -13,8 +13,8 @@ type mockPushReader struct {
 	mock.Mock
 }
 
-func (m *mockPushReader) GetItems(owner string) (chrysom.Items, error) {
-	args := m.Called(owner)
+func (m *mockPushReader) GetItems(ctx context.Context, owner string) (chrysom.Items, error) {
+	args := m.Called(ctx, owner)
 	return args.Get(0).(chrysom.Items), args.Error(1)
 }
 
@@ -28,13 +28,13 @@ func (m *mockPushReader) Stop(ctx context.Context) error {
 	return args.Error(0)
 }
 
-func (m *mockPushReader) PushItem(owner string, item model.Item) (chrysom.PushResult, error) {
-	args := m.Called(owner, item)
+func (m *mockPushReader) PushItem(ctx context.Context, owner string, item model.Item) (chrysom.PushResult, error) {
+	args := m.Called(ctx, owner, item)
 	return args.Get(0).(chrysom.PushResult), args.Error(1)
 }
 
-func (m *mockPushReader) RemoveItem(id, owner string) (model.Item, error) {
-	args := m.Called(id, owner)
+func (m *mockPushReader) RemoveItem(ctx context.Context, id, owner string) (model.Item, error) {
+	args := m.Called(ctx, id, owner)
 	return args.Get(0).(model.Item), args.Error(0)
 }
 
@@ -42,13 +42,13 @@ type mockService struct {
 	mock.Mock
 }
 
-func (m *mockService) Add(owner string, w Webhook) error {
-	args := m.Called(owner, w)
+func (m *mockService) Add(ctx context.Context, owner string, w Webhook) error {
+	args := m.Called(ctx, owner, w)
 	return args.Error(0)
 }
 
-func (m *mockService) AllWebhooks() ([]Webhook, error) {
-	args := m.Called()
+func (m *mockService) AllWebhooks(ctx context.Context) ([]Webhook, error) {
+	args := m.Called(ctx)
 	return args.Get(0).([]Webhook), args.Error(1)
 }
 

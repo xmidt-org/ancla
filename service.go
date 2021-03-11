@@ -49,10 +49,10 @@ var (
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(owner string, w Webhook) error
+	Add(ctx context.Context, owner string, w Webhook) error
 
 	// AllWebhooks lists all the current registered webhooks.
-	AllWebhooks() ([]Webhook, error)
+	AllWebhooks(ctx context.Context) ([]Webhook, error)
 }
 
 // Config contains information needed to initialize the webhook service.
@@ -78,12 +78,12 @@ type service struct {
 	now    func() time.Time
 }
 
-func (s *service) Add(owner string, w Webhook) error {
+func (s *service) Add(ctx context.Context, owner string, w Webhook) error {
 	item, err := webhookToItem(s.now, w)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
-	result, err := s.argus.PushItem(owner, item)
+	result, err := s.argus.PushItem(ctx, owner, item)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookPush, err)
 	}
@@ -96,8 +96,8 @@ func (s *service) Add(owner string, w Webhook) error {
 
 // AllWebhooks returns all webhooks found on the configured webhooks partition
 // of Argus.
-func (s *service) AllWebhooks() ([]Webhook, error) {
-	items, err := s.argus.GetItems("")
+func (s *service) AllWebhooks(ctx context.Context) ([]Webhook, error) {
+	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}

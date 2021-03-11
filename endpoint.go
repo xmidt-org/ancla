@@ -26,12 +26,12 @@ import (
 func newAddWebhookEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		r := request.(*addWebhookRequest)
-		return nil, s.Add(r.owner, r.webhook)
+		return nil, s.Add(ctx, r.owner, r.webhook)
 	}
 }
 
 func newGetAllWebhooksEndpoint(s Service) endpoint.Endpoint {
-	return func(_ context.Context, _ interface{}) (interface{}, error) {
-		return s.AllWebhooks()
+	return func(ctx context.Context, _ interface{}) (interface{}, error) {
+		return s.AllWebhooks(ctx)
 	}
 }
