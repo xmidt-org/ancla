@@ -1,8 +1,6 @@
 module github.com/xmidt-org/ancla
 
 go 1.15
-replace (
-)
 require (
 	github.com/go-kit/kit v0.10.0
 	github.com/stretchr/testify v1.7.0
