@@ -1,11 +1,12 @@
 module github.com/xmidt-org/ancla
 
 go 1.15
-
+replace (
+)
 require (
 	github.com/go-kit/kit v0.10.0
 	github.com/stretchr/testify v1.7.0
-	github.com/xmidt-org/argus v0.3.12
+	github.com/xmidt-org/argus v0.3.13-0.20210316210241-3e1828f83502
 	github.com/xmidt-org/bascule v0.9.0
 	github.com/xmidt-org/httpaux v0.1.1
 	github.com/xmidt-org/themis v0.4.4
