@@ -18,7 +18,7 @@ func TestNewAddWebhookEndpoint(t *testing.T) {
 	}
 
 	errFake := errors.New("failed")
-	m.On("Add", "owner-val", input.webhook).Return(errFake)
+	m.On("Add", context.TODO(), "owner-val", input.webhook).Return(errFake)
 	resp, err := endpoint(context.Background(), input)
 	assert.Nil(resp)
 	assert.Equal(errFake, err)
@@ -31,7 +31,7 @@ func TestGetAllWebhooksEndpoint(t *testing.T) {
 	endpoint := newGetAllWebhooksEndpoint(m)
 
 	respFake := []Webhook{}
-	m.On("AllWebhooks").Return(respFake, nil)
+	m.On("AllWebhooks", context.TODO()).Return(respFake, nil)
 	resp, err := endpoint(context.Background(), nil)
 	assert.Nil(err)
 	assert.Equal(respFake, resp)

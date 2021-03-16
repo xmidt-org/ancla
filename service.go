@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/xmidt-org/bascule"
 	"math"
 	"time"
 
@@ -49,10 +50,10 @@ var (
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(owner string, w Webhook) error
+	Add(ctx context.Context, owner string, w Webhook) error
 
 	// AllWebhooks lists all the current registered webhooks.
-	AllWebhooks() ([]Webhook, error)
+	AllWebhooks(ctx context.Context) ([]Webhook, error)
 }
 
 // Config contains information needed to initialize the webhook service.
@@ -78,12 +79,12 @@ type service struct {
 	now    func() time.Time
 }
 
-func (s *service) Add(owner string, w Webhook) error {
+func (s *service) Add(ctx context.Context, owner string, w Webhook) error {
 	item, err := webhookToItem(s.now, w)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
-	result, err := s.argus.PushItem(owner, item)
+	result, err := s.argus.PushItem(ctx, owner, item)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookPush, err)
 	}
@@ -96,8 +97,8 @@ func (s *service) Add(owner string, w Webhook) error {
 
 // AllWebhooks returns all webhooks found on the configured webhooks partition
 // of Argus.
-func (s *service) AllWebhooks() ([]Webhook, error) {
-	items, err := s.argus.GetItems("")
+func (s *service) AllWebhooks(ctx context.Context) ([]Webhook, error) {
+	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
@@ -163,7 +164,7 @@ func validateConfig(cfg *Config) {
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
+func Initialize(cfg Config, logger func(ctx context.Context) bascule.Logger, watches ...Watch) (Service, func(), error) {
 	validateConfig(&cfg)
 	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 
@@ -171,7 +172,7 @@ func Initialize(cfg Config, watches ...Watch) (Service, func(), error) {
 	cfg.Argus.Listen.MetricsProvider = cfg.MetricsProvider
 	cfg.Argus.Listen.Listener = createArgusListener(cfg.Logger, watches...)
 
-	argus, err := chrysom.NewClient(cfg.Argus)
+	argus, err := chrysom.NewClient(cfg.Argus, logger)
 	if err != nil {
 		return nil, nil, err
 	}
