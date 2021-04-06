@@ -651,6 +651,8 @@ github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498 h1:Hs6xX7RLCB1Y
 github.com/xmidt-org/argus v0.3.10-0.20201217204602-66f69b12c498/go.mod h1:lnMCVB/i0gOlUOOd2WbzDDgzTEqP5TipzQ8xKIw+N/I=
 github.com/xmidt-org/argus v0.3.13-0.20210316210241-3e1828f83502 h1:dGBvbRQTHBMmLrgjV8VYj0IXbn5nXb89SdJnoLgA3Ow=
 github.com/xmidt-org/argus v0.3.13-0.20210316210241-3e1828f83502/go.mod h1:OLfaPhgmpvBVw4HFMwU43TB4VSKm4yWZYx+Ye1INtkc=
+github.com/xmidt-org/argus v0.3.13 h1:KMElxDPqgZCcjm9DkPSUaLUFJ2vM7fJM1bUhOVMbJy0=
+github.com/xmidt-org/argus v0.3.13/go.mod h1:L4lOfLkJWbl6by2Uip+77oho6hGp7IGyGAlZlLnSV/0=
 github.com/xmidt-org/arrange v0.1.9 h1:MgMCRH7uMg+LZWvuo3c+63UmEV73LRMyrYmm267E8oM=
 github.com/xmidt-org/arrange v0.1.9/go.mod h1:PRA8iEZ11L93NsEkDP56x1mZyfDcWxzDULgHj56TaEk=
 github.com/xmidt-org/bascule v0.8.0/go.mod h1:dPxlbNT3lCwYAtOq2zbzyzTEKgM+azLSbKKcVmgSHBY=
@@ -671,6 +673,8 @@ github.com/xmidt-org/webpa-common v1.11.2/go.mod h1:BaP0q1tlorm1Egq2qeLelon4Avy9
 github.com/xmidt-org/webpa-common v1.11.4/go.mod h1:ffQHH+pCRnoxtdbyIkCbOSDVhV62X47UA64fugPyu30=
 github.com/xmidt-org/webpa-common v1.11.5-0.20210120003553-3d03d7329aee h1:BkR9TzO2+JCylI7rvNWk37/gwUlkCXI7RiuFH/Rhgi0=
 github.com/xmidt-org/webpa-common v1.11.5-0.20210120003553-3d03d7329aee/go.mod h1:NtJzdNhDznwjWiRKDnj/vxdQZnPOhuQ6haemx+nDMSY=
+github.com/xmidt-org/webpa-common v1.11.6-0.20210406174721-5150386d727c h1:Ey6sI8k7YujrkqUHaef451Yfqpeca8wcsMOoLBNa1bg=
+github.com/xmidt-org/webpa-common v1.11.6-0.20210406174721-5150386d727c/go.mod h1:48uVVl6HliZt75euqx4n0ZL/eBJ8QRTJdI7PlTuU/ME=
 github.com/xmidt-org/wrp-go v1.3.4/go.mod h1:EWC9BgcYYO1hKgLzz6VFPpg3LU6ZWSDV/uNiWC7zP+o=
 github.com/xmidt-org/wrp-go/v2 v2.0.1/go.mod h1:v0HK0go/7OSVDvKbnXsUn6c+M987p0yyxWEs8/Fmf60=
 github.com/xmidt-org/wrp-go/v3 v3.0.1/go.mod h1:08zAEevd+fM81/asCgsMJdgO8sfKLvqclqJGX1pphnE=
