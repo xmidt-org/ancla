@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/xmidt-org/bascule"
 	"math"
 	"time"
 
@@ -164,7 +163,7 @@ func validateConfig(cfg *Config) {
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func Initialize(cfg Config, logger func(ctx context.Context) bascule.Logger, watches ...Watch) (Service, func(), error) {
+func Initialize(cfg Config, logger func(ctx context.Context) log.Logger, watches ...Watch) (Service, func(), error) {
 	validateConfig(&cfg)
 	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 
