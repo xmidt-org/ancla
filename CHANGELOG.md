@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Update Argus version with request context bugfix. [#55](https://github.com/xmidt-org/ancla/pull/55)
 
 ## [v0.1.4]
 - Update to version of Argus compatible with optional OpenTelemetry tracing feature. [#51](https://github.com/xmidt-org/ancla/pull/51)
