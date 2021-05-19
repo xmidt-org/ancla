@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+
+## [v0.1.5]
 - Update Argus version with request context bugfix. [#55](https://github.com/xmidt-org/ancla/pull/55)
 
 ## [v0.1.4]
@@ -40,7 +43,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.1.4...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.1.5...HEAD
+[v0.1.5]: https://github.com/xmidt-org/ancla/compare/0.1.4...v0.1.5
 [v0.1.4]: https://github.com/xmidt-org/ancla/compare/0.1.3...v0.1.4
 [v0.1.3]: https://github.com/xmidt-org/ancla/compare/0.1.2...v0.1.3
 [v0.1.2]: https://github.com/xmidt-org/ancla/compare/0.1.1...v0.1.2
