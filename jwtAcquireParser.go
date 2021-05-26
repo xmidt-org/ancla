@@ -27,11 +27,7 @@ type jwtAcquireParser struct {
 }
 
 func rawTokenParser(data []byte) (string, error) {
-	token, err := jwt.Parse(string(data), nil)
-	if err != nil {
-		return "", err
-	}
-	return token.Raw, nil
+	return string(data), nil
 }
 
 func rawTokenExpirationParser(data []byte) (time.Time, error) {
