@@ -62,14 +62,10 @@ func newJWTAcquireParser(pType jwtAcquireParserType) (jwtAcquireParser, error) {
 	parser := jwtAcquireParser{}
 	if pType == simpleType {
 		parser.token = acquire.DefaultTokenParser
-	} else {
-		parser.token = rawTokenParser
-	}
-
-	if pType == simpleType {
 		parser.expiration = acquire.DefaultExpirationParser
-	} else {
-		parser.expiration = rawTokenExpirationParser
+		return parser, nil
 	}
+	parser.token = rawTokenParser
+	parser.expiration = rawTokenExpirationParser
 	return parser, nil
 }
