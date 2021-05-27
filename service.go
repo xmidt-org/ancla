@@ -172,7 +172,7 @@ func validateConfig(cfg *Config) {
 // function when you are done watching for updates.
 func Initialize(cfg Config, logger func(ctx context.Context) log.Logger, watches ...Watch) (Service, func(), error) {
 	validateConfig(&cfg)
-	prepArgusConfig(cfg, watches...)
+	prepArgusConfig(&cfg, watches...)
 	argus, err := chrysom.NewClient(cfg.Argus, logger)
 	if err != nil {
 		return nil, nil, err
@@ -190,7 +190,7 @@ func Initialize(cfg Config, logger func(ctx context.Context) log.Logger, watches
 	return svc, func() { argus.Stop(context.Background()) }, nil
 }
 
-func prepArgusConfig(cfg Config, watches ...Watch) error {
+func prepArgusConfig(cfg *Config, watches ...Watch) error {
 	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 	cfg.Argus.Logger = cfg.Logger
 	cfg.Argus.Listen.MetricsProvider = cfg.MetricsProvider
