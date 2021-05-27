@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	errMissingExpClaims  = errors.New("missing exp claim in jwt")
+	errMissingExpClaim   = errors.New("missing exp claim in jwt")
 	errUnexpectedCasting = errors.New("unexpected casting error")
 )
 
@@ -31,7 +31,8 @@ func rawTokenParser(data []byte) (string, error) {
 }
 
 func rawTokenExpirationParser(data []byte) (time.Time, error) {
-	token, err := jwt.Parse(string(data), nil)
+	p := jwt.Parser{SkipClaimsValidation: true}
+	token, _, err := p.ParseUnverified(string(data), jwt.MapClaims{})
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -41,7 +42,7 @@ func rawTokenExpirationParser(data []byte) (time.Time, error) {
 	}
 	expVal, ok := claims["exp"]
 	if !ok {
-		return time.Time{}, errMissingExpClaims
+		return time.Time{}, errMissingExpClaim
 	}
 
 	exp, err := cast.ToInt64E(expVal)
