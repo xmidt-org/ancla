@@ -69,6 +69,13 @@ type Config struct {
 	// Gets passed to Argus config before initializing the client.
 	// (Optional). Defaults to a no op provider.
 	MetricsProvider provider.Provider
+
+	// JWTParserType establishes which parser type will be used by the JWT token
+	// acquirer used by Argus. Options include 'simple' and 'raw'.
+	// Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
+	// Raw: parser assumes all of the token payload == JWT token
+	// (Optional). Defaults to 'simple'
+	JWTParserType jwtAcquireParserType
 }
 
 type service struct {
@@ -165,12 +172,7 @@ func validateConfig(cfg *Config) {
 // function when you are done watching for updates.
 func Initialize(cfg Config, logger func(ctx context.Context) log.Logger, watches ...Watch) (Service, func(), error) {
 	validateConfig(&cfg)
-	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
-
-	cfg.Argus.Logger = cfg.Logger
-	cfg.Argus.Listen.MetricsProvider = cfg.MetricsProvider
-	cfg.Argus.Listen.Listener = createArgusListener(cfg.Logger, watches...)
-
+	prepArgusConfig(&cfg, watches...)
 	argus, err := chrysom.NewClient(cfg.Argus, logger)
 	if err != nil {
 		return nil, nil, err
@@ -186,6 +188,20 @@ func Initialize(cfg Config, logger func(ctx context.Context) log.Logger, watches
 	argus.Start(context.Background())
 
 	return svc, func() { argus.Stop(context.Background()) }, nil
+}
+
+func prepArgusConfig(cfg *Config, watches ...Watch) error {
+	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
+	cfg.Argus.Logger = cfg.Logger
+	cfg.Argus.Listen.MetricsProvider = cfg.MetricsProvider
+	cfg.Argus.Listen.Listener = createArgusListener(cfg.Logger, watches...)
+	p, err := newJWTAcquireParser(cfg.JWTParserType)
+	if err != nil {
+		return err
+	}
+	cfg.Argus.Auth.JWT.GetToken = p.token
+	cfg.Argus.Auth.JWT.GetExpiration = p.expiration
+	return nil
 }
 
 func createArgusListener(logger log.Logger, watches ...Watch) chrysom.Listener {
