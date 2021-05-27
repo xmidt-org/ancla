@@ -59,13 +59,15 @@ func newJWTAcquireParser(pType jwtAcquireParserType) (jwtAcquireParser, error) {
 	if pType != simpleType && pType != rawType {
 		return jwtAcquireParser{}, errors.New("only 'simple' or 'raw' are supported as jwt acquire parser types")
 	}
-	parser := jwtAcquireParser{}
-	if pType == simpleType {
-		parser.token = acquire.DefaultTokenParser
-		parser.expiration = acquire.DefaultExpirationParser
-		return parser, nil
+	// nil defaults are fine (bascule/acquire will use the simple
+	// default parsers internally).
+	var (
+		tokenParser      acquire.TokenParser
+		expirationParser acquire.ParseExpiration
+	)
+	if pType == rawType {
+		tokenParser = rawTokenParser
+		expirationParser = rawTokenExpirationParser
 	}
-	parser.token = rawTokenParser
-	parser.expiration = rawTokenExpirationParser
-	return parser, nil
+	return jwtAcquireParser{expiration: expirationParser, token: tokenParser}, nil
 }

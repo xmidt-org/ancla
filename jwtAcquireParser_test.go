@@ -41,8 +41,10 @@ func TestNewJWTAcquireParser(t *testing.T) {
 				assert.Nil(p.token)
 			} else {
 				assert.Nil(err)
-				assert.NotNil(p.expiration)
-				assert.NotNil(p.token)
+				if tc.ParserType == rawType {
+					assert.NotNil(p.expiration)
+					assert.NotNil(p.token)
+				}
 			}
 		})
 	}
