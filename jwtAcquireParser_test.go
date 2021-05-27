@@ -89,5 +89,3 @@ func TestRawExpirationParser(t *testing.T) {
 		}
 	}
 }
-
-//TODO: test raw token expiration parser
