@@ -54,7 +54,12 @@ func Metrics() []xmetrics.Metric {
 			Help:       "Number of times a webhook is registered with a legacy decoding strategy.",
 			LabelNames: []string{URLLabel},
 		},
+		{
+			Name:       chrysom.PollCounter,
+			Type:       xmetrics.CounterType,
+			Help:       "Counter for the number of polls (and their success/failure outcomes) to fetch new items.",
+			LabelNames: []string{chrysom.OutcomeLabel},
+		},
 	}
-	metrics = append(metrics, chrysom.Metrics()...)
 	return metrics
 }
