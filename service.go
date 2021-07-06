@@ -28,15 +28,16 @@ import (
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/themis/xlog"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 const errFmt = "%w: %v"
 
 var (
+	errNilProvider             = errors.New("provider cannot be nil")
 	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
 	errFailedWebhookPush       = errors.New("failed to add webhook to registry")
 	errFailedWebhookConversion = errors.New("failed to convert webhook to argus item")
@@ -67,8 +68,7 @@ type Config struct {
 
 	// MetricsProvider for instrumenting this package.
 	// Gets passed to Argus config before initializing the client.
-	// (Optional). Defaults to a no op provider.
-	MetricsProvider provider.Provider
+	MetricsProvider xmetrics.Registry
 
 	// JWTParserType establishes which parser type will be used by the JWT token
 	// acquirer used by Argus. Options include 'simple' and 'raw'.
@@ -162,18 +162,21 @@ func validateConfig(cfg *Config) {
 	if cfg.Logger == nil {
 		cfg.Logger = log.NewNopLogger()
 	}
-
-	if cfg.MetricsProvider == nil {
-		cfg.MetricsProvider = provider.NewDiscardProvider()
-	}
 }
 
 // Initialize builds the webhook service from the given configuration. It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func Initialize(cfg Config, logger func(ctx context.Context) log.Logger, watches ...Watch) (Service, func(), error) {
+func Initialize(cfg Config, getLogger func(ctx context.Context) log.Logger, setLogger func(context.Context, log.Logger) context.Context, watches ...Watch) (Service, func(), error) {
 	validateConfig(&cfg)
 	prepArgusConfig(&cfg, watches...)
-	argus, err := chrysom.NewClient(cfg.Argus, logger)
+
+	if cfg.MetricsProvider == nil {
+		return nil, nil, errNilProvider
+	}
+	m := &chrysom.Measures{
+		Polls: cfg.MetricsProvider.NewCounterVec(chrysom.PollCounter),
+	}
+	argus, err := chrysom.NewClient(cfg.Argus, m, getLogger, setLogger)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -193,7 +196,6 @@ func Initialize(cfg Config, logger func(ctx context.Context) log.Logger, watches
 func prepArgusConfig(cfg *Config, watches ...Watch) error {
 	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
 	cfg.Argus.Logger = cfg.Logger
-	cfg.Argus.Listen.MetricsProvider = cfg.MetricsProvider
 	cfg.Argus.Listen.Listener = createArgusListener(cfg.Logger, watches...)
 	p, err := newJWTAcquireParser(cfg.JWTParserType)
 	if err != nil {
