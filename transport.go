@@ -29,7 +29,7 @@ import (
 
 	"github.com/go-kit/kit/metrics"
 	kithttp "github.com/go-kit/kit/transport/http"
-	"github.com/xmidt-org/httpaux"
+	"github.com/xmidt-org/httpaux/erraux"
 
 	"github.com/xmidt-org/bascule"
 )
@@ -129,11 +129,11 @@ func getFirstFromList(requestPayload []byte) (Webhook, error) {
 
 	err := json.Unmarshal(requestPayload, &webhooks)
 	if err != nil {
-		return Webhook{}, &httpaux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest}
+		return Webhook{}, &erraux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest}
 	}
 
 	if len(webhooks) < 1 {
-		return Webhook{}, &httpaux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest}
+		return Webhook{}, &erraux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest}
 	}
 	return webhooks[0], nil
 }
@@ -150,11 +150,11 @@ type webhookValidator struct {
 
 func (wv webhookValidator) validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
 	if strings.TrimSpace(webhook.Config.URL) == "" {
-		return &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL}
+		return &erraux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL}
 	}
 
 	if len(webhook.Events) == 0 {
-		return &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidEvents}
+		return &erraux.Error{Code: http.StatusBadRequest, Err: errInvalidEvents}
 	}
 
 	// TODO Validate content type ?  What about different types?

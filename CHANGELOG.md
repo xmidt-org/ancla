@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.2.0]
+- Bumped argus, webpa-common versions. Updated metrics to be compatible. [#63](https://github.com/xmidt-org/ancla/pull/63)
+
 ## [v0.1.6]
 - Support acquiring JWT token from Themis. [#59](https://github.com/xmidt-org/ancla/pull/59)
 
@@ -45,7 +48,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.1.6...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.2.0...HEAD
+[v0.2.0]: https://github.com/xmidt-org/ancla/compare/0.1.6...v0.2.0
 [v0.1.6]: https://github.com/xmidt-org/ancla/compare/0.1.5...v0.1.6
 [v0.1.5]: https://github.com/xmidt-org/ancla/compare/0.1.4...v0.1.5
 [v0.1.4]: https://github.com/xmidt-org/ancla/compare/0.1.3...v0.1.4

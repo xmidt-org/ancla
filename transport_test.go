@@ -31,7 +31,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/store"
 	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/httpaux"
+	"github.com/xmidt-org/httpaux/erraux"
 )
 
 func TestErrorEncoder(t *testing.T) {
@@ -156,7 +156,7 @@ func TestValidateWebhook(t *testing.T) {
 	type testCase struct {
 		Description     string
 		InputWebhook    *Webhook
-		ExpectedErr     *httpaux.Error
+		ExpectedErr     *erraux.Error
 		ExpectedWebhook *Webhook
 	}
 
@@ -169,7 +169,7 @@ func TestValidateWebhook(t *testing.T) {
 					ContentType: "application/json",
 				},
 			},
-			ExpectedErr: &httpaux.Error{Err: errInvalidConfigURL, Code: 400},
+			ExpectedErr: &erraux.Error{Err: errInvalidConfigURL, Code: 400},
 		},
 		{
 			Description: "No events",
@@ -179,7 +179,7 @@ func TestValidateWebhook(t *testing.T) {
 					ContentType: "application/json",
 				},
 			},
-			ExpectedErr: &httpaux.Error{Err: errInvalidEvents, Code: 400},
+			ExpectedErr: &erraux.Error{Err: errInvalidEvents, Code: 400},
 		},
 		{
 			Description: "Valid defaulted values",
@@ -254,17 +254,17 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 		{
 			Description:  "Failed to JSON Unmarshal",
 			InputPayload: "{",
-			ExpectedErr:  &httpaux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest},
+			ExpectedErr:  &erraux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest},
 		},
 		{
 			Description:  "Empty legacy case",
 			InputPayload: "[]",
-			ExpectedErr:  &httpaux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest},
+			ExpectedErr:  &erraux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest},
 		},
 		{
 			Description:  "Invalid Input",
 			InputPayload: `{"events": ["online", "offline"]}`,
-			ExpectedErr:  &httpaux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL},
+			ExpectedErr:  &erraux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL},
 		},
 	}
 

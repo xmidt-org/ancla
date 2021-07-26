@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webpa-common/xmetrics"
 )
 
 func TestValidateConfig(t *testing.T) {
@@ -23,14 +24,14 @@ func TestValidateConfig(t *testing.T) {
 	}
 
 	logger := log.NewJSONLogger(ioutil.Discard)
-	metricsProvider := provider.NewExpvarProvider()
+	metricsProvider, err := xmetrics.NewRegistry(nil, Metrics)
+	require.Nil(t, err)
 	tcs := []testCase{
 		{
 			Description: "DefaultedValues",
 			InputConfig: &Config{},
 			ExpectedConfig: &Config{
-				Logger:          log.NewNopLogger(),
-				MetricsProvider: provider.NewDiscardProvider(),
+				Logger: log.NewNopLogger(),
 			},
 		},
 		{
