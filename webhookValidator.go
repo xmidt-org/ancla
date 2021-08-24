@@ -26,14 +26,14 @@ import (
 )
 
 var (
-	errInvalidURL            = errors.New("Invalid Config URL")
-	errInvalidFailureURL     = errors.New("Invalid Failure URL")
-	errInvalidAlternativeURL = errors.New("Invalid Alternative URL(s)")
+	errInvalidURL            = errors.New("invalid Config URL")
+	errInvalidFailureURL     = errors.New("invalid Failure URL")
+	errInvalidAlternativeURL = errors.New("invalid Alternative URL(s)")
 	errURLIsNotHTTPS         = errors.New("URL is not HTTPS")
-	errInvalidHost           = errors.New("Invalid host")
-	errIPGivenAsHost         = errors.New("Cannot use IP as host")
-	errLocalHostGivenAsHost  = errors.New("Cannot use Localhost as host")
-	errLoopbackGivenAsHost   = errors.New("Cannot use loopback host")
+	errInvalidHost           = errors.New("invalid host")
+	errIPGivenAsHost         = errors.New("cannot use IP as host")
+	errLocalHostGivenAsHost  = errors.New("cannot use Localhost as host")
+	errLoopbackGivenAsHost   = errors.New("cannot use loopback host")
 )
 
 type Validator interface {
