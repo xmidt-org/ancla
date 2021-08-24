@@ -36,10 +36,6 @@ var (
 	errLoopbackGivenAsHost   = errors.New("Cannot use loopback host")
 )
 
-//parse other url fields in good url
-//add documentation, start with function name
-//open pr , ask Joel for feedback after these things bc shorter code will get reviewed faster
-
 type Validator interface {
 	Validate(w Webhook) error
 }
