@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	errInvalidURL            = errors.New("Invalid Config URL")
+	errInvalidURL            = errors.New("invalid Config URL")
 	errInvalidFailureURL     = errors.New("Invalid Failure URL")
 	errInvalidAlternativeURL = errors.New("Invalid Alternative URL(s)")
 	errURLIsNotHTTPS         = errors.New("URL is not HTTPS")
