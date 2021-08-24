@@ -27,8 +27,13 @@ import (
 
 var (
 	errInvalidURL            = errors.New("invalid Config URL")
+<<<<<<< HEAD
 	errInvalidFailureURL     = errors.New("invalid Failure URL")
 	errInvalidAlternativeURL = errors.New("invalid Alternative URL(s)")
+=======
+	errInvalidFailureURL     = errors.New("Invalid Failure URL")
+	errInvalidAlternativeURL = errors.New("Invalid Alternative URL(s)")
+>>>>>>> 3f07e4b2aae4c35b169c34ca2b588d69edcbb4c2
 	errURLIsNotHTTPS         = errors.New("URL is not HTTPS")
 	errInvalidHost           = errors.New("invalid host")
 	errIPGivenAsHost         = errors.New("cannot use IP as host")
