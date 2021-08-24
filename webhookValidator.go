@@ -184,8 +184,6 @@ func RejectLoopback() ValidURLFunc {
 	}
 }
 
-//add brackets for ipv6
-
 func RemovePort(s string) (string, error) {
 	if !strings.Contains(s, ":") {
 		return s, nil
