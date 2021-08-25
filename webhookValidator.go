@@ -66,7 +66,7 @@ func (vs Validators) Validate(w Webhook) error {
 }
 
 // Validate runs the function and returns the result. This allows any ValidFunc to implement
-// the Validator interface
+// the Validator interface.
 func (vf ValidFunc) Validate(w Webhook) error {
 	return vf(w)
 }
