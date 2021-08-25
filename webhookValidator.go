@@ -49,7 +49,7 @@ type Validators []Validator
 // against functions.
 type ValidFunc func(Webhook) error
 
-// ValidURLFunc is a WebhookValidator that takes URLs and ensures they are valid URLs
+// ValidURLFunc takes URLs and ensures they are valid.
 type ValidURLFunc func(*url.URL) error
 
 // Validate runs the given webhook through each validator in the validators list.
