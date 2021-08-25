@@ -42,7 +42,7 @@ type Validator interface {
 }
 
 // Validators is a WebhookValidator that ensures the webhook is valid with
-// each validator in the list
+// each validator in the list.
 type Validators []Validator
 
 // ValidFunc is a WebhookValidator that takes Webhooks and validates them
