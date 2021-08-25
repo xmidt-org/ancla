@@ -274,7 +274,7 @@ func TestRejectLoopback(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "Non loopback URL Sucess",
+			desc: "Non loopback URL Success",
 			url:  "http://www.example.com:1030/software/index.html",
 		},
 		{
