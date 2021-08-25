@@ -31,6 +31,7 @@ var (
 )
 
 func TestGoodURL(t *testing.T) {
+	goodFuncs := []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()}
 	tcs := []struct {
 		desc          string
 		webhook       Webhook
