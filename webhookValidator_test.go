@@ -26,11 +26,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	_ Validator = GoodConfigURL([]ValidURLFunc{HTTPSOnlyEndpoints(), RejectHosts(nil), RejectAllIPs()})
-)
-
-func TestGoodURL(t *testing.T) {
+func TestGoodConfigURL(t *testing.T) {
+	goodFuncs := []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()}
 	tcs := []struct {
 		desc          string
 		webhook       Webhook
@@ -42,28 +39,14 @@ func TestGoodURL(t *testing.T) {
 			webhook: Webhook{Config: DeliveryConfig{URL: ""},
 				FailureURL: ""},
 			expectedErr:   errInvalidURL,
-			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
+			validURLFuncs: goodFuncs,
 		},
 		{
 			desc: "No https url Failure",
 			webhook: Webhook{Config: DeliveryConfig{URL: "http://www.google.com/"},
 				FailureURL: "https://www.google.com/"},
 			expectedErr:   errInvalidURL,
-			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
-		},
-		{
-			desc: "Bad FailureURL scheme Failure",
-			webhook: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
-				FailureURL: "127.0.0.1:1030"},
-			expectedErr:   errInvalidFailureURL,
-			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
-		},
-		{
-			desc: "Bad FailureURL Failure",
-			webhook: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
-				FailureURL: "https://127.0.0.1:1030"},
-			expectedErr:   errInvalidFailureURL,
-			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
+			validURLFuncs: goodFuncs,
 		},
 		{
 			desc: "All URL Success",
@@ -72,7 +55,135 @@ func TestGoodURL(t *testing.T) {
 					URL:             "https://www.google.com/",
 					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
 				FailureURL: "https://www.google.com:1030/software/index.html"},
-			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
+			validURLFuncs: goodFuncs,
+		},
+		{
+			desc: "Nil validURLFunc input Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+		},
+		{
+			desc: "Empty validURLFunc slice Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: []ValidURLFunc{},
+		},
+		{
+			desc: "Nil validURLFunc slice Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: []ValidURLFunc{nil},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			err := GoodConfigURL(tc.validURLFuncs)(tc.webhook)
+			assert.True(errors.Is(err, tc.expectedErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					err, tc.expectedErr),
+			)
+		})
+	}
+}
+
+func TestGoodFailureURL(t *testing.T) {
+	goodFuncs := []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()}
+	tcs := []struct {
+		desc          string
+		webhook       Webhook
+		expectedErr   error
+		validURLFuncs []ValidURLFunc
+	}{
+		{
+			desc: "Bad FailureURL scheme Failure",
+			webhook: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
+				FailureURL: "127.0.0.1:1030"},
+			expectedErr:   errInvalidFailureURL,
+			validURLFuncs: goodFuncs,
+		},
+		{
+			desc: "Bad FailureURL Failure",
+			webhook: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
+				FailureURL: "https://127.0.0.1:1030"},
+			expectedErr:   errInvalidFailureURL,
+			validURLFuncs: goodFuncs,
+		},
+		{
+			desc: "All URL Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: goodFuncs,
+		},
+		{
+			desc: "Nil validURLFunc input Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+		},
+		{
+			desc: "Empty validURLFunc slice Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: []ValidURLFunc{},
+		},
+		{
+			desc: "Nil validURLFunc slice Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: []ValidURLFunc{nil},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			err := GoodFailureURL(tc.validURLFuncs)(tc.webhook)
+			assert.True(errors.Is(err, tc.expectedErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					err, tc.expectedErr),
+			)
+		})
+	}
+}
+
+func TestGoodAlternativeURLs(t *testing.T) {
+	goodFuncs := []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()}
+	tcs := []struct {
+		desc          string
+		webhook       Webhook
+		expectedErr   error
+		validURLFuncs []ValidURLFunc
+	}{
+		{
+			desc: "All URL Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: goodFuncs,
 		},
 		{
 			desc: "Bad AlternativeURLs Failure",
@@ -81,7 +192,7 @@ func TestGoodURL(t *testing.T) {
 					URL:             "https://www.google.com/",
 					AlternativeURLs: []string{"https://www.google.com/", "http://www.bing.com/"}},
 				FailureURL: "https://www.google.com:1030/software/index.html"},
-			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
+			validURLFuncs: goodFuncs,
 			expectedErr:   errInvalidAlternativeURL,
 		},
 		{
@@ -115,7 +226,7 @@ func TestGoodURL(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			err := GoodURL(tc.validURLFuncs)(tc.webhook)
+			err := GoodAlternativeURLs(tc.validURLFuncs)(tc.webhook)
 			assert.True(errors.Is(err, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					err, tc.expectedErr),
