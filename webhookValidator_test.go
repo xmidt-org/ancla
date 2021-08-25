@@ -27,11 +27,10 @@ import (
 )
 
 var (
-	_ Validator = GoodURL([]ValidURLFunc{HTTPSOnlyEndpoints(), RejectHosts(nil), RejectAllIPs()})
+	_ Validator = GoodConfigURL([]ValidURLFunc{HTTPSOnlyEndpoints(), RejectHosts(nil), RejectAllIPs()})
 )
 
 func TestGoodURL(t *testing.T) {
-	goodFuncs := []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()}
 	tcs := []struct {
 		desc          string
 		webhook       Webhook
@@ -275,7 +274,7 @@ func TestRejectLoopback(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "Non loopback URL Success",
+			desc: "Non loopback URL Sucess",
 			url:  "http://www.example.com:1030/software/index.html",
 		},
 		{
