@@ -36,7 +36,7 @@ var (
 	errLoopbackGivenAsHost   = errors.New("cannot use loopback host")
 )
 
-// Validator is a WebhookValidator that allows access to the Validate function
+// Validator is a WebhookValidator that allows access to the Validate function.
 type Validator interface {
 	Validate(w Webhook) error
 }
