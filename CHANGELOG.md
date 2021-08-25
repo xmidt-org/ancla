@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added webhookValidator. [#65](https://github.com/xmidt-org/ancla/pull/65)
 
 ## [v0.2.0]
 - Bumped argus, webpa-common versions. Updated metrics to be compatible. [#63](https://github.com/xmidt-org/ancla/pull/63)

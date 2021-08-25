@@ -26,6 +26,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestValidate(t *testing.T) {
+	var mockError error = errors.New("mock")
+	var mockFunc ValidFunc = func(w Webhook) error { return nil }
+	var mockFuncTwo ValidFunc = func(w Webhook) error { return mockError }
+
+	goodFuncs := []Validator{mockFunc, mockFunc}
+	badFuncs := []Validator{mockFuncTwo}
+	tcs := []struct {
+		desc        string
+		validators  Validators
+		expectedErr error
+	}{
+		{
+			desc:       "Empty Validators Success",
+			validators: []Validator{},
+		},
+		{
+			desc: "Nil Validators Success",
+		},
+		{
+			desc:       "Valid Validators Success",
+			validators: goodFuncs,
+		},
+		{
+			desc:        "Validator error Failure",
+			validators:  badFuncs,
+			expectedErr: mockError,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			err := (tc.validators).Validate(Webhook{})
+			assert.True(errors.Is(err, tc.expectedErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					err, tc.expectedErr),
+			)
+		})
+	}
+}
+
 func TestGoodConfigURL(t *testing.T) {
 	goodFuncs := []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()}
 	tcs := []struct {
