@@ -19,6 +19,7 @@ package ancla
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"testing"
 
@@ -31,63 +32,94 @@ var (
 
 func TestGoodURL(t *testing.T) {
 	tcs := []struct {
-		desc        string
-		url         Webhook
-		expectedErr error
+		desc          string
+		webhook       Webhook
+		expectedErr   error
+		validURLFuncs []ValidURLFunc
 	}{
 		{
-			desc: "Blank String",
-			url: Webhook{Config: DeliveryConfig{URL: ""},
+			desc: "Blank String Failure",
+			webhook: Webhook{Config: DeliveryConfig{URL: ""},
 				FailureURL: ""},
-			expectedErr: errInvalidURL,
+			expectedErr:   errInvalidURL,
+			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
 		},
 		{
-			desc: "No https url",
-			url: Webhook{Config: DeliveryConfig{URL: "http://www.google.com/"},
+			desc: "No https url Failure",
+			webhook: Webhook{Config: DeliveryConfig{URL: "http://www.google.com/"},
 				FailureURL: "https://www.google.com/"},
-			expectedErr: errInvalidURL,
+			expectedErr:   errInvalidURL,
+			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
 		},
 		{
-			desc: "Good case",
-			url: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
-				FailureURL: "https://www.google.com:1030/software/index.html"},
-		},
-		{
-			desc: "Bad Failure URL scheme",
-			url: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
+			desc: "Bad FailureURL scheme Failure",
+			webhook: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
 				FailureURL: "127.0.0.1:1030"},
-			expectedErr: errInvalidFailureURL,
+			expectedErr:   errInvalidFailureURL,
+			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
 		},
 		{
-			desc: "Bad Failure URL",
-			url: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
+			desc: "Bad FailureURL Failure",
+			webhook: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
 				FailureURL: "https://127.0.0.1:1030"},
-			expectedErr: errInvalidFailureURL,
+			expectedErr:   errInvalidFailureURL,
+			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
 		},
 		{
-			desc: "Good case",
-			url: Webhook{
+			desc: "All URL Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
+		},
+		{
+			desc: "Bad AlternativeURLs Failure",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "http://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()},
+			expectedErr:   errInvalidAlternativeURL,
+		},
+		{
+			desc: "Nil validURLFunc input Success",
+			webhook: Webhook{
 				Config: DeliveryConfig{
 					URL:             "https://www.google.com/",
 					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
 				FailureURL: "https://www.google.com:1030/software/index.html"},
 		},
 		{
-			desc: "Bad Alternative URLs",
-			url: Webhook{
+			desc: "Empty validURLFunc slice Success",
+			webhook: Webhook{
 				Config: DeliveryConfig{
 					URL:             "https://www.google.com/",
-					AlternativeURLs: []string{"https://www.google.com/", "http://www.bing.com/"}},
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
 				FailureURL: "https://www.google.com:1030/software/index.html"},
-			expectedErr: errInvalidAlternativeURL,
+			validURLFuncs: []ValidURLFunc{},
+		},
+		{
+			desc: "Nil validURLFunc slice Success",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
+				FailureURL: "https://www.google.com:1030/software/index.html"},
+			validURLFuncs: []ValidURLFunc{nil},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			err := GoodURL([]ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()})(tc.url)
-			assert.True(errors.Is(err, tc.expectedErr))
+			err := GoodURL(tc.validURLFuncs)(tc.webhook)
+			assert.True(errors.Is(err, tc.expectedErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					err, tc.expectedErr),
+			)
 		})
 	}
 }
@@ -99,27 +131,36 @@ func TestHTTPSOnlyEndpoints(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc:        "No https URL",
+			desc:        "No https URL Failure",
 			url:         "http://www.google.com/",
 			expectedErr: errURLIsNotHTTPS,
 		},
 		{
-			desc:        "Invalid host with Port",
-			url:         "http://www.example.com:1030/software/index.html",
+			desc:        "URL with no scheme Failure",
+			url:         "www.example.com:1030/software/index.html",
 			expectedErr: errURLIsNotHTTPS,
 		},
 		{
-			desc: "Loopback URL with Port",
+			desc: "Good https Success",
 			url:  "https://localhost:9000",
+		},
+		{
+			desc:        "Path with no scheme Failure",
+			url:         "/example/test",
+			expectedErr: errURLIsNotHTTPS,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			u, _ := url.ParseRequestURI(tc.url)
-			err := HTTPSOnlyEndpoints()(u)
-			assert.True(errors.Is(err, tc.expectedErr))
+			u, err := url.ParseRequestURI(tc.url)
+			assert.NoError(err)
+			res := HTTPSOnlyEndpoints()(u)
+			assert.True(errors.Is(res, tc.expectedErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					res, tc.expectedErr),
+			)
 		})
 	}
 }
@@ -129,32 +170,58 @@ func TestRejectHosts(t *testing.T) {
 		desc        string
 		url         string
 		expectedErr error
+		rejectHosts []string
 	}{
 		{
-			desc: "No https URL",
-			url:  "http://www.google.com/",
+			desc:        "Good host Success",
+			url:         "http://www.google.com/",
+			rejectHosts: []string{"example", "localhost"},
 		},
 		{
-			desc:        "Invalid host with Port",
+			desc:        "host:example.com Failure",
 			url:         "http://www.example.com:1030/software/index.html",
+			rejectHosts: []string{"example", "localhost"},
 			expectedErr: errInvalidHost,
 		},
 		{
-			desc: "Loopback IP with Port",
-			url:  "https://127.0.0.1:1030",
+			desc:        "host:Localhost Failure",
+			url:         "https://localhost:9000",
+			rejectHosts: []string{"example", "localhost"},
+			expectedErr: errInvalidHost,
 		},
 		{
-			desc: "Loopback URL with Port",
-			url:  "https://localhost:9000",
+			desc:        "No Host Success",
+			url:         "/example/test",
+			rejectHosts: []string{"example", "localhost"},
+		},
+		{
+			desc:        "Nil rejectedHosts input Success",
+			url:         "http://www.google.com/",
+			rejectHosts: nil,
+		},
+		{
+			desc:        "Nil string in rejectedHosts Success",
+			url:         "http://www.google.com/",
+			rejectHosts: []string{""},
+		},
+		{
+			desc:        "Last string in rejectedHosts Failure",
+			url:         "http://www.google.com/",
+			rejectHosts: []string{"bing", "google"},
+			expectedErr: errInvalidHost,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			u, _ := url.ParseRequestURI(tc.url)
-			err := RejectHosts([]string{"example"})(u)
-			assert.True(errors.Is(err, tc.expectedErr))
+			u, err := url.ParseRequestURI(tc.url)
+			assert.NoError(err)
+			res := RejectHosts(tc.rejectHosts)(u)
+			assert.True(errors.Is(res, tc.expectedErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					res, tc.expectedErr),
+			)
 		})
 	}
 }
@@ -165,37 +232,37 @@ func TestRejectAllIPs(t *testing.T) {
 		url         string
 		expectedErr error
 	}{
+
 		{
-			desc: "No https URL",
-			url:  "http://www.google.com/",
-		},
-		{
-			desc: "Invalid host with Port",
+			desc: "Non-IP Success",
 			url:  "http://www.example.com:1030/software/index.html",
 		},
 		{
-			desc:        "Loopback IP with Port",
+			desc:        "Loopback IP with Port Failure",
 			url:         "https://127.0.0.1:1030",
 			expectedErr: errIPGivenAsHost,
 		},
 		{
-			desc:        "Loopback IP",
+			desc:        "Loopback IP with no port Failure",
 			url:         "https://127.0.0.1",
 			expectedErr: errIPGivenAsHost,
 		},
-
 		{
-			desc: "Loopback URL with Port",
-			url:  "https://localhost:9000",
+			desc: "No Host Success",
+			url:  "/example/test",
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			u, _ := url.ParseRequestURI(tc.url)
-			err := RejectAllIPs()(u)
-			assert.True(errors.Is(err, tc.expectedErr))
+			u, err := url.ParseRequestURI(tc.url)
+			assert.NoError(err)
+			res := RejectAllIPs()(u)
+			assert.True(errors.Is(res, tc.expectedErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					res, tc.expectedErr),
+			)
 		})
 	}
 }
@@ -207,20 +274,16 @@ func TestRejectLoopback(t *testing.T) {
 		expectedErr error
 	}{
 		{
-			desc: "No https URL",
-			url:  "http://www.google.com/",
-		},
-		{
-			desc: "Invalid host with Port",
+			desc: "Non loopback URL Sucess",
 			url:  "http://www.example.com:1030/software/index.html",
 		},
 		{
-			desc:        "Loopback IP with Port",
+			desc:        "Loopback IP with Port Failure",
 			url:         "https://127.0.0.1:1030",
 			expectedErr: errLoopbackGivenAsHost,
 		},
 		{
-			desc:        "Loopback URL with Port",
+			desc:        "Loopback URL with Port Failure",
 			url:         "https://localhost:9000",
 			expectedErr: errLocalhostGivenAsHost,
 		},
@@ -229,9 +292,13 @@ func TestRejectLoopback(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			u, _ := url.ParseRequestURI(tc.url)
-			err := RejectLoopback()(u)
-			assert.True(errors.Is(err, tc.expectedErr))
+			u, err := url.ParseRequestURI(tc.url)
+			assert.NoError(err)
+			res := RejectLoopback()(u)
+			assert.True(errors.Is(res, tc.expectedErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					res, tc.expectedErr),
+			)
 		})
 	}
 }

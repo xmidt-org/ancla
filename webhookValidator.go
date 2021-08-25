@@ -36,7 +36,7 @@ var (
 	errLoopbackGivenAsHost   = errors.New("cannot use loopback host")
 )
 
-// Validator is
+// Validator is a WebhookValidator that allows access to the Validate function
 type Validator interface {
 	Validate(w Webhook) error
 }
@@ -45,10 +45,11 @@ type Validator interface {
 // each validator in the list
 type Validators []Validator
 
-// ValidFunc is
+// ValidFunc is a WebhookValidator that takes Webhooks and validates them
+// against functions.
 type ValidFunc func(Webhook) error
 
-// ValidURLFunc is
+// ValidURLFunc is a WebhookValidator that takes URLs and ensures they are valid URLs
 type ValidURLFunc func(*url.URL) error
 
 // Validate runs the given webhook through each validator in the validators list.
@@ -62,6 +63,12 @@ func (vs Validators) Validate(w Webhook) error {
 		}
 	}
 	return nil
+}
+
+// Validate runs the function and returns the result. This allows any ValidFunc to implement
+// the Validator interface
+func (vf ValidFunc) Validate(w Webhook) error {
+	return vf(w)
 }
 
 // GoodURL parses the given webhook's Config.URL, FailureURL, and Config.AlternativeURLs
@@ -119,12 +126,6 @@ func GoodURL(vs []ValidURLFunc) ValidFunc {
 	}
 }
 
-// Validate runs the function and returns the result. This allows any ValidFunc to implement
-// the Validator interface
-func (vf ValidFunc) Validate(w Webhook) error {
-	return vf(w)
-}
-
 // HTTPSOnlyEndpoints creates a ValidURLFunc that considers a URL valid if the scheme
 // of the address is https.
 func HTTPSOnlyEndpoints() ValidURLFunc {
@@ -140,9 +141,15 @@ func HTTPSOnlyEndpoints() ValidURLFunc {
 // host does not contain any strings in the list of invalid hosts. It returns an error
 // if the host does include an invalid host name.
 func RejectHosts(invalidHosts []string) ValidURLFunc {
+	ih := []string{}
+	for _, v := range invalidHosts {
+		if v != "" {
+			ih = append(ih, v)
+		}
+	}
 	return func(u *url.URL) error {
 		host := u.Host
-		for _, v := range invalidHosts {
+		for _, v := range ih {
 			if strings.Contains(host, v) {
 				return errInvalidHost
 			}
@@ -185,6 +192,7 @@ func RejectLoopback() ValidURLFunc {
 	}
 }
 
+//removePort takes a URL and returns the host. It will remove the port if it exists.
 func removePort(s string) (string, error) {
 	if !strings.Contains(s, ":") {
 		return s, nil
