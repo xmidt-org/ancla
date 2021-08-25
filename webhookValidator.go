@@ -29,7 +29,7 @@ var (
 	errInvalidURL            = errors.New("invalid Config URL")
 	errInvalidFailureURL     = errors.New("invalid Failure URL")
 	errInvalidAlternativeURL = errors.New("invalid Alternative URL(s)")
-	errURLIsNotHTTPS         = errors.New("URL is not HTTPS")
+	errURLIsNotHTTPS         = errors.New("URL scheme is not HTTPS")
 	errInvalidHost           = errors.New("invalid host")
 	errIPGivenAsHost         = errors.New("cannot use IP as host")
 	errLocalhostGivenAsHost  = errors.New("cannot use Localhost as host")
@@ -71,42 +71,64 @@ func (vf ValidFunc) Validate(w Webhook) error {
 	return vf(w)
 }
 
-// GoodURL parses the given webhook's Config.URL, FailureURL, and Config.AlternativeURLs
-// and returns as soon as the URL is considered invalid. It returns nil if the URL is
-// valid.
-func GoodURL(vs []ValidURLFunc) ValidFunc {
-	fs := []ValidURLFunc{}
+// filterNil takes out all entries of Nil value from the slice
+func filterNil(vs []ValidURLFunc) (filtered []ValidURLFunc) {
 	for _, v := range vs {
 		if v != nil {
-			fs = append(fs, v)
+			filtered = append(filtered, v)
 		}
 	}
+	return
+}
+
+// GoodConfigURL parses the given webhook's Config.URL
+// and returns as soon as the URL is considered invalid. It returns nil if the URL is
+// valid.
+func GoodConfigURL(vs []ValidURLFunc) ValidFunc {
+	vs = filterNil(vs)
 	return func(w Webhook) error {
-		//check Config.URL
 		parsedURL, err := url.ParseRequestURI(w.Config.URL)
 		if err != nil {
 			return fmt.Errorf("%w: %v", errInvalidURL, err)
 		}
-		for _, f := range fs {
+		for _, f := range vs {
 			err = f(parsedURL)
 			if err != nil {
 				return fmt.Errorf("%w: %v", errInvalidURL, err)
 			}
 		}
-		//check FailureURL if it exists
+		return nil
+	}
+}
+
+// GoodFailureURL parses the given webhook's FailureURL
+// and returns as soon as the URL is considered invalid. It returns nil if the URL is
+// valid.
+func GoodFailureURL(vs []ValidURLFunc) ValidFunc {
+	vs = filterNil(vs)
+	return func(w Webhook) error {
 		if w.FailureURL != "" {
 			parsedFailureURL, err := url.ParseRequestURI(w.FailureURL)
 			if err != nil {
 				return fmt.Errorf("%w: %v", errInvalidFailureURL, err)
 			}
-			for _, f := range fs {
+			for _, f := range vs {
 				err = f(parsedFailureURL)
 				if err != nil {
 					return fmt.Errorf("%w: %v", errInvalidFailureURL, err)
 				}
 			}
 		}
-		//check AlternativeURLs if they exist
+		return nil
+	}
+}
+
+// GoodAlternativeURLs parses the given webhook's Config.AlternativeURLs
+// and returns as soon as the URL is considered invalid. It returns nil if the URL is
+// valid.
+func GoodAlternativeURLs(vs []ValidURLFunc) ValidFunc {
+	vs = filterNil(vs)
+	return func(w Webhook) error {
 		for _, u := range w.Config.AlternativeURLs {
 			if u == "" {
 				return errInvalidAlternativeURL
@@ -115,7 +137,7 @@ func GoodURL(vs []ValidURLFunc) ValidFunc {
 			if err != nil {
 				return fmt.Errorf("%w: %v", errInvalidAlternativeURL, err)
 			}
-			for _, f := range fs {
+			for _, f := range vs {
 				err = f(parsedAlternativeURL)
 				if err != nil {
 					return fmt.Errorf("%w: %v", errInvalidAlternativeURL, err)
@@ -162,10 +184,7 @@ func RejectHosts(invalidHosts []string) ValidURLFunc {
 // if it is.
 func RejectAllIPs() ValidURLFunc {
 	return func(u *url.URL) error {
-		host, err := removePort(u.Host)
-		if err != nil {
-			return err
-		}
+		host := u.Hostname()
 		ip := net.ParseIP(host)
 		if ip != nil {
 			return errIPGivenAsHost
@@ -178,10 +197,8 @@ func RejectAllIPs() ValidURLFunc {
 // a loopback address.
 func RejectLoopback() ValidURLFunc {
 	return func(u *url.URL) error {
-		host, err := removePort(u.Host)
-		if err != nil {
-			return err
-		} else if host == "localhost" {
+		host := u.Hostname()
+		if host == "localhost" {
 			return errLocalhostGivenAsHost
 		}
 		ip := net.ParseIP(host)
@@ -190,13 +207,4 @@ func RejectLoopback() ValidURLFunc {
 		}
 		return nil
 	}
-}
-
-//removePort takes a URL and returns the host. It will remove the port if it exists.
-func removePort(s string) (string, error) {
-	if !strings.Contains(s, ":") {
-		return s, nil
-	}
-	h, _, err := net.SplitHostPort(s)
-	return h, err
 }
