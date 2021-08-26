@@ -71,7 +71,7 @@ func (vf ValidFunc) Validate(w Webhook) error {
 	return vf(w)
 }
 
-// filterNil takes out all entries of Nil value from the slice
+// filterNil takes out all entries of Nil value from the slice.
 func filterNil(vs []ValidURLFunc) (filtered []ValidURLFunc) {
 	for _, v := range vs {
 		if v != nil {
