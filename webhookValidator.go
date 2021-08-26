@@ -32,7 +32,6 @@ var (
 	errURLIsNotHTTPS         = errors.New("URL scheme is not HTTPS")
 	errInvalidHost           = errors.New("invalid host")
 	errIPGivenAsHost         = errors.New("cannot use IP as host")
-	errLocalhostGivenAsHost  = errors.New("cannot use Localhost as host")
 	errLoopbackGivenAsHost   = errors.New("cannot use loopback host")
 )
 
