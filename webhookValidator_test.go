@@ -397,6 +397,10 @@ func TestRejectLoopback(t *testing.T) {
 			url:         "https://localhost:9000",
 			expectedErr: errLoopbackGivenAsHost,
 		},
+		{
+			desc: "IP Host Sucess",
+			url:  "http://96.118.133.128",
+		},
 	}
 
 	for _, tc := range tcs {
