@@ -398,7 +398,7 @@ func TestRejectLoopback(t *testing.T) {
 			expectedErr: errLoopbackGivenAsHost,
 		},
 		{
-			desc: "IP Host Sucess",
+			desc: "IP Host Success",
 			url:  "http://96.118.133.128",
 		},
 	}
