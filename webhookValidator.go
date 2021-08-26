@@ -45,9 +45,9 @@ type Validator interface {
 // each validator in the list.
 type Validators []Validator
 
-// ValidFunc is a WebhookValidator that takes Webhooks and validates them
+// ValidatorFunc is a WebhookValidator that takes Webhooks and validates them
 // against functions.
-type ValidFunc func(Webhook) error
+type ValidatorFunc func(Webhook) error
 
 // ValidURLFunc takes URLs and ensures they are valid.
 type ValidURLFunc func(*url.URL) error
@@ -65,9 +65,9 @@ func (vs Validators) Validate(w Webhook) error {
 	return nil
 }
 
-// Validate runs the function and returns the result. This allows any ValidFunc to implement
+// Validate runs the function and returns the result. This allows any ValidatorFunc to implement
 // the Validator interface.
-func (vf ValidFunc) Validate(w Webhook) error {
+func (vf ValidatorFunc) Validate(w Webhook) error {
 	return vf(w)
 }
 
@@ -84,7 +84,7 @@ func filterNil(vs []ValidURLFunc) (filtered []ValidURLFunc) {
 // GoodConfigURL parses the given webhook's Config.URL
 // and returns as soon as the URL is considered invalid. It returns nil if the URL is
 // valid.
-func GoodConfigURL(vs []ValidURLFunc) ValidFunc {
+func GoodConfigURL(vs []ValidURLFunc) ValidatorFunc {
 	vs = filterNil(vs)
 	return func(w Webhook) error {
 		parsedURL, err := url.ParseRequestURI(w.Config.URL)
@@ -104,7 +104,7 @@ func GoodConfigURL(vs []ValidURLFunc) ValidFunc {
 // GoodFailureURL parses the given webhook's FailureURL
 // and returns as soon as the URL is considered invalid. It returns nil if the URL is
 // valid.
-func GoodFailureURL(vs []ValidURLFunc) ValidFunc {
+func GoodFailureURL(vs []ValidURLFunc) ValidatorFunc {
 	vs = filterNil(vs)
 	return func(w Webhook) error {
 		if w.FailureURL != "" {
@@ -126,7 +126,7 @@ func GoodFailureURL(vs []ValidURLFunc) ValidFunc {
 // GoodAlternativeURLs parses the given webhook's Config.AlternativeURLs
 // and returns as soon as the URL is considered invalid. It returns nil if the URL is
 // valid.
-func GoodAlternativeURLs(vs []ValidURLFunc) ValidFunc {
+func GoodAlternativeURLs(vs []ValidURLFunc) ValidatorFunc {
 	vs = filterNil(vs)
 	return func(w Webhook) error {
 		for _, u := range w.Config.AlternativeURLs {
@@ -198,12 +198,18 @@ func RejectAllIPs() ValidURLFunc {
 func RejectLoopback() ValidURLFunc {
 	return func(u *url.URL) error {
 		host := u.Hostname()
-		if host == "localhost" {
-			return errLocalhostGivenAsHost
-		}
 		ip := net.ParseIP(host)
 		if ip != nil && ip.IsLoopback() {
 			return errLoopbackGivenAsHost
+		}
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return err
+		}
+		for _, i := range ips {
+			if i.IsLoopback() {
+				return errLoopbackGivenAsHost
+			}
 		}
 		return nil
 	}

@@ -37,8 +37,8 @@ var (
 
 func TestValidate(t *testing.T) {
 	var mockError error = errors.New("mock")
-	var mockFunc ValidFunc = func(w Webhook) error { return nil }
-	var mockFuncTwo ValidFunc = func(w Webhook) error { return mockError }
+	var mockFunc ValidatorFunc = func(w Webhook) error { return nil }
+	var mockFuncTwo ValidatorFunc = func(w Webhook) error { return mockError }
 
 	goodFuncs := []Validator{mockFunc, mockFunc}
 	badFuncs := []Validator{mockFuncTwo}
@@ -395,7 +395,7 @@ func TestRejectLoopback(t *testing.T) {
 		{
 			desc:        "Loopback URL with Port Failure",
 			url:         "https://localhost:9000",
-			expectedErr: errLocalhostGivenAsHost,
+			expectedErr: errLoopbackGivenAsHost,
 		},
 	}
 
