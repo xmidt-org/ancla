@@ -10,6 +10,5 @@ require (
 	github.com/xmidt-org/argus v0.5.1
 	github.com/xmidt-org/bascule v0.10.2
 	github.com/xmidt-org/httpaux v0.2.1
-	github.com/xmidt-org/themis v0.4.7
-	github.com/xmidt-org/webpa-common v1.11.9
+	github.com/xmidt-org/webpa-common/v2 v2.0.1
 )
