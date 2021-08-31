@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -113,28 +114,29 @@ func TestCheckDeviceID(t *testing.T) {
 
 func TestCheckDuration(t *testing.T) {
 	tcs := []struct {
-		desc        string
-		ttl         time.Duration
-		webhook     Webhook
-		expectedErr error
+		desc               string
+		ttl                time.Duration
+		webhook            Webhook
+		expectedInitialErr error
+		expectedLatterErr  error
 	}{
 		{
-			desc:        "Invalid ttl Failure",
-			ttl:         negativeFiveDuration,
-			webhook:     Webhook{},
-			expectedErr: errInvalidTTL,
+			desc:               "Invalid ttl Failure",
+			ttl:                negativeFiveDuration,
+			webhook:            Webhook{},
+			expectedInitialErr: errInvalidTTL,
 		},
 		{
-			desc:        "Duration out of lower bounds Failure",
-			ttl:         positiveFiveDuration,
-			webhook:     Webhook{Duration: negativeFiveDuration},
-			expectedErr: errInvalidDuration,
+			desc:              "Duration out of lower bounds Failure",
+			ttl:               positiveFiveDuration,
+			webhook:           Webhook{Duration: negativeFiveDuration},
+			expectedLatterErr: errInvalidDuration,
 		},
 		{
-			desc:        "Duration out of upper bounds Failure",
-			ttl:         positiveThreeDuration,
-			webhook:     Webhook{Duration: negativeFiveDuration},
-			expectedErr: errInvalidDuration,
+			desc:              "Duration out of upper bounds Failure",
+			ttl:               positiveThreeDuration,
+			webhook:           Webhook{Duration: negativeFiveDuration},
+			expectedLatterErr: errInvalidDuration,
 		},
 		{
 			desc:    "Duration Success",
@@ -147,18 +149,19 @@ func TestCheckDuration(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
 			f, err := CheckDuration(tc.ttl)
-			if f == nil {
-				assert.True(errors.Is(err, tc.expectedErr),
+			if tc.expectedInitialErr != nil {
+				assert.True(errors.Is(err, tc.expectedInitialErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-						err, tc.expectedErr),
-				)
-			} else {
-				err = f(tc.webhook)
-				assert.True(errors.Is(err, tc.expectedErr),
-					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-						err, tc.expectedErr),
-				)
+						err, tc.expectedInitialErr))
+				assert.Nil(f)
+				return
 			}
+			require.NoError(t, err)
+			require.NotNil(t, f)
+			err = f(tc.webhook)
+			assert.True(errors.Is(err, tc.expectedLatterErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					err, tc.expectedLatterErr))
 		})
 	}
 }
@@ -169,12 +172,13 @@ func TestCheckUntil(t *testing.T) {
 	}
 
 	tcs := []struct {
-		desc        string
-		jitter      time.Duration
-		ttl         time.Duration
-		now         func() time.Time
-		webhook     Webhook
-		expectedErr error
+		desc               string
+		jitter             time.Duration
+		ttl                time.Duration
+		now                func() time.Time
+		webhook            Webhook
+		expectedInitialErr error
+		expectedLatterErr  error
 	}{
 		{
 			desc:    "No Until given Success",
@@ -191,35 +195,35 @@ func TestCheckUntil(t *testing.T) {
 			webhook: Webhook{Until: time.Date(2009, time.November, 10, 23, 2, 0, 0, time.UTC)},
 		},
 		{
-			desc:        "Invalid jitter Failure",
-			jitter:      negativeFiveDuration,
-			ttl:         positiveFiveDuration,
-			now:         mockNow,
-			webhook:     Webhook{},
-			expectedErr: errInvalidJitter,
+			desc:               "Invalid jitter Failure",
+			jitter:             negativeFiveDuration,
+			ttl:                positiveFiveDuration,
+			now:                mockNow,
+			webhook:            Webhook{},
+			expectedInitialErr: errInvalidJitter,
 		},
 		{
-			desc:        "Invalid ttl Failure",
-			jitter:      positiveThreeDuration,
-			ttl:         negativeThreeDuration,
-			now:         mockNow,
-			webhook:     Webhook{},
-			expectedErr: errInvalidTTL,
+			desc:               "Invalid ttl Failure",
+			jitter:             positiveThreeDuration,
+			ttl:                negativeThreeDuration,
+			now:                mockNow,
+			webhook:            Webhook{},
+			expectedInitialErr: errInvalidTTL,
 		},
 		{
-			desc:        "Out of bounds Until Failure",
-			jitter:      time.Second,
-			ttl:         positiveFiveDuration,
-			now:         mockNow,
-			webhook:     Webhook{Until: time.Date(2009, time.November, 10, 23, 6, 0, 0, time.UTC)},
-			expectedErr: errInvalidUntil,
+			desc:              "Out of bounds Until Failure",
+			jitter:            time.Second,
+			ttl:               positiveFiveDuration,
+			now:               mockNow,
+			webhook:           Webhook{Until: time.Date(2009, time.November, 10, 23, 6, 0, 0, time.UTC)},
+			expectedLatterErr: errInvalidUntil,
 		},
 		{
-			desc:        "Nil Now function Failure",
-			jitter:      time.Second,
-			ttl:         positiveFiveDuration,
-			webhook:     Webhook{Until: time.Now().Add(10000 * time.Hour)},
-			expectedErr: errInvalidUntil,
+			desc:              "Nil Now function Failure",
+			jitter:            time.Second,
+			ttl:               positiveFiveDuration,
+			webhook:           Webhook{Until: time.Now().Add(10000 * time.Hour)},
+			expectedLatterErr: errInvalidUntil,
 		},
 	}
 
@@ -227,18 +231,19 @@ func TestCheckUntil(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
 			f, err := CheckUntil(tc.jitter, tc.ttl, tc.now)
-			if f == nil {
-				assert.True(errors.Is(err, tc.expectedErr),
+			if tc.expectedInitialErr != nil {
+				assert.True(errors.Is(err, tc.expectedInitialErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-						err, tc.expectedErr),
-				)
-			} else {
-				err = f(tc.webhook)
-				assert.True(errors.Is(err, tc.expectedErr),
-					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-						err, tc.expectedErr),
-				)
+						err, tc.expectedInitialErr))
+				assert.Nil(f)
+				return
 			}
+			require.NoError(t, err)
+			require.NotNil(t, f)
+			err = f(tc.webhook)
+			assert.True(errors.Is(err, tc.expectedLatterErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					err, tc.expectedLatterErr))
 		})
 	}
 }
