@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 func TestValidateConfig(t *testing.T) {

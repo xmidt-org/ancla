@@ -30,8 +30,8 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
-	"github.com/xmidt-org/themis/xlog"
-	"github.com/xmidt-org/webpa-common/xmetrics"
+	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 const errFmt = "%w: %v"
@@ -210,7 +210,7 @@ func createArgusListener(logger log.Logger, watches ...Watch) chrysom.Listener {
 	return chrysom.ListenerFunc(func(items chrysom.Items) {
 		webhooks, err := itemsToWebhooks(items)
 		if err != nil {
-			level.Error(logger).Log(xlog.MessageKey(), "Failed to convert items to webhooks", "err", err)
+			level.Error(logger).Log(logging.MessageKey(), "Failed to convert items to webhooks", "err", err)
 			return
 		}
 		for _, watch := range watches {

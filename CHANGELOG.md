@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Added webhookValidator. [#65](https://github.com/xmidt-org/ancla/pull/65)
+- Fix security warning by removing old jwt lib as direct dependency. [#66](https://github.com/xmidt-org/ancla/pull/66)
 
 ## [v0.2.0]
 - Bumped argus, webpa-common versions. Updated metrics to be compatible. [#63](https://github.com/xmidt-org/ancla/pull/63)
