@@ -20,54 +20,51 @@ package ancla
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	goodWebhook = Webhook{
-		Config: DeliveryConfig{
-			URL:             "https://www.google.com/",
-			AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
-		FailureURL: "https://www.google.com:1030/software/index.html"}
-	simpleFuncs = []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()}
+	positiveFiveDuration, _  = time.ParseDuration("5m")
+	negativeFiveDuration, _  = time.ParseDuration("-5m")
+	positiveThreeDuration, _ = time.ParseDuration("3m")
+	negativeThreeDuration, _ = time.ParseDuration("-3m")
+	OneSecDuration, _        = time.ParseDuration("1s")
 )
 
-func TestValidate(t *testing.T) {
-	var mockError error = errors.New("mock")
-	var mockFunc ValidatorFunc = func(w Webhook) error { return nil }
-	var mockFuncTwo ValidatorFunc = func(w Webhook) error { return mockError }
-
-	goodFuncs := []Validator{mockFunc, mockFunc}
-	badFuncs := []Validator{mockFuncTwo}
+func TestCheckEvents(t *testing.T) {
 	tcs := []struct {
 		desc        string
-		validators  Validators
+		webhook     Webhook
 		expectedErr error
 	}{
 		{
-			desc:       "Empty Validators Success",
-			validators: []Validator{},
+			desc:        "Empty Webhook Failure",
+			webhook:     Webhook{},
+			expectedErr: errZeroEvents,
 		},
 		{
-			desc: "Nil Validators Success",
+			desc:        "Empty slice Failure",
+			webhook:     Webhook{Events: []string{}},
+			expectedErr: errZeroEvents,
 		},
 		{
-			desc:       "Valid Validators Success",
-			validators: goodFuncs,
+			desc:        "Unparseable event Failure",
+			webhook:     Webhook{Events: []string{"google", `\M`}},
+			expectedErr: errEventsUnparseable,
 		},
 		{
-			desc:        "Validator error Failure",
-			validators:  badFuncs,
-			expectedErr: mockError,
+			desc:    "2 parseable events Success",
+			webhook: Webhook{Events: []string{"google", "bing"}},
 		},
 	}
+
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			err := (tc.validators).Validate(Webhook{})
+			err := CheckEvents()(tc.webhook)
 			assert.True(errors.Is(err, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					err, tc.expectedErr),
@@ -76,52 +73,37 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestGoodConfigURL(t *testing.T) {
+func TestCheckDeviceID(t *testing.T) {
 	tcs := []struct {
-		desc          string
-		webhook       Webhook
-		expectedErr   error
-		validURLFuncs []ValidURLFunc
+		desc        string
+		webhook     Webhook
+		expectedErr error
 	}{
 		{
-			desc: "Blank String Failure",
-			webhook: Webhook{Config: DeliveryConfig{URL: ""},
-				FailureURL: ""},
-			expectedErr:   errInvalidURL,
-			validURLFuncs: simpleFuncs,
+			desc:    "Nil DeviceID Success",
+			webhook: Webhook{},
 		},
 		{
-			desc: "No https url Failure",
-			webhook: Webhook{Config: DeliveryConfig{URL: "http://www.google.com/"},
-				FailureURL: "https://www.google.com/"},
-			expectedErr:   errInvalidURL,
-			validURLFuncs: simpleFuncs,
+			desc:    "Empty slice Success",
+			webhook: Webhook{Events: []string{}},
 		},
 		{
-			desc:          "All URL Success",
-			webhook:       goodWebhook,
-			validURLFuncs: simpleFuncs,
+			desc: "Unparseable deviceID Failure",
+			webhook: Webhook{Matcher: MetadataMatcherConfig{
+				DeviceID: []string{"", `\M`}}},
+			expectedErr: errDeviceIDUnparseable,
 		},
 		{
-			desc:    "Nil validURLFunc input Success",
-			webhook: goodWebhook,
-		},
-		{
-			desc:          "Empty validURLFunc slice Success",
-			webhook:       goodWebhook,
-			validURLFuncs: []ValidURLFunc{},
-		},
-		{
-			desc:          "Nil validURLFunc slice Success",
-			webhook:       goodWebhook,
-			validURLFuncs: []ValidURLFunc{nil},
+			desc: "Parseable deviceID Success",
+			webhook: Webhook{Matcher: MetadataMatcherConfig{
+				DeviceID: []string{"google"}}},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			err := GoodConfigURL(tc.validURLFuncs)(tc.webhook)
+			err := CheckDeviceID()(tc.webhook)
 			assert.True(errors.Is(err, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					err, tc.expectedErr),
@@ -130,52 +112,42 @@ func TestGoodConfigURL(t *testing.T) {
 	}
 }
 
-func TestGoodFailureURL(t *testing.T) {
+func TestCheckDuration(t *testing.T) {
 	tcs := []struct {
-		desc          string
-		webhook       Webhook
-		expectedErr   error
-		validURLFuncs []ValidURLFunc
+		desc        string
+		ttl         time.Duration
+		webhook     Webhook
+		expectedErr error
 	}{
 		{
-			desc: "Bad FailureURL scheme Failure",
-			webhook: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
-				FailureURL: "127.0.0.1:1030"},
-			expectedErr:   errInvalidFailureURL,
-			validURLFuncs: simpleFuncs,
+			desc:        "Invalid ttl Failure",
+			ttl:         negativeFiveDuration,
+			webhook:     Webhook{},
+			expectedErr: errInvalidTTL,
 		},
 		{
-			desc: "Bad FailureURL Failure",
-			webhook: Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"},
-				FailureURL: "https://127.0.0.1:1030"},
-			expectedErr:   errInvalidFailureURL,
-			validURLFuncs: simpleFuncs,
+			desc:        "Duration out of lower bounds Failure",
+			ttl:         positiveFiveDuration,
+			webhook:     Webhook{Duration: negativeFiveDuration},
+			expectedErr: errInvalidDuration,
 		},
 		{
-			desc:          "All URL Success",
-			webhook:       goodWebhook,
-			validURLFuncs: simpleFuncs,
+			desc:        "Duration out of upper bounds Failure",
+			ttl:         positiveThreeDuration,
+			webhook:     Webhook{Duration: negativeFiveDuration},
+			expectedErr: errInvalidDuration,
 		},
 		{
-			desc:    "Nil validURLFunc input Success",
-			webhook: goodWebhook,
-		},
-		{
-			desc:          "Empty validURLFunc slice Success",
-			webhook:       goodWebhook,
-			validURLFuncs: []ValidURLFunc{},
-		},
-		{
-			desc:          "Nil validURLFunc slice Success",
-			webhook:       goodWebhook,
-			validURLFuncs: []ValidURLFunc{nil},
+			desc:    "Duration Success",
+			ttl:     positiveFiveDuration,
+			webhook: Webhook{Duration: positiveThreeDuration},
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			err := GoodFailureURL(tc.validURLFuncs)(tc.webhook)
+			err := CheckDuration(tc.ttl)(tc.webhook)
 			assert.True(errors.Is(err, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					err, tc.expectedErr),
@@ -184,48 +156,63 @@ func TestGoodFailureURL(t *testing.T) {
 	}
 }
 
-func TestGoodAlternativeURLs(t *testing.T) {
+func TestCheckUntil(t *testing.T) {
+	var mockNow func() time.Time = func() time.Time {
+		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+	}
+
 	tcs := []struct {
-		desc          string
-		webhook       Webhook
-		expectedErr   error
-		validURLFuncs []ValidURLFunc
+		desc        string
+		jitter      time.Duration
+		ttl         time.Duration
+		now         func() time.Time
+		webhook     Webhook
+		expectedErr error
 	}{
 		{
-			desc:          "All URL Success",
-			webhook:       goodWebhook,
-			validURLFuncs: simpleFuncs,
+			desc:    "No Until given Success",
+			jitter:  OneSecDuration,
+			ttl:     positiveThreeDuration,
+			now:     mockNow,
+			webhook: Webhook{},
 		},
 		{
-			desc: "Bad AlternativeURLs Failure",
-			webhook: Webhook{
-				Config: DeliveryConfig{
-					URL:             "https://www.google.com/",
-					AlternativeURLs: []string{"https://www.google.com/", "http://www.bing.com/"}},
-				FailureURL: "https://www.google.com:1030/software/index.html"},
-			validURLFuncs: simpleFuncs,
-			expectedErr:   errInvalidAlternativeURL,
+			desc:    "Until Success",
+			jitter:  OneSecDuration,
+			ttl:     positiveFiveDuration,
+			now:     mockNow,
+			webhook: Webhook{Until: time.Date(2009, time.November, 10, 23, 2, 0, 0, time.UTC)},
 		},
 		{
-			desc:    "Nil validURLFunc input Success",
-			webhook: goodWebhook,
+			desc:        "Invalid jitter Failure",
+			jitter:      negativeFiveDuration,
+			ttl:         positiveFiveDuration,
+			now:         mockNow,
+			webhook:     Webhook{},
+			expectedErr: errInvalidJitter,
 		},
 		{
-			desc:          "Empty validURLFunc slice Success",
-			webhook:       goodWebhook,
-			validURLFuncs: []ValidURLFunc{},
+			desc:        "Invalid ttl Failure",
+			jitter:      positiveThreeDuration,
+			ttl:         negativeThreeDuration,
+			now:         mockNow,
+			webhook:     Webhook{},
+			expectedErr: errInvalidTTL,
 		},
 		{
-			desc:          "Nil validURLFunc slice Success",
-			webhook:       goodWebhook,
-			validURLFuncs: []ValidURLFunc{nil},
+			desc:        "Out of bounds Until Failure",
+			jitter:      OneSecDuration,
+			ttl:         positiveFiveDuration,
+			now:         mockNow,
+			webhook:     Webhook{Until: time.Date(2009, time.November, 10, 23, 6, 0, 0, time.UTC)},
+			expectedErr: errInvalidUntil,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			err := GoodAlternativeURLs(tc.validURLFuncs)(tc.webhook)
+			err := CheckUntil(tc.jitter, tc.ttl, tc.now)(tc.webhook)
 			assert.True(errors.Is(err, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					err, tc.expectedErr),
@@ -234,168 +221,28 @@ func TestGoodAlternativeURLs(t *testing.T) {
 	}
 }
 
-func TestHTTPSOnlyEndpoints(t *testing.T) {
+func TestCheckUntilOrDurationExist(t *testing.T) {
 	tcs := []struct {
 		desc        string
-		url         string
+		webhook     Webhook
 		expectedErr error
 	}{
 		{
-			desc:        "No https URL Failure",
-			url:         "http://www.google.com/",
-			expectedErr: errURLIsNotHTTPS,
+			desc:        "Until and Duration not given Failure",
+			webhook:     Webhook{},
+			expectedErr: errUntilDurationAbsent,
 		},
 		{
-			desc:        "URL with no scheme Failure",
-			url:         "www.example.com:1030/software/index.html",
-			expectedErr: errURLIsNotHTTPS,
+			desc:    "Only Until given Success",
+			webhook: Webhook{Until: time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)},
 		},
 		{
-			desc: "Good https Success",
-			url:  "https://localhost:9000",
+			desc:    "Only Duration given Success",
+			webhook: Webhook{Duration: positiveFiveDuration},
 		},
 		{
-			desc:        "Path with no scheme Failure",
-			url:         "/example/test",
-			expectedErr: errURLIsNotHTTPS,
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			u, err := url.ParseRequestURI(tc.url)
-			assert.NoError(err)
-			res := HTTPSOnlyEndpoints()(u)
-			assert.True(errors.Is(res, tc.expectedErr),
-				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					res, tc.expectedErr),
-			)
-		})
-	}
-}
-
-func TestRejectHosts(t *testing.T) {
-	tcs := []struct {
-		desc        string
-		url         string
-		expectedErr error
-		rejectHosts []string
-	}{
-		{
-			desc:        "Good host Success",
-			url:         "http://www.google.com/",
-			rejectHosts: []string{"example", "localhost"},
-		},
-		{
-			desc:        "host:example.com Failure",
-			url:         "http://www.example.com:1030/software/index.html",
-			rejectHosts: []string{"example", "localhost"},
-			expectedErr: errInvalidHost,
-		},
-		{
-			desc:        "host:Localhost Failure",
-			url:         "https://localhost:9000",
-			rejectHosts: []string{"example", "localhost"},
-			expectedErr: errInvalidHost,
-		},
-		{
-			desc:        "No Host Success",
-			url:         "/example/test",
-			rejectHosts: []string{"example", "localhost"},
-		},
-		{
-			desc:        "Nil rejectedHosts input Success",
-			url:         "http://www.google.com/",
-			rejectHosts: nil,
-		},
-		{
-			desc:        "Nil string in rejectedHosts Success",
-			url:         "http://www.google.com/",
-			rejectHosts: []string{""},
-		},
-		{
-			desc:        "Last string in rejectedHosts Failure",
-			url:         "http://www.google.com/",
-			rejectHosts: []string{"bing", "google"},
-			expectedErr: errInvalidHost,
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			u, err := url.ParseRequestURI(tc.url)
-			assert.NoError(err)
-			res := RejectHosts(tc.rejectHosts)(u)
-			assert.True(errors.Is(res, tc.expectedErr),
-				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					res, tc.expectedErr),
-			)
-		})
-	}
-}
-
-func TestRejectAllIPs(t *testing.T) {
-	tcs := []struct {
-		desc        string
-		url         string
-		expectedErr error
-	}{
-
-		{
-			desc: "Non-IP Success",
-			url:  "http://www.example.com:1030/software/index.html",
-		},
-		{
-			desc:        "Loopback IP with Port Failure",
-			url:         "https://127.0.0.1:1030",
-			expectedErr: errIPGivenAsHost,
-		},
-		{
-			desc:        "Loopback IP with no port Failure",
-			url:         "https://127.0.0.1",
-			expectedErr: errIPGivenAsHost,
-		},
-		{
-			desc: "No Host Success",
-			url:  "/example/test",
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			u, err := url.ParseRequestURI(tc.url)
-			assert.NoError(err)
-			res := RejectAllIPs()(u)
-			assert.True(errors.Is(res, tc.expectedErr),
-				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					res, tc.expectedErr),
-			)
-		})
-	}
-}
-
-func TestRejectLoopback(t *testing.T) {
-	tcs := []struct {
-		desc        string
-		url         string
-		expectedErr error
-	}{
-		{
-			desc: "Non loopback URL Success",
-			url:  "http://www.example.com:1030/software/index.html",
-		},
-		{
-			desc:        "Loopback IP with Port Failure",
-			url:         "https://127.0.0.1:1030",
-			expectedErr: errLoopbackGivenAsHost,
-		},
-		{
-			desc:        "Loopback URL with Port Failure",
-			url:         "https://localhost:9000",
-			expectedErr: errLoopbackGivenAsHost,
+			desc:    "Until and Duration given Success",
+			webhook: Webhook{Until: time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC), Duration: OneSecDuration},
 		},
 		{
 			desc: "IP Host Success",
@@ -406,12 +253,10 @@ func TestRejectLoopback(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			u, err := url.ParseRequestURI(tc.url)
-			assert.NoError(err)
-			res := RejectLoopback()(u)
-			assert.True(errors.Is(res, tc.expectedErr),
+			err := CheckUntilOrDurationExist()(tc.webhook)
+			assert.True(errors.Is(err, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					res, tc.expectedErr),
+					err, tc.expectedErr),
 			)
 		})
 	}
