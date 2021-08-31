@@ -244,6 +244,10 @@ func TestCheckUntilOrDurationExist(t *testing.T) {
 			desc:    "Until and Duration given Success",
 			webhook: Webhook{Until: time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC), Duration: OneSecDuration},
 		},
+		{
+			desc: "IP Host Success",
+			url:  "http://96.118.133.128",
+		},
 	}
 
 	for _, tc := range tcs {
