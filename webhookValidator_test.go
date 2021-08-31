@@ -27,11 +27,10 @@ import (
 )
 
 var (
-	positiveFiveDuration, _  = time.ParseDuration("5m")
-	negativeFiveDuration, _  = time.ParseDuration("-5m")
-	positiveThreeDuration, _ = time.ParseDuration("3m")
-	negativeThreeDuration, _ = time.ParseDuration("-3m")
-	OneSecDuration, _        = time.ParseDuration("1s")
+	positiveFiveDuration  = 5 * time.Minute
+	negativeFiveDuration  = -5 * time.Minute
+	positiveThreeDuration = 3 * time.Minute
+	negativeThreeDuration = -3 * time.Minute
 )
 
 func TestCheckEvents(t *testing.T) {
@@ -147,11 +146,19 @@ func TestCheckDuration(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			err := CheckDuration(tc.ttl)(tc.webhook)
-			assert.True(errors.Is(err, tc.expectedErr),
-				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					err, tc.expectedErr),
-			)
+			f, err := CheckDuration(tc.ttl)
+			if f == nil {
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
+			} else {
+				err = f(tc.webhook)
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
+			}
 		})
 	}
 }
@@ -171,14 +178,14 @@ func TestCheckUntil(t *testing.T) {
 	}{
 		{
 			desc:    "No Until given Success",
-			jitter:  OneSecDuration,
+			jitter:  time.Second,
 			ttl:     positiveThreeDuration,
 			now:     mockNow,
 			webhook: Webhook{},
 		},
 		{
 			desc:    "Until Success",
-			jitter:  OneSecDuration,
+			jitter:  time.Second,
 			ttl:     positiveFiveDuration,
 			now:     mockNow,
 			webhook: Webhook{Until: time.Date(2009, time.November, 10, 23, 2, 0, 0, time.UTC)},
@@ -201,10 +208,17 @@ func TestCheckUntil(t *testing.T) {
 		},
 		{
 			desc:        "Out of bounds Until Failure",
-			jitter:      OneSecDuration,
+			jitter:      time.Second,
 			ttl:         positiveFiveDuration,
 			now:         mockNow,
 			webhook:     Webhook{Until: time.Date(2009, time.November, 10, 23, 6, 0, 0, time.UTC)},
+			expectedErr: errInvalidUntil,
+		},
+		{
+			desc:        "Nil Now function Failure",
+			jitter:      time.Second,
+			ttl:         positiveFiveDuration,
+			webhook:     Webhook{Until: time.Now().Add(10000 * time.Hour)},
 			expectedErr: errInvalidUntil,
 		},
 	}
@@ -212,11 +226,19 @@ func TestCheckUntil(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			err := CheckUntil(tc.jitter, tc.ttl, tc.now)(tc.webhook)
-			assert.True(errors.Is(err, tc.expectedErr),
-				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					err, tc.expectedErr),
-			)
+			f, err := CheckUntil(tc.jitter, tc.ttl, tc.now)
+			if f == nil {
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
+			} else {
+				err = f(tc.webhook)
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr),
+				)
+			}
 		})
 	}
 }
@@ -242,7 +264,7 @@ func TestCheckUntilOrDurationExist(t *testing.T) {
 		},
 		{
 			desc:    "Until and Duration given Success",
-			webhook: Webhook{Until: time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC), Duration: OneSecDuration},
+			webhook: Webhook{Until: time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC), Duration: time.Second},
 		},
 	}
 

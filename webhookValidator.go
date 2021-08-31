@@ -33,6 +33,7 @@ var (
 	errUntilDurationAbsent = errors.New("until and duration are both absent")
 	errInvalidTTL          = errors.New("invalid TTL")
 	errInvalidJitter       = errors.New("invalid jitter")
+	errInvalidNowFunction  = errors.New("no now function given")
 )
 
 // Validator is a WebhookValidator that allows access to the Validate function.
@@ -102,35 +103,39 @@ func CheckDeviceID() ValidatorFunc {
 
 // CheckDuration ensures that 0 <= Duration <= ttl. Duration returns an error
 // if a negative value is given.
-func CheckDuration(ttl time.Duration) ValidatorFunc {
+func CheckDuration(ttl time.Duration) (ValidatorFunc, error) {
+	if ttl < 0 {
+		return nil, errInvalidTTL
+	}
 	return func(w Webhook) error {
-		if ttl < 0 {
-			return errInvalidTTL
-		}
 		if ttl < w.Duration || w.Duration < 0 {
 			return errInvalidDuration
 		}
 		return nil
-	}
+	}, nil
 }
 
 // CheckUntil ensures that Until, with jitter, is not more than ttl in the future.
-func CheckUntil(jitter time.Duration, ttl time.Duration, now func() time.Time) ValidatorFunc {
+func CheckUntil(jitter time.Duration, ttl time.Duration, now func() time.Time) (ValidatorFunc, error) {
+	if now == nil {
+		now = time.Now
+	}
+	if ttl < 0 {
+		return nil, errInvalidTTL
+	} else if jitter < 0 {
+		return nil, errInvalidJitter
+	}
 	return func(w Webhook) error {
-		if ttl < 0 {
-			return errInvalidTTL
-		} else if jitter < 0 {
-			return errInvalidJitter
+		if w.Until.IsZero() {
+			return nil
 		}
-		if !(w.Until).IsZero() {
-			limit := (now().Add(ttl)).Add(jitter)
-			proposed := (w.Until)
-			if proposed.After(limit) {
-				return errInvalidUntil
-			}
+		limit := (now().Add(ttl)).Add(jitter)
+		proposed := (w.Until)
+		if proposed.After(limit) {
+			return errInvalidUntil
 		}
 		return nil
-	}
+	}, nil
 }
 
 // CheckUntilAndDuration checks if either Until or Duration exists and returns an error
