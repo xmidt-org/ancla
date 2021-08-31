@@ -33,7 +33,6 @@ var (
 	errUntilDurationAbsent = errors.New("until and duration are both absent")
 	errInvalidTTL          = errors.New("invalid TTL")
 	errInvalidJitter       = errors.New("invalid jitter")
-	errInvalidNowFunction  = errors.New("no now function given")
 )
 
 // Validator is a WebhookValidator that allows access to the Validate function.
