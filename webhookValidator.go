@@ -133,7 +133,7 @@ func CheckUntil(jitter time.Duration, ttl time.Duration, now func() time.Time) V
 	}
 }
 
-// CheckUntilAndDuration checks if either Until or Duration exists and returns a 400
+// CheckUntilAndDuration checks if either Until or Duration exists and returns an error
 // if neither exist.
 func CheckUntilOrDurationExist() ValidatorFunc {
 	return func(w Webhook) error {
