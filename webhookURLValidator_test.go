@@ -153,6 +153,11 @@ func TestGoodFailureURL(t *testing.T) {
 			validURLFuncs: simpleFuncs,
 		},
 		{
+			desc:          "Nil FailureURL Success",
+			webhook:       Webhook{Config: DeliveryConfig{URL: "https://www.google.com/"}},
+			validURLFuncs: simpleFuncs,
+		},
+		{
 			desc:          "All URL Success",
 			webhook:       goodURLWebhook,
 			validURLFuncs: simpleFuncs,
@@ -444,8 +449,13 @@ func TestInvalidSubnets(t *testing.T) {
 		},
 		{
 			desc:        "Valid IP given with valid subnets Success",
-			url:         "https://2001:db8:a0b:12f0::1/32",
+			url:         "https://[2001:db8:85a3:8d3:1319:8a2e:370:7348]:443/",
 			subnetsList: []string{"192.0.2.1/24"},
+		},
+		{
+			desc:              "Invalid URL Failure",
+			url:               "/g/a",
+			expectedLatterErr: errInvalidURL,
 		},
 	}
 

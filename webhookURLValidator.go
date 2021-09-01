@@ -73,16 +73,16 @@ func GoodConfigURL(vs []ValidURLFunc) ValidatorFunc {
 func GoodFailureURL(vs []ValidURLFunc) ValidatorFunc {
 	vs = filterNil(vs)
 	return func(w Webhook) error {
-		if w.FailureURL != "" {
-			parsedFailureURL, err := url.ParseRequestURI(w.FailureURL)
-			if err != nil {
+		if w.FailureURL == "" {
+			return nil
+		}
+		parsedFailureURL, err := url.ParseRequestURI(w.FailureURL)
+		if err != nil {
+			return fmt.Errorf("%w: %v", errInvalidFailureURL, err)
+		}
+		for _, f := range vs {
+			if err = f(parsedFailureURL); err != nil {
 				return fmt.Errorf("%w: %v", errInvalidFailureURL, err)
-			}
-			for _, f := range vs {
-				err = f(parsedFailureURL)
-				if err != nil {
-					return fmt.Errorf("%w: %v", errInvalidFailureURL, err)
-				}
 			}
 		}
 		return nil
@@ -136,9 +136,8 @@ func RejectHosts(invalidHosts []string) ValidURLFunc {
 		}
 	}
 	return func(u *url.URL) error {
-		host := u.Host
 		for _, v := range ih {
-			if strings.Contains(host, v) {
+			if strings.Contains(u.Host, v) {
 				return errInvalidHost
 			}
 		}
@@ -193,11 +192,16 @@ func InvalidSubnets(i []string) (ValidURLFunc, error) {
 		invalidSubnets = append(invalidSubnets, n)
 	}
 	return func(u *url.URL) error {
-		host := u.Host
-		ip := net.ParseIP(host)
-		for _, s := range invalidSubnets {
-			if s.Contains(ip) {
-				return errIPinInvalidSubnets
+		host := u.Hostname()
+		ips, err := net.LookupIP(host)
+		if err != nil {
+			return errInvalidURL
+		}
+		for _, d := range ips {
+			for _, s := range invalidSubnets {
+				if s.Contains(d) {
+					return errIPinInvalidSubnets
+				}
 			}
 		}
 		return nil

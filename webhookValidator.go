@@ -102,12 +102,12 @@ func CheckDeviceID() ValidatorFunc {
 
 // CheckDuration ensures that 0 <= Duration <= ttl. Duration returns an error
 // if a negative value is given.
-func CheckDuration(ttl time.Duration) (ValidatorFunc, error) {
-	if ttl < 0 {
+func CheckDuration(maxTTL time.Duration) (ValidatorFunc, error) {
+	if maxTTL < 0 {
 		return nil, errInvalidTTL
 	}
 	return func(w Webhook) error {
-		if ttl < w.Duration || w.Duration < 0 {
+		if maxTTL < w.Duration || w.Duration < 0 {
 			return errInvalidDuration
 		}
 		return nil
@@ -115,11 +115,11 @@ func CheckDuration(ttl time.Duration) (ValidatorFunc, error) {
 }
 
 // CheckUntil ensures that Until, with jitter, is not more than ttl in the future.
-func CheckUntil(jitter time.Duration, ttl time.Duration, now func() time.Time) (ValidatorFunc, error) {
+func CheckUntil(jitter time.Duration, maxTTL time.Duration, now func() time.Time) (ValidatorFunc, error) {
 	if now == nil {
 		now = time.Now
 	}
-	if ttl < 0 {
+	if maxTTL < 0 {
 		return nil, errInvalidTTL
 	} else if jitter < 0 {
 		return nil, errInvalidJitter
@@ -128,7 +128,7 @@ func CheckUntil(jitter time.Duration, ttl time.Duration, now func() time.Time) (
 		if w.Until.IsZero() {
 			return nil
 		}
-		limit := (now().Add(ttl)).Add(jitter)
+		limit := (now().Add(maxTTL)).Add(jitter)
 		proposed := (w.Until)
 		if proposed.After(limit) {
 			return errInvalidUntil
