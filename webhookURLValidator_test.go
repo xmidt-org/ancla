@@ -440,7 +440,7 @@ func TestInvalidSubnets(t *testing.T) {
 		},
 		{
 			desc: "Nil subnet Success",
-			url:  "https://192.0.2.56",
+			url:  "https://192.0.2.56:1030",
 		},
 		{
 			desc:        "Valid IP given with valid subnets Success",
