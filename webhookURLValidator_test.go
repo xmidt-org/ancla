@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -413,6 +414,60 @@ func TestRejectLoopback(t *testing.T) {
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					res, tc.expectedErr),
 			)
+		})
+	}
+}
+
+func TestInvalidSubnets(t *testing.T) {
+	tcs := []struct {
+		desc               string
+		url                string
+		subnetsList        []string
+		expectedInitialErr error
+		expectedLatterErr  error
+	}{
+		{
+			desc:               "Invalid subnet provided Failure",
+			url:                "https://2001:db8:a0b:12f0::1/32",
+			subnetsList:        []string{"2001:db8:a0b:12f0::1//32"},
+			expectedInitialErr: errInvalidSubnet,
+		},
+		{
+			desc:              "IP in subnet Failure",
+			url:               "https://192.0.2.56",
+			subnetsList:       []string{"192.0.2.1/24"},
+			expectedLatterErr: errIPinInvalidSubnets,
+		},
+		{
+			desc: "Nil subnet Success",
+			url:  "https://192.0.2.56",
+		},
+		{
+			desc:        "Valid IP given with valid subnets Success",
+			url:         "https://2001:db8:a0b:12f0::1/32",
+			subnetsList: []string{"192.0.2.1/24"},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			url, err := url.ParseRequestURI(tc.url)
+			assert.NoError(err)
+			f, err := InvalidSubnets(tc.subnetsList)
+			if tc.expectedInitialErr != nil {
+				assert.True(errors.Is(err, tc.expectedInitialErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedInitialErr))
+				assert.Nil(f)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, f)
+			err = f(url)
+			assert.True(errors.Is(err, tc.expectedLatterErr),
+				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+					err, tc.expectedLatterErr))
 		})
 	}
 }

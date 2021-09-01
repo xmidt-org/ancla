@@ -33,6 +33,8 @@ var (
 	errInvalidHost           = errors.New("invalid host")
 	errIPGivenAsHost         = errors.New("cannot use IP as host")
 	errLoopbackGivenAsHost   = errors.New("cannot use loopback host")
+	errIPinInvalidSubnets    = errors.New("IP is within a blocked subnet")
+	errInvalidSubnet         = errors.New("invalid subnet")
 )
 
 // filterNil takes out all entries of Nil value from the slice.
@@ -177,4 +179,27 @@ func RejectLoopback() ValidURLFunc {
 		}
 		return nil
 	}
+}
+
+// InvalidSubnets checks if the given URL is in any subnets we are blocking and returns
+// an error if it is. SpecialIPs will return nil if the URL is not in the subnet.
+func InvalidSubnets(i []string) (ValidURLFunc, error) {
+	invalidSubnets := []*net.IPNet{}
+	for _, sp := range i {
+		_, n, err := net.ParseCIDR(sp)
+		if err != nil {
+			return nil, errInvalidSubnet
+		}
+		invalidSubnets = append(invalidSubnets, n)
+	}
+	return func(u *url.URL) error {
+		host := u.Host
+		ip := net.ParseIP(host)
+		for _, s := range invalidSubnets {
+			if s.Contains(ip) {
+				return errIPinInvalidSubnets
+			}
+		}
+		return nil
+	}, nil
 }
