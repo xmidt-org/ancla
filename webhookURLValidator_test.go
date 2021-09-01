@@ -457,6 +457,12 @@ func TestInvalidSubnets(t *testing.T) {
 			url:               "/g/a",
 			expectedLatterErr: errInvalidURL,
 		},
+		{
+			desc:              "non-IP hostname in Subnet Failure",
+			url:               "https://localhost:9000",
+			subnetsList:       []string{"127.0.0.1/32"},
+			expectedLatterErr: errIPinInvalidSubnets,
+		},
 	}
 
 	for _, tc := range tcs {
