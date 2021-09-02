@@ -19,20 +19,20 @@ package ancla
 
 import (
 	"errors"
-	"fmt"
-	"net"
 	"net/url"
-	"strings"
+	"regexp"
+	"time"
 )
 
 var (
-	errInvalidURL            = errors.New("invalid Config URL")
-	errInvalidFailureURL     = errors.New("invalid Failure URL")
-	errInvalidAlternativeURL = errors.New("invalid Alternative URL(s)")
-	errURLIsNotHTTPS         = errors.New("URL scheme is not HTTPS")
-	errInvalidHost           = errors.New("invalid host")
-	errIPGivenAsHost         = errors.New("cannot use IP as host")
-	errLoopbackGivenAsHost   = errors.New("cannot use loopback host")
+	errZeroEvents          = errors.New("cannot have zero events")
+	errEventsUnparseable   = errors.New("event cannot be parsed")
+	errDeviceIDUnparseable = errors.New("deviceID cannot be parsed")
+	errInvalidDuration     = errors.New("duration value of webhook is out of bounds")
+	errInvalidUntil        = errors.New("until value of webhook is out of bounds")
+	errUntilDurationAbsent = errors.New("until and duration are both absent")
+	errInvalidTTL          = errors.New("invalid TTL")
+	errInvalidJitter       = errors.New("invalid jitter")
 )
 
 // Validator is a WebhookValidator that allows access to the Validate function.
@@ -70,145 +70,79 @@ func (vf ValidatorFunc) Validate(w Webhook) error {
 	return vf(w)
 }
 
-// filterNil takes out all entries of Nil value from the slice.
-func filterNil(vs []ValidURLFunc) (filtered []ValidURLFunc) {
-	for _, v := range vs {
-		if v != nil {
-			filtered = append(filtered, v)
-		}
-	}
-	return
-}
-
-// GoodConfigURL parses the given webhook's Config.URL
-// and returns as soon as the URL is considered invalid. It returns nil if the URL is
-// valid.
-func GoodConfigURL(vs []ValidURLFunc) ValidatorFunc {
-	vs = filterNil(vs)
+// CheckEvents makes sure there is at least one value in Events and ensures that
+// all values should parse into regex.
+func CheckEvents() ValidatorFunc {
 	return func(w Webhook) error {
-		parsedURL, err := url.ParseRequestURI(w.Config.URL)
-		if err != nil {
-			return fmt.Errorf("%w: %v", errInvalidURL, err)
+		if len(w.Events) == 0 {
+			return errZeroEvents
 		}
-		for _, f := range vs {
-			err = f(parsedURL)
+		for _, e := range w.Events {
+			_, err := regexp.Compile(e)
 			if err != nil {
-				return fmt.Errorf("%w: %v", errInvalidURL, err)
+				return errEventsUnparseable
 			}
 		}
 		return nil
 	}
 }
 
-// GoodFailureURL parses the given webhook's FailureURL
-// and returns as soon as the URL is considered invalid. It returns nil if the URL is
-// valid.
-func GoodFailureURL(vs []ValidURLFunc) ValidatorFunc {
-	vs = filterNil(vs)
+// CheckDeviceID ensures that the DeviceIDs are able to parse into regex.
+func CheckDeviceID() ValidatorFunc {
 	return func(w Webhook) error {
-		if w.FailureURL != "" {
-			parsedFailureURL, err := url.ParseRequestURI(w.FailureURL)
+		for _, i := range w.Matcher.DeviceID {
+			_, err := regexp.Compile(i)
 			if err != nil {
-				return fmt.Errorf("%w: %v", errInvalidFailureURL, err)
-			}
-			for _, f := range vs {
-				err = f(parsedFailureURL)
-				if err != nil {
-					return fmt.Errorf("%w: %v", errInvalidFailureURL, err)
-				}
+				return errDeviceIDUnparseable
 			}
 		}
 		return nil
 	}
 }
 
-// GoodAlternativeURLs parses the given webhook's Config.AlternativeURLs
-// and returns as soon as the URL is considered invalid. It returns nil if the URL is
-// valid.
-func GoodAlternativeURLs(vs []ValidURLFunc) ValidatorFunc {
-	vs = filterNil(vs)
+// CheckDuration ensures that 0 <= Duration <= ttl. Duration returns an error
+// if a negative value is given.
+func CheckDuration(maxTTL time.Duration) (ValidatorFunc, error) {
+	if maxTTL < 0 {
+		return nil, errInvalidTTL
+	}
 	return func(w Webhook) error {
-		for _, u := range w.Config.AlternativeURLs {
-			if u == "" {
-				return errInvalidAlternativeURL
-			}
-			parsedAlternativeURL, err := url.ParseRequestURI(u)
-			if err != nil {
-				return fmt.Errorf("%w: %v", errInvalidAlternativeURL, err)
-			}
-			for _, f := range vs {
-				err = f(parsedAlternativeURL)
-				if err != nil {
-					return fmt.Errorf("%w: %v", errInvalidAlternativeURL, err)
-				}
-			}
+		if maxTTL < w.Duration || w.Duration < 0 {
+			return errInvalidDuration
 		}
 		return nil
-	}
+	}, nil
 }
 
-// HTTPSOnlyEndpoints creates a ValidURLFunc that considers a URL valid if the scheme
-// of the address is https.
-func HTTPSOnlyEndpoints() ValidURLFunc {
-	return func(u *url.URL) error {
-		if u.Scheme != "https" {
-			return errURLIsNotHTTPS
+// CheckUntil ensures that Until, with jitter, is not more than ttl in the future.
+func CheckUntil(jitter time.Duration, maxTTL time.Duration, now func() time.Time) (ValidatorFunc, error) {
+	if now == nil {
+		now = time.Now
+	}
+	if maxTTL < 0 {
+		return nil, errInvalidTTL
+	} else if jitter < 0 {
+		return nil, errInvalidJitter
+	}
+	return func(w Webhook) error {
+		if w.Until.IsZero() {
+			return nil
+		}
+		limit := (now().Add(maxTTL)).Add(jitter)
+		proposed := (w.Until)
+		if proposed.After(limit) {
+			return errInvalidUntil
 		}
 		return nil
-	}
+	}, nil
 }
 
-// RejectHosts creates a ValidURLFunc that checks the URL and ensures the
-// host does not contain any strings in the list of invalid hosts. It returns an error
-// if the host does include an invalid host name.
-func RejectHosts(invalidHosts []string) ValidURLFunc {
-	ih := []string{}
-	for _, v := range invalidHosts {
-		if v != "" {
-			ih = append(ih, v)
-		}
-	}
-	return func(u *url.URL) error {
-		host := u.Host
-		for _, v := range ih {
-			if strings.Contains(host, v) {
-				return errInvalidHost
-			}
-		}
-		return nil
-	}
-}
-
-// RejectALLIPs creates a ValidURLFunc that checks if the URL is an IP and returns an error
-// if it is.
-func RejectAllIPs() ValidURLFunc {
-	return func(u *url.URL) error {
-		host := u.Hostname()
-		ip := net.ParseIP(host)
-		if ip != nil {
-			return errIPGivenAsHost
-		}
-		return nil
-	}
-}
-
-// RejectLoopback creates a ValidURLFunc that returns an error if the given URL is
-// a loopback address.
-func RejectLoopback() ValidURLFunc {
-	return func(u *url.URL) error {
-		host := u.Hostname()
-		ip := net.ParseIP(host)
-		if ip != nil && ip.IsLoopback() {
-			return errLoopbackGivenAsHost
-		}
-		ips, err := net.LookupIP(host)
-		if err != nil {
-			return err
-		}
-		for _, i := range ips {
-			if i.IsLoopback() {
-				return errLoopbackGivenAsHost
-			}
+// CheckUntilAndDuration checks if either Until or Duration exists and returns an error
+// if neither exist.
+func CheckUntilOrDurationExist() ValidatorFunc {
+	return func(w Webhook) error {
+		if w.Duration == 0 && (w.Until).IsZero() {
+			return errUntilDurationAbsent
 		}
 		return nil
 	}
