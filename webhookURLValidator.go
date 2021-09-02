@@ -170,7 +170,7 @@ func RejectLoopback() ValidURLFunc {
 		}
 		ips, err := net.LookupIP(host)
 		if err != nil {
-			return errNoSuchHost
+			return fmt.Errorf("%w: %v", errNoSuchHost, err)
 		}
 		for _, i := range ips {
 			if i.IsLoopback() {
