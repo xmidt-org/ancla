@@ -5,10 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
+- Added validators for deviceID, Until, Duration, Events to webhookValidator. [#67](https://github.com/xmidt-org/ancla/pull/67)
 
 ## [v0.2.1]
-- Added webhookValidator. [#65](https://github.com/xmidt-org/ancla/pull/65)
+- Added webhookValidator. Validates the webhook's Config.URL, Config.AlternativeURLs, and FailureURL. [#65](https://github.com/xmidt-org/ancla/pull/65)
 - Fix security warning by removing old jwt lib as direct dependency. [#66](https://github.com/xmidt-org/ancla/pull/66)
 
 ## [v0.2.0]
