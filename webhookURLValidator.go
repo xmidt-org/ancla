@@ -192,8 +192,7 @@ func InvalidSubnets(i []string) (ValidURLFunc, error) {
 		invalidSubnets = append(invalidSubnets, n)
 	}
 	return func(u *url.URL) error {
-		host := u.Hostname()
-		ips, err := net.LookupIP(host)
+		ips, err := net.LookupIP(u.Hostname())
 		if err != nil {
 			return errInvalidURL
 		}
