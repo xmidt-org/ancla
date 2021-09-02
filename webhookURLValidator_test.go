@@ -213,6 +213,22 @@ func TestGoodAlternativeURLs(t *testing.T) {
 			expectedErr:   errInvalidAlternativeURL,
 		},
 		{
+			desc: "Nil String AlternativeURLs Failure",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{""}}},
+			expectedErr: errInvalidAlternativeURL,
+		},
+		{
+			desc: "Unparseable AlternativeURLs Failure",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL:             "https://www.google.com/",
+					AlternativeURLs: []string{"www.google.com/", "http://www.bing.com/"}}},
+			expectedErr: errInvalidAlternativeURL,
+		},
+		{
 			desc:    "Nil validURLFunc input Success",
 			webhook: goodURLWebhook,
 		},
@@ -402,6 +418,11 @@ func TestRejectLoopback(t *testing.T) {
 			desc:        "Loopback URL with Port Failure",
 			url:         "https://localhost:9000",
 			expectedErr: errLoopbackGivenAsHost,
+		},
+		{
+			desc:        "Unparseable Host Failure",
+			url:         "https://localhost:9000:::2",
+			expectedErr: errNoSuchHost,
 		},
 		{
 			desc: "IP Host Success",

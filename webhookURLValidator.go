@@ -35,6 +35,7 @@ var (
 	errLoopbackGivenAsHost   = errors.New("cannot use loopback host")
 	errIPinInvalidSubnets    = errors.New("IP is within a blocked subnet")
 	errInvalidSubnet         = errors.New("invalid subnet")
+	errNoSuchHost            = errors.New("host does not exist")
 )
 
 // filterNil takes out all entries of Nil value from the slice.
@@ -169,7 +170,7 @@ func RejectLoopback() ValidURLFunc {
 		}
 		ips, err := net.LookupIP(host)
 		if err != nil {
-			return err
+			return errNoSuchHost
 		}
 		for _, i := range ips {
 			if i.IsLoopback() {
