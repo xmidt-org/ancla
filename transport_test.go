@@ -195,6 +195,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				now: func() time.Time {
 					return getRefTime()
 				},
+				v: Validators{},
 			}
 			decode := addWebhookRequestDecoder(config)
 			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
@@ -302,7 +303,7 @@ func addWebhookDecoderOutput() *addWebhookRequest {
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
 		webhook: Webhook{
-			Address: "original-requester.example.net",
+			Address: "original-requester.example.net:443",
 			Config: DeliveryConfig{
 				URL:         "http://deliver-here-0.example.net",
 				ContentType: "application/json",
@@ -313,7 +314,7 @@ func addWebhookDecoderOutput() *addWebhookRequest {
 				DeviceID: []string{"mac:aabbccddee.*"},
 			},
 			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   5 * time.Minute,
+			Duration:   0,
 			Until:      getRefTime().Add(10 * time.Second),
 		},
 	}
