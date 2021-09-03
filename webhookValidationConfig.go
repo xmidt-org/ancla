@@ -24,6 +24,24 @@ import (
 )
 
 var (
+	SpecialUseIPs = []string{
+		"0.0.0.0/8",          //local ipv4
+		"fe80::/10",          //local ipv6
+		"255.255.255.255/32", //broadcast to neighbors
+		"2001::/32",          //ipv6 TEREDO prefix
+		"2001:5::/32",        //EID space for lisp
+		"2002::/16",          //ipv6 6to4
+		"fc00::/7",           //ipv6 unique local
+		"192.0.0.0/24",       //ipv4 IANA
+		"2001:0000::/23",     //ipv6 IANA
+		"224.0.0.1/32",       //ipv4 multicast
+	}
+	SpecialUseHosts = []string{
+		".example.",
+		".invalid.",
+		".test.",
+		"localhost",
+	}
 	errFailedToBuildValidators = errors.New("failed to build validators")
 )
 
@@ -34,18 +52,18 @@ type ValidatorConfig struct {
 
 type URLVConfig struct {
 	HTTPSOnly            bool
-	allowLoopback        bool
-	allowIP              bool
-	allowSpecialUseHosts bool
-	allowSpecialUseIPs   bool
-	invalidHosts         []string
-	invalidSubnets       []string
+	AllowLoopback        bool
+	AllowIP              bool
+	AllowSpecialUseHosts bool
+	AllowSpecialUseIPs   bool
+	InvalidHosts         []string
+	InvalidSubnets       []string
 }
 
 type TTLVConfig struct {
-	max    time.Duration
-	jitter time.Duration
-	now    func() time.Time
+	Max    time.Duration
+	Jitter time.Duration
+	Now    func() time.Time
 }
 
 // BuildValidators translates the configuration into a list of validators to be run on the
@@ -55,22 +73,27 @@ func BuildValidators(config ValidatorConfig) (Validator, error) {
 	if config.URL.HTTPSOnly {
 		v = append(v, HTTPSOnlyEndpoints())
 	}
-	if !config.URL.allowLoopback {
+	if !config.URL.AllowLoopback {
 		v = append(v, RejectLoopback())
 	}
-	if !config.URL.allowIP {
+	if !config.URL.AllowIP {
 		v = append(v, RejectAllIPs())
 	}
-	if !config.URL.allowSpecialUseHosts {
-		v = append(v, RejectHosts(config.URL.invalidHosts))
+	if !config.URL.AllowSpecialUseHosts {
+		config.URL.InvalidHosts = append(config.URL.InvalidHosts, SpecialUseHosts...)
 	}
-	if !config.URL.allowSpecialUseIPs {
-		fInvalidSubnets, err := InvalidSubnets(config.URL.invalidSubnets)
+	if len(config.URL.InvalidHosts) > 0 {
+		v = append(v, RejectHosts(config.URL.InvalidHosts))
+	}
+	if !config.URL.AllowSpecialUseIPs {
+		config.URL.InvalidSubnets = append(config.URL.InvalidSubnets, SpecialUseIPs...)
+	}
+	if len(config.URL.InvalidSubnets) > 0 {
+		fInvalidSubnets, err := InvalidSubnets(config.URL.InvalidSubnets)
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
-		} else {
-			v = append(v, fInvalidSubnets)
 		}
+		v = append(v, fInvalidSubnets)
 	}
 	vs := Validators{
 		GoodConfigURL(v),
@@ -80,16 +103,17 @@ func BuildValidators(config ValidatorConfig) (Validator, error) {
 		CheckDeviceID(),
 		CheckUntilOrDurationExist(),
 	}
-	if fCheckDuration, err := CheckDuration(config.TTL.max); err != nil {
+	fCheckDuration, err := CheckDuration(config.TTL.Max)
+	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
-	} else {
-		vs = append(vs, fCheckDuration)
 	}
-	if fCheckUntil, err := CheckUntil(config.TTL.jitter, config.TTL.max, config.TTL.now); err != nil {
+	vs = append(vs, fCheckDuration)
+
+	fCheckUntil, err := CheckUntil(config.TTL.Jitter, config.TTL.Max, config.TTL.Now)
+	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
-	} else {
-		vs = append(vs, fCheckUntil)
 	}
+	vs = append(vs, fCheckUntil)
 
 	return vs, nil
 }
