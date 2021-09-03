@@ -91,11 +91,12 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			config.webhookLegacyDecodeCount.With(URLLabel, webhook.Config.URL).Add(1)
 		}
 
-		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
-
+		err = (config.v).Validate(webhook)
 		if err != nil {
 			return nil, err
 		}
+
+		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
 
 		return &addWebhookRequest{
 			owner:   getOwner(r.Context()),
