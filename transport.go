@@ -22,9 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
@@ -35,15 +33,11 @@ import (
 )
 
 var (
-	errInvalidConfigURL         = errors.New("invalid Config URL")
-	errInvalidEvents            = errors.New("invalid events")
 	errNoWebhooksInLegacyDecode = errors.New("no webhooks to decode in legacy decoding format")
 	errFailedWebhookUnmarshal   = errors.New("failed to JSON unmarshal webhook")
 )
 
 const (
-	defaultWebhookExpiration time.Duration = time.Minute * 5
-
 	contentTypeHeader string = "Content-Type"
 	jsonContentType   string = "application/json"
 )
@@ -51,6 +45,7 @@ const (
 type transportConfig struct {
 	webhookLegacyDecodeCount metrics.Counter
 	now                      func() time.Time
+	v                        Validator
 }
 
 type addWebhookRequest struct {
@@ -79,6 +74,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 	wv := webhookValidator{
 		now: config.now,
 	}
+
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
 		requestPayload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -94,7 +90,9 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 			config.webhookLegacyDecodeCount.With(URLLabel, webhook.Config.URL).Add(1)
 		}
-		err = wv.validateWebhook(&webhook, r.RemoteAddr)
+
+		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
+
 		if err != nil {
 			return nil, err
 		}
@@ -148,37 +146,18 @@ type webhookValidator struct {
 	now func() time.Time
 }
 
-func (wv webhookValidator) validateWebhook(webhook *Webhook, requestOriginAddress string) (err error) {
-	if strings.TrimSpace(webhook.Config.URL) == "" {
-		return &erraux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL}
-	}
-
-	if len(webhook.Events) == 0 {
-		return &erraux.Error{Code: http.StatusBadRequest, Err: errInvalidEvents}
-	}
-
-	// TODO Validate content type ?  What about different types?
-
+func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHost string) {
 	if len(webhook.Matcher.DeviceID) == 0 {
 		webhook.Matcher.DeviceID = []string{".*"} // match anything
 	}
 
-	if webhook.Address == "" && requestOriginAddress != "" {
-		host, _, err := net.SplitHostPort(requestOriginAddress)
-		if err != nil {
-			return err
-		}
-		webhook.Address = host
+	if webhook.Address == "" && requestOriginHost != "" {
+		webhook.Address = requestOriginHost
 	}
-
-	// always set duration to default
-	webhook.Duration = defaultWebhookExpiration
 
 	if webhook.Until.Equal(time.Time{}) {
 		webhook.Until = wv.now().Add(webhook.Duration)
 	}
-
-	return nil
 }
 
 func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {

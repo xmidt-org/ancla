@@ -217,7 +217,7 @@ func TestValidateWebhook(t *testing.T) {
 					return nowSnapShot
 				},
 			}
-			err := wv.validateWebhook(tc.InputWebhook, "requester.example.net:443")
+			err := wv.setWebhookDefaults(tc.InputWebhook, "requester.example.net:443")
 
 			if tc.ExpectedErr != nil {
 				assert.EqualValues(tc.ExpectedErr, err)
