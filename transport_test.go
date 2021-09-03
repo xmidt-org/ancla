@@ -152,84 +152,6 @@ func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 	}
 }
 
-func TestValidateWebhook(t *testing.T) {
-	type testCase struct {
-		Description     string
-		InputWebhook    *Webhook
-		ExpectedErr     *erraux.Error
-		ExpectedWebhook *Webhook
-	}
-
-	nowSnapShot := time.Now()
-	tcs := []testCase{
-		{
-			Description: "No config url",
-			InputWebhook: &Webhook{
-				Config: DeliveryConfig{
-					ContentType: "application/json",
-				},
-			},
-			ExpectedErr: &erraux.Error{Err: errInvalidConfigURL, Code: 400},
-		},
-		{
-			Description: "No events",
-			InputWebhook: &Webhook{
-				Config: DeliveryConfig{
-					URL:         "https://deliver-here.example.net",
-					ContentType: "application/json",
-				},
-			},
-			ExpectedErr: &erraux.Error{Err: errInvalidEvents, Code: 400},
-		},
-		{
-			Description: "Valid defaulted values",
-			InputWebhook: &Webhook{
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
-				},
-				Events: []string{"online", "offline"},
-			},
-			ExpectedWebhook: &Webhook{
-				Address: "requester.example.net",
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
-				},
-				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
-					DeviceID: []string{".*"},
-				},
-				Duration: 5 * time.Minute,
-				Until:    nowSnapShot.Add(5 * time.Minute),
-			},
-		},
-		{
-			Description:     "Provided values",
-			InputWebhook:    validateWebhookInput(nowSnapShot),
-			ExpectedWebhook: validateWebhookOutput(nowSnapShot),
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.Description, func(t *testing.T) {
-			assert := assert.New(t)
-			wv := webhookValidator{
-				now: func() time.Time {
-					return nowSnapShot
-				},
-			}
-			err := wv.setWebhookDefaults(tc.InputWebhook, "requester.example.net:443")
-
-			if tc.ExpectedErr != nil {
-				assert.EqualValues(tc.ExpectedErr, err)
-			} else {
-				assert.Nil(err)
-				assert.EqualValues(tc.ExpectedWebhook, tc.InputWebhook)
-			}
-		})
-	}
-
-}
-
 func TestAddWebhookRequestDecoder(t *testing.T) {
 	type testCase struct {
 		Description                 string
@@ -260,11 +182,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:  "Empty legacy case",
 			InputPayload: "[]",
 			ExpectedErr:  &erraux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest},
-		},
-		{
-			Description:  "Invalid Input",
-			InputPayload: `{"events": ["online", "offline"]}`,
-			ExpectedErr:  &erraux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL},
 		},
 	}
 
@@ -330,7 +247,6 @@ func validateWebhookInput(nowSnapShot time.Time) *Webhook {
 
 func validateWebhookOutput(nowSnapShot time.Time) *Webhook {
 	webhook := validateWebhookInput(nowSnapShot)
-	webhook.Duration = defaultWebhookExpiration
 	return webhook
 }
 
