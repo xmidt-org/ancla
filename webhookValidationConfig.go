@@ -55,10 +55,10 @@ func BuildValidators(config ValidatorConfig) (Validator, error) {
 	if config.URL.HTTPSOnly {
 		v = append(v, HTTPSOnlyEndpoints())
 	}
-	if config.URL.allowLoopback {
+	if !config.URL.allowLoopback {
 		v = append(v, RejectLoopback())
 	}
-	if config.URL.allowIP {
+	if !config.URL.allowIP {
 		v = append(v, RejectAllIPs())
 	}
 	if !config.URL.allowSpecialUseHosts {
