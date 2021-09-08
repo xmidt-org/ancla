@@ -42,7 +42,8 @@ var (
 		".test.",
 		"localhost",
 	}
-	errFailedToBuildValidators = errors.New("failed to build validators")
+	errFailedToBuildValidators    = errors.New("failed to build validators")
+	errFailedToBuildValidURLFuncs = errors.New("failed to build ValidURLFuncs")
 )
 
 type ValidatorConfig struct {
@@ -66,9 +67,9 @@ type TTLVConfig struct {
 	Now    func() time.Time
 }
 
-// BuildValidators translates the configuration into a list of validators to be run on the
-// webhook.
-func BuildValidators(config ValidatorConfig) (Validator, error) {
+// BuildValidURLFuncs translates the configuration into a list of ValidURLFuncs
+// to be run on the webhook.
+func BuildValidURLFuncs(config ValidatorConfig) ([]ValidURLFunc, error) {
 	var v []ValidURLFunc
 	if config.URL.HTTPSOnly {
 		v = append(v, HTTPSOnlyEndpoints())
@@ -91,10 +92,21 @@ func BuildValidators(config ValidatorConfig) (Validator, error) {
 	if len(config.URL.InvalidSubnets) > 0 {
 		fInvalidSubnets, err := InvalidSubnets(config.URL.InvalidSubnets)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
+			return nil, fmt.Errorf("%w: %v", errFailedToBuildValidURLFuncs, err)
 		}
 		v = append(v, fInvalidSubnets)
 	}
+	return v, nil
+}
+
+// BuildValidators translates the configuration into a list of validators to be run on the
+// webhook.
+func BuildValidators(config ValidatorConfig) (Validators, error) {
+	v, err := BuildValidURLFuncs(config)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
+	}
+
 	vs := Validators{
 		GoodConfigURL(v),
 		GoodFailureURL(v),

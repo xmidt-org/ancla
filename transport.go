@@ -91,7 +91,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			config.webhookLegacyDecodeCount.With(URLLabel, webhook.Config.URL).Add(1)
 		}
 
-		err = (config.v).Validate(webhook)
+		err = config.v.Validate(webhook)
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +156,7 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 		webhook.Address = requestOriginHost
 	}
 
-	if webhook.Until.Equal(time.Time{}) {
+	if webhook.Until.IsZero() {
 		webhook.Until = wv.now().Add(webhook.Duration)
 	}
 }

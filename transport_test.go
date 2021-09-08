@@ -396,3 +396,97 @@ func encodeGetAllOutput() string {
 	]
 	`
 }
+
+func TestSetWebhookDefaults(t *testing.T) {
+	var mockNow func() time.Time = func() time.Time {
+		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+	}
+	tcs := []struct {
+		desc            string
+		webhook         Webhook
+		remoteAddr      string
+		expectedWebhook Webhook
+	}{
+		{
+			desc: "No Until, Address, or DeviceID",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events:   []string{"online", "offline"},
+				Matcher:  MetadataMatcherConfig{},
+				Duration: 5 * time.Minute,
+			},
+			remoteAddr: "http://original-requester.example.net",
+			expectedWebhook: Webhook{
+				Address: "http://original-requester.example.net",
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"}},
+				Duration: 5 * time.Minute,
+				Until:    mockNow().Add(5 * time.Minute),
+			},
+		},
+		{
+			desc: "No Address or Request Address",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events:   []string{"online", "offline"},
+				Matcher:  MetadataMatcherConfig{},
+				Duration: 5 * time.Minute,
+			},
+			expectedWebhook: Webhook{
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"}},
+				Duration: 5 * time.Minute,
+				Until:    mockNow().Add(5 * time.Minute),
+			},
+		},
+		{
+			desc: "All values set",
+			webhook: Webhook{
+				Address: "requester.example.net:443",
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"},
+				},
+				Duration: 5 * time.Minute,
+				Until:    mockNow().Add(5 * time.Minute),
+			},
+			expectedWebhook: Webhook{
+				Address: "requester.example.net:443",
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"},
+				},
+				Duration: 5 * time.Minute,
+				Until:    mockNow().Add(5 * time.Minute),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			w := webhookValidator{
+				now: mockNow,
+			}
+			w.setWebhookDefaults(&tc.webhook, tc.remoteAddr)
+			assert.Equal(tc.expectedWebhook, tc.webhook)
+		})
+	}
+}
