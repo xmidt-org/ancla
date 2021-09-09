@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"time"
@@ -35,6 +36,7 @@ import (
 var (
 	errNoWebhooksInLegacyDecode = errors.New("no webhooks to decode in legacy decoding format")
 	errFailedWebhookUnmarshal   = errors.New("failed to JSON unmarshal webhook")
+	errFailedValidation         = errors.New("webhook failed validation")
 )
 
 const (
@@ -78,7 +80,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
 		requestPayload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			return nil, &erraux.Error{Err: err, Code: http.StatusBadRequest}
+			return nil, &erraux.Error{Err: err, Message: fmt.Sprintf("%s: %s", errFailedValidation, err), Code: http.StatusBadRequest}
 		}
 		var webhook Webhook
 
@@ -93,7 +95,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		err = config.v.Validate(webhook)
 		if err != nil {
-			return nil, &erraux.Error{Err: err, Code: http.StatusBadRequest}
+			return nil, &erraux.Error{Err: err, Message: fmt.Sprintf("%s: %s", errFailedValidation, err), Code: http.StatusBadRequest}
 		}
 
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
