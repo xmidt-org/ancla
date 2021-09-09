@@ -78,7 +78,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
 		requestPayload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			return nil, &erraux.Error{Err: err, Code: http.StatusBadRequest}
+			return nil, err
 		}
 		var webhook Webhook
 
@@ -93,7 +93,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		err = config.v.Validate(webhook)
 		if err != nil {
-			return nil, &erraux.Error{Err: err, Code: http.StatusBadRequest}
+			return nil, err
 		}
 
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
