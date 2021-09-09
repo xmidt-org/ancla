@@ -67,15 +67,12 @@ var (
 	}
 )
 
-//just check if validators is nil or not and check errors
-//or check webhooks and see if the validators did what they were supposed to on them
-
 func TestBuildValidURLFuncs(t *testing.T) {
 	tcs := []struct {
-		desc            string
-		config          ValidatorConfig
-		expectedErr     error
-		expectedOutcome int
+		desc              string
+		config            ValidatorConfig
+		expectedErr       error
+		expectedFuncCount int
 	}{
 		{
 			desc: "HTTPSOnly only",
@@ -88,7 +85,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   true,
 				},
 			},
-			expectedOutcome: 1,
+			expectedFuncCount: 1,
 		},
 		{
 			desc: "AllowLoopback only",
@@ -101,7 +98,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   true,
 				},
 			},
-			expectedOutcome: 1,
+			expectedFuncCount: 1,
 		},
 		{
 			desc: "AllowIp Only",
@@ -114,7 +111,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   true,
 				},
 			},
-			expectedOutcome: 1,
+			expectedFuncCount: 1,
 		},
 		{
 			desc: "AllowSpecialUseHosts Only",
@@ -127,7 +124,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   true,
 				},
 			},
-			expectedOutcome: 1,
+			expectedFuncCount: 1,
 		},
 		{
 			desc: "AllowSpecialuseIPS Only",
@@ -140,7 +137,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   false,
 				},
 			},
-			expectedOutcome: 1,
+			expectedFuncCount: 1,
 		},
 		{
 			desc: "InvalidSubnet Failure",
@@ -161,20 +158,20 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			config: ValidatorConfig{
 				URL: buildNoneConfig.URL,
 			},
-			expectedOutcome: 0,
+			expectedFuncCount: 0,
 		},
 		{
 			desc: "Build All",
 			config: ValidatorConfig{
 				URL: buildAllConfig.URL,
 			},
-			expectedOutcome: 5,
+			expectedFuncCount: 5,
 		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			vals, err := BuildValidURLFuncs(tc.config)
+			vals, err := buildValidURLFuncs(tc.config)
 			if tc.expectedErr != nil {
 				assert.True(errors.Is(err, tc.expectedErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
@@ -183,17 +180,17 @@ func TestBuildValidURLFuncs(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(tc.expectedOutcome, len(vals))
+			assert.Equal(tc.expectedFuncCount, len(vals))
 		})
 	}
 }
 
 func TestBuildValidators(t *testing.T) {
 	tcs := []struct {
-		desc            string
-		config          ValidatorConfig
-		expectedErr     error
-		expectedOutcome int
+		desc              string
+		config            ValidatorConfig
+		expectedErr       error
+		expectedFuncCount int
 	}{
 		{
 			desc: "BuildValidURLFuncs Failure",
@@ -228,8 +225,8 @@ func TestBuildValidators(t *testing.T) {
 			expectedErr: errFailedToBuildValidators,
 		},
 		{
-			desc:            "All Validators Added",
-			expectedOutcome: 8,
+			desc:              "All Validators Added",
+			expectedFuncCount: 8,
 		},
 	}
 	for _, tc := range tcs {
@@ -245,7 +242,7 @@ func TestBuildValidators(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.NotNil(vals)
-			assert.Equal(tc.expectedOutcome, len(vals))
+			assert.Equal(tc.expectedFuncCount, len(vals))
 		})
 	}
 }

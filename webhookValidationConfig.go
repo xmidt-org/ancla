@@ -69,7 +69,7 @@ type TTLVConfig struct {
 
 // BuildValidURLFuncs translates the configuration into a list of ValidURLFuncs
 // to be run on the webhook.
-func BuildValidURLFuncs(config ValidatorConfig) ([]ValidURLFunc, error) {
+func buildValidURLFuncs(config ValidatorConfig) ([]ValidURLFunc, error) {
 	var v []ValidURLFunc
 	if config.URL.HTTPSOnly {
 		v = append(v, HTTPSOnlyEndpoints())
@@ -102,7 +102,7 @@ func BuildValidURLFuncs(config ValidatorConfig) ([]ValidURLFunc, error) {
 // BuildValidators translates the configuration into a list of validators to be run on the
 // webhook.
 func BuildValidators(config ValidatorConfig) (Validators, error) {
-	v, err := BuildValidURLFuncs(config)
+	v, err := buildValidURLFuncs(config)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
 	}
