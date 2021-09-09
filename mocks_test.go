@@ -2,17 +2,11 @@ package ancla
 
 import (
 	"context"
-	"errors"
 
 	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
-)
-
-var (
-	errReadBodyFail      = errors.New("read test error")
-	errMockValidatorFail = errors.New("validation error")
 )
 
 type mockPushReader struct {
@@ -94,21 +88,4 @@ func interfacify(vals []string) []interface{} {
 		transformed[i] = val
 	}
 	return transformed
-}
-
-type errReader struct {
-}
-
-func (e errReader) Read(p []byte) (n int, err error) {
-	return 0, errReadBodyFail
-}
-
-func (e errReader) Close() error {
-	return errors.New("close test error")
-}
-
-func mockValidator() ValidatorFunc {
-	return func(w Webhook) error {
-		return errMockValidatorFail
-	}
 }
