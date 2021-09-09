@@ -152,84 +152,6 @@ func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 	}
 }
 
-func TestValidateWebhook(t *testing.T) {
-	type testCase struct {
-		Description     string
-		InputWebhook    *Webhook
-		ExpectedErr     *erraux.Error
-		ExpectedWebhook *Webhook
-	}
-
-	nowSnapShot := time.Now()
-	tcs := []testCase{
-		{
-			Description: "No config url",
-			InputWebhook: &Webhook{
-				Config: DeliveryConfig{
-					ContentType: "application/json",
-				},
-			},
-			ExpectedErr: &erraux.Error{Err: errInvalidConfigURL, Code: 400},
-		},
-		{
-			Description: "No events",
-			InputWebhook: &Webhook{
-				Config: DeliveryConfig{
-					URL:         "https://deliver-here.example.net",
-					ContentType: "application/json",
-				},
-			},
-			ExpectedErr: &erraux.Error{Err: errInvalidEvents, Code: 400},
-		},
-		{
-			Description: "Valid defaulted values",
-			InputWebhook: &Webhook{
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
-				},
-				Events: []string{"online", "offline"},
-			},
-			ExpectedWebhook: &Webhook{
-				Address: "requester.example.net",
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
-				},
-				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
-					DeviceID: []string{".*"},
-				},
-				Duration: 5 * time.Minute,
-				Until:    nowSnapShot.Add(5 * time.Minute),
-			},
-		},
-		{
-			Description:     "Provided values",
-			InputWebhook:    validateWebhookInput(nowSnapShot),
-			ExpectedWebhook: validateWebhookOutput(nowSnapShot),
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.Description, func(t *testing.T) {
-			assert := assert.New(t)
-			wv := webhookValidator{
-				now: func() time.Time {
-					return nowSnapShot
-				},
-			}
-			err := wv.validateWebhook(tc.InputWebhook, "requester.example.net:443")
-
-			if tc.ExpectedErr != nil {
-				assert.EqualValues(tc.ExpectedErr, err)
-			} else {
-				assert.Nil(err)
-				assert.EqualValues(tc.ExpectedWebhook, tc.InputWebhook)
-			}
-		})
-	}
-
-}
-
 func TestAddWebhookRequestDecoder(t *testing.T) {
 	type testCase struct {
 		Description                 string
@@ -261,11 +183,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			InputPayload: "[]",
 			ExpectedErr:  &erraux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest},
 		},
-		{
-			Description:  "Invalid Input",
-			InputPayload: `{"events": ["online", "offline"]}`,
-			ExpectedErr:  &erraux.Error{Code: http.StatusBadRequest, Err: errInvalidConfigURL},
-		},
 	}
 
 	for _, tc := range tcs {
@@ -278,6 +195,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				now: func() time.Time {
 					return getRefTime()
 				},
+				v: Validators{},
 			}
 			decode := addWebhookRequestDecoder(config)
 			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
@@ -330,7 +248,6 @@ func validateWebhookInput(nowSnapShot time.Time) *Webhook {
 
 func validateWebhookOutput(nowSnapShot time.Time) *Webhook {
 	webhook := validateWebhookInput(nowSnapShot)
-	webhook.Duration = defaultWebhookExpiration
 	return webhook
 }
 
@@ -386,7 +303,7 @@ func addWebhookDecoderOutput() *addWebhookRequest {
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
 		webhook: Webhook{
-			Address: "original-requester.example.net",
+			Address: "original-requester.example.net:443",
 			Config: DeliveryConfig{
 				URL:         "http://deliver-here-0.example.net",
 				ContentType: "application/json",
@@ -397,7 +314,7 @@ func addWebhookDecoderOutput() *addWebhookRequest {
 				DeviceID: []string{"mac:aabbccddee.*"},
 			},
 			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   5 * time.Minute,
+			Duration:   0,
 			Until:      getRefTime().Add(10 * time.Second),
 		},
 	}
@@ -478,4 +395,98 @@ func encodeGetAllOutput() string {
 		}
 	]
 	`
+}
+
+func TestSetWebhookDefaults(t *testing.T) {
+	var mockNow func() time.Time = func() time.Time {
+		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+	}
+	tcs := []struct {
+		desc            string
+		webhook         Webhook
+		remoteAddr      string
+		expectedWebhook Webhook
+	}{
+		{
+			desc: "No Until, Address, or DeviceID",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events:   []string{"online", "offline"},
+				Matcher:  MetadataMatcherConfig{},
+				Duration: 5 * time.Minute,
+			},
+			remoteAddr: "http://original-requester.example.net",
+			expectedWebhook: Webhook{
+				Address: "http://original-requester.example.net",
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"}},
+				Duration: 5 * time.Minute,
+				Until:    mockNow().Add(5 * time.Minute),
+			},
+		},
+		{
+			desc: "No Address or Request Address",
+			webhook: Webhook{
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events:   []string{"online", "offline"},
+				Matcher:  MetadataMatcherConfig{},
+				Duration: 5 * time.Minute,
+			},
+			expectedWebhook: Webhook{
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"}},
+				Duration: 5 * time.Minute,
+				Until:    mockNow().Add(5 * time.Minute),
+			},
+		},
+		{
+			desc: "All values set",
+			webhook: Webhook{
+				Address: "requester.example.net:443",
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"},
+				},
+				Duration: 5 * time.Minute,
+				Until:    mockNow().Add(5 * time.Minute),
+			},
+			expectedWebhook: Webhook{
+				Address: "requester.example.net:443",
+				Config: DeliveryConfig{
+					URL: "https://deliver-here.example.net",
+				},
+				Events: []string{"online", "offline"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{".*"},
+				},
+				Duration: 5 * time.Minute,
+				Until:    mockNow().Add(5 * time.Minute),
+			},
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			w := webhookValidator{
+				now: mockNow,
+			}
+			w.setWebhookDefaults(&tc.webhook, tc.remoteAddr)
+			assert.Equal(tc.expectedWebhook, tc.webhook)
+		})
+	}
 }
