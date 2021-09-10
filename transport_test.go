@@ -27,11 +27,11 @@ import (
 	"testing"
 	"time"
 
+	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/store"
 	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/httpaux/erraux"
 )
 
 func TestErrorEncoder(t *testing.T) {
@@ -159,6 +159,8 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 		ExpectedLegacyDecodingCount float64
 		ExpectedErr                 error
 		ExpectedDecodedRequest      *addWebhookRequest
+		ReadBodyFail                bool
+		Validator                   Validator
 	}
 
 	tcs := []testCase{
@@ -166,22 +168,38 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:            "Normal happy path",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(),
+			Validator:              Validators{},
 		},
 		{
 			Description:                 "Legacy decoding",
 			InputPayload:                addWebhookDecoderLegacyInput(),
 			ExpectedLegacyDecodingCount: 1,
 			ExpectedDecodedRequest:      addWebhookDecoderOutput(),
+			Validator:                   Validators{},
 		},
 		{
 			Description:  "Failed to JSON Unmarshal",
 			InputPayload: "{",
-			ExpectedErr:  &erraux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest},
+			ExpectedErr:  errFailedWebhookUnmarshal,
+			Validator:    Validators{},
 		},
 		{
 			Description:  "Empty legacy case",
 			InputPayload: "[]",
-			ExpectedErr:  &erraux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest},
+			ExpectedErr:  errNoWebhooksInLegacyDecode,
+			Validator:    Validators{},
+		},
+		{
+			Description:  "Webhook validation Failure",
+			InputPayload: addWebhookDecoderInput(),
+			Validator:    Validators{mockValidator()},
+			ExpectedErr:  errMockValidatorFail,
+		},
+		{
+			Description:  "Request Body Read Failure",
+			ExpectedErr:  errReadBodyFail,
+			ReadBodyFail: true,
+			Validator:    Validators{},
 		},
 	}
 
@@ -195,12 +213,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				now: func() time.Time {
 					return getRefTime()
 				},
-				v: Validators{},
+				v: tc.Validator,
 			}
 			decode := addWebhookRequestDecoder(config)
 			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
 			require.Nil(err)
-
+			if tc.ReadBodyFail {
+				r.Body = errReader{}
+			}
 			auth := bascule.Authentication{
 				Token: bascule.NewToken("jwt", "owner-from-auth", nil),
 			}
@@ -215,7 +235,13 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 
 			decodedRequest, err := decode(context.Background(), r)
 			if tc.ExpectedErr != nil {
-				assert.Equal(tc.ExpectedErr, err)
+				assert.True(errors.Is(err, tc.ExpectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.ExpectedErr))
+				var s kithttp.StatusCoder
+				isCoder := errors.As(err, &s)
+				require.True(isCoder, "error isn't StatusCoder as expected")
+				require.Equal(http.StatusBadRequest, s.StatusCode())
 			} else {
 				assert.Nil(err)
 				assert.EqualValues(tc.ExpectedDecodedRequest, decodedRequest)
@@ -229,26 +255,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			counter.AssertExpectations(t)
 		})
 	}
-}
-
-func validateWebhookInput(nowSnapShot time.Time) *Webhook {
-	return &Webhook{
-		Address: "requester.example.net",
-		Config: DeliveryConfig{
-			URL: "https://deliver-here.example.net",
-		},
-		Events: []string{"online", "offline"},
-		Matcher: MetadataMatcherConfig{
-			DeviceID: []string{".*"},
-		},
-		Duration: 25 * time.Minute,
-		Until:    nowSnapShot.Add(1000 * time.Hour),
-	}
-}
-
-func validateWebhookOutput(nowSnapShot time.Time) *Webhook {
-	webhook := validateWebhookInput(nowSnapShot)
-	return webhook
 }
 
 func addWebhookDecoderInput() string {
@@ -398,9 +404,6 @@ func encodeGetAllOutput() string {
 }
 
 func TestSetWebhookDefaults(t *testing.T) {
-	var mockNow func() time.Time = func() time.Time {
-		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
-	}
 	tcs := []struct {
 		desc            string
 		webhook         Webhook
