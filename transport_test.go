@@ -161,6 +161,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 		ExpectedDecodedRequest      *addWebhookRequest
 		ReadBodyFail                bool
 		Validator                   Validator
+		ExpectedStatusCode          int
 	}
 
 	tcs := []testCase{
@@ -178,16 +179,18 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Validator:                   Validators{},
 		},
 		{
-			Description:  "Failed to JSON Unmarshal",
-			InputPayload: "{",
-			ExpectedErr:  errFailedWebhookUnmarshal,
-			Validator:    Validators{},
+			Description:        "Failed to JSON Unmarshal",
+			InputPayload:       "{",
+			ExpectedErr:        errFailedWebhookUnmarshal,
+			Validator:          Validators{},
+			ExpectedStatusCode: 500,
 		},
 		{
-			Description:  "Empty legacy case",
-			InputPayload: "[]",
-			ExpectedErr:  errNoWebhooksInLegacyDecode,
-			Validator:    Validators{},
+			Description:        "Empty legacy case",
+			InputPayload:       "[]",
+			ExpectedErr:        errNoWebhooksInLegacyDecode,
+			Validator:          Validators{},
+			ExpectedStatusCode: 500,
 		},
 		{
 			Description:  "Webhook validation Failure",
@@ -196,9 +199,11 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			ExpectedErr:  errMockValidatorFail,
 		},
 		{
-			Description: "Request Body Read Failure",
-			ExpectedErr: errFailedWebhookUnmarshal,
-			Validator:   Validators{},
+			Description:        "Request Body Read Failure",
+			ExpectedErr:        errReadBodyFail,
+			ReadBodyFail:       true,
+			Validator:          Validators{},
+			ExpectedStatusCode: 0,
 		},
 	}
 
@@ -237,10 +242,13 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				assert.True(errors.Is(err, tc.ExpectedErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 						err, tc.ExpectedErr))
-				var s kithttp.StatusCoder
-				isCoder := errors.As(err, &s)
-				require.True(isCoder, "error isn't StatusCoder as expected")
-				require.Equal(http.StatusBadRequest, s.StatusCode())
+				if tc.ExpectedStatusCode != 0 {
+					var s kithttp.StatusCoder
+					isCoder := errors.As(err, &s)
+					require.True(isCoder, "error isn't StatusCoder as expected")
+					require.Equal(http.StatusBadRequest, s.StatusCode())
+				}
+
 			} else {
 				assert.Nil(err)
 				assert.EqualValues(tc.ExpectedDecodedRequest, decodedRequest)
