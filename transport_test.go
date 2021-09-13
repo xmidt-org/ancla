@@ -183,14 +183,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			InputPayload:       "{",
 			ExpectedErr:        errFailedWebhookUnmarshal,
 			Validator:          Validators{},
-			ExpectedStatusCode: 500,
+			ExpectedStatusCode: 400,
 		},
 		{
 			Description:        "Empty legacy case",
 			InputPayload:       "[]",
 			ExpectedErr:        errNoWebhooksInLegacyDecode,
 			Validator:          Validators{},
-			ExpectedStatusCode: 500,
+			ExpectedStatusCode: 400,
 		},
 		{
 			Description:  "Webhook validation Failure",
@@ -246,7 +246,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 					var s kithttp.StatusCoder
 					isCoder := errors.As(err, &s)
 					require.True(isCoder, "error isn't StatusCoder as expected")
-					require.Equal(http.StatusBadRequest, s.StatusCode())
+					require.Equal(tc.ExpectedStatusCode, s.StatusCode())
 				}
 
 			} else {
