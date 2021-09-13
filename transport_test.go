@@ -196,10 +196,9 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			ExpectedErr:  errMockValidatorFail,
 		},
 		{
-			Description:  "Request Body Read Failure",
-			ExpectedErr:  errReadBodyFail,
-			ReadBodyFail: true,
-			Validator:    Validators{},
+			Description: "Request Body Read Failure",
+			ExpectedErr: errFailedWebhookUnmarshal,
+			Validator:   Validators{},
 		},
 	}
 
