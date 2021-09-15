@@ -98,7 +98,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   true,
 				},
 			},
-			expectedFuncCount: 1,
+			expectedFuncCount: 2,
 		},
 		{
 			desc: "AllowIp Only",
@@ -111,7 +111,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   true,
 				},
 			},
-			expectedFuncCount: 1,
+			expectedFuncCount: 2,
 		},
 		{
 			desc: "AllowSpecialUseHosts Only",
@@ -124,7 +124,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   true,
 				},
 			},
-			expectedFuncCount: 1,
+			expectedFuncCount: 2,
 		},
 		{
 			desc: "AllowSpecialuseIPS Only",
@@ -137,7 +137,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseIPs:   false,
 				},
 			},
-			expectedFuncCount: 1,
+			expectedFuncCount: 2,
 		},
 		{
 			desc: "InvalidSubnet Failure",
@@ -158,7 +158,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			config: ValidatorConfig{
 				URL: buildNoneConfig.URL,
 			},
-			expectedFuncCount: 0,
+			expectedFuncCount: 1,
 		},
 		{
 			desc: "Build All",
