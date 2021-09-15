@@ -33,7 +33,7 @@ var (
 			URL:             "https://www.google.com/",
 			AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
 		FailureURL: "https://www.google.com:1030/software/index.html"}
-	simpleFuncs = []ValidURLFunc{HTTPSOnlyEndpoints(), RejectAllIPs()}
+	simpleFuncs = []ValidURLFunc{HTTPSOnlyEndpoints(true), RejectAllIPs()}
 )
 
 func TestValidate(t *testing.T) {
@@ -261,25 +261,41 @@ func TestHTTPSOnlyEndpoints(t *testing.T) {
 		desc        string
 		url         string
 		expectedErr error
+		onOrOff     bool
 	}{
 		{
 			desc:        "No https URL Failure",
 			url:         "http://www.google.com/",
 			expectedErr: errURLIsNotHTTPS,
+			onOrOff:     true,
+		},
+		{
+			desc:    "No https URL Success",
+			url:     "http://www.google.com/",
+			onOrOff: false,
+		},
+		{
+			desc:        "Spongebob protocol Failure",
+			url:         "spongebob://96.0.0.1:80/responder",
+			expectedErr: errBadURLProtocol,
+			onOrOff:     true,
 		},
 		{
 			desc:        "URL with no scheme Failure",
 			url:         "www.example.com:1030/software/index.html",
-			expectedErr: errURLIsNotHTTPS,
+			expectedErr: errBadURLProtocol,
+			onOrOff:     true,
 		},
 		{
-			desc: "Good https Success",
-			url:  "https://localhost:9000",
+			desc:    "Good https Success",
+			url:     "https://localhost:9000",
+			onOrOff: true,
 		},
 		{
 			desc:        "Path with no scheme Failure",
 			url:         "/example/test",
-			expectedErr: errURLIsNotHTTPS,
+			expectedErr: errBadURLProtocol,
+			onOrOff:     true,
 		},
 	}
 
@@ -288,7 +304,7 @@ func TestHTTPSOnlyEndpoints(t *testing.T) {
 			assert := assert.New(t)
 			u, err := url.ParseRequestURI(tc.url)
 			assert.NoError(err)
-			res := HTTPSOnlyEndpoints()(u)
+			res := HTTPSOnlyEndpoints(tc.onOrOff)(u)
 			assert.True(errors.Is(res, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					res, tc.expectedErr),
