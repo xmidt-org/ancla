@@ -36,6 +36,7 @@ var (
 	errIPinInvalidSubnets    = errors.New("IP is within a blocked subnet")
 	errInvalidSubnet         = errors.New("invalid subnet")
 	errNoSuchHost            = errors.New("host does not exist")
+	errBadURLProtocol        = errors.New("bad URL protocol")
 )
 
 // filterNil takes out all entries of Nil value from the slice.
@@ -115,11 +116,15 @@ func GoodAlternativeURLs(vs []ValidURLFunc) ValidatorFunc {
 	}
 }
 
-// HTTPSOnlyEndpoints creates a ValidURLFunc that considers a URL valid if the scheme
-// of the address is https.
-func HTTPSOnlyEndpoints() ValidURLFunc {
+// GoodURLScheme creates a ValidURLFunc that checks the scheme of the URL.
+// If httpsOnly is true, then it will only allow URLs with "https" schemes.
+// If httpsOnly is false, it will only allow URLs with "https" and "http" schemes.
+func GoodURLScheme(httpsOnly bool) ValidURLFunc {
 	return func(u *url.URL) error {
-		if u.Scheme != "https" {
+		if u.Scheme != "https" && u.Scheme != "http" {
+			return errBadURLProtocol
+		}
+		if httpsOnly && u.Scheme != "https" {
 			return errURLIsNotHTTPS
 		}
 		return nil
