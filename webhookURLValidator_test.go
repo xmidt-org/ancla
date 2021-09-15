@@ -33,7 +33,7 @@ var (
 			URL:             "https://www.google.com/",
 			AlternativeURLs: []string{"https://www.google.com/", "https://www.bing.com/"}},
 		FailureURL: "https://www.google.com:1030/software/index.html"}
-	simpleFuncs = []ValidURLFunc{HTTPSOnlyEndpoints(true), RejectAllIPs()}
+	simpleFuncs = []ValidURLFunc{GoodURLScheme(true), RejectAllIPs()}
 )
 
 func TestValidate(t *testing.T) {
@@ -256,7 +256,7 @@ func TestGoodAlternativeURLs(t *testing.T) {
 	}
 }
 
-func TestHTTPSOnlyEndpoints(t *testing.T) {
+func TestGoodURLScheme(t *testing.T) {
 	tcs := []struct {
 		desc        string
 		url         string
@@ -304,7 +304,7 @@ func TestHTTPSOnlyEndpoints(t *testing.T) {
 			assert := assert.New(t)
 			u, err := url.ParseRequestURI(tc.url)
 			assert.NoError(err)
-			res := HTTPSOnlyEndpoints(tc.onOrOff)(u)
+			res := GoodURLScheme(tc.onOrOff)(u)
 			assert.True(errors.Is(res, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					res, tc.expectedErr),

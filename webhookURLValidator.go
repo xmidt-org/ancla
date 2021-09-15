@@ -119,16 +119,13 @@ func GoodAlternativeURLs(vs []ValidURLFunc) ValidatorFunc {
 // HTTPSOnlyEndpoints creates a ValidURLFunc that checks the scheme of the URL.
 // If t is true, then it will only allow URLs with "https" schemes.
 // If t is false, it will only allow URLs with "https" and "http" schemes.
-func HTTPSOnlyEndpoints(t bool) ValidURLFunc {
+func GoodURLScheme(httpsOnly bool) ValidURLFunc {
 	return func(u *url.URL) error {
 		if u.Scheme != "https" && u.Scheme != "http" {
 			return errBadURLProtocol
 		}
-		if t {
-			if u.Scheme != "https" {
-				return errURLIsNotHTTPS
-			}
-			return nil
+		if httpsOnly && u.Scheme != "https" {
+			return errURLIsNotHTTPS
 		}
 		return nil
 	}

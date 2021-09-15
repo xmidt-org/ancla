@@ -72,7 +72,7 @@ type TTLVConfig struct {
 func buildValidURLFuncs(config ValidatorConfig) ([]ValidURLFunc, error) {
 	var v []ValidURLFunc
 	if config.URL.HTTPSOnly {
-		v = append(v, HTTPSOnlyEndpoints(config.URL.HTTPSOnly))
+		v = append(v, GoodURLScheme(config.URL.HTTPSOnly))
 	}
 	if !config.URL.AllowLoopback {
 		v = append(v, RejectLoopback())
