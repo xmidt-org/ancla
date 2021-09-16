@@ -97,7 +97,7 @@ func TestAdd(t *testing.T) {
 		},
 	}
 
-	inputWebhook := getTestWebhooks()[0]
+	inputWebhook := getTestInternalWebhooks()[0]
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestAdd(t *testing.T) {
 	}
 }
 
-func TestAllWebhooks(t *testing.T) {
+func TestAllInternalWebhooks(t *testing.T) {
 	type testCase struct {
 		Description      string
 		GetItemsResp     chrysom.Items
@@ -152,7 +152,7 @@ func TestAllWebhooks(t *testing.T) {
 				config: Config{},
 			}
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
-			webhooks, err := svc.AllWebhooks(context.TODO())
+			webhooks, err := svc.AllInternalWebhooks(context.TODO())
 
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
@@ -166,7 +166,7 @@ func TestAllWebhooks(t *testing.T) {
 	}
 }
 
-func TestItemToWebhook(t *testing.T) {
+func TestItemToInternalWebhook(t *testing.T) {
 	items := getTestItems()
 	webhooks := getTestWebhooks()
 	tcs := []struct {
@@ -194,7 +194,7 @@ func TestItemToWebhook(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			w, err := itemToWebhook(tc.InputItem)
+			w, err := itemToInternalWebhook(tc.InputItem)
 			if tc.ShouldErr {
 				assert.Error(err)
 			}
@@ -202,35 +202,35 @@ func TestItemToWebhook(t *testing.T) {
 		})
 	}
 }
-func TestWebhookToItem(t *testing.T) {
+func TestInternalWebhookToItem(t *testing.T) {
 	refTime := getRefTime()
 	fixedNow := func() time.Time {
 		return refTime
 	}
 	items := getTestItems()
-	webhooks := getTestWebhooks()
+	iws := getTestInternalWebhooks()
 	tcs := []struct {
-		Description  string
-		InputWebhook Webhook
-		ExpectedItem model.Item
-		ShouldErr    bool
+		Description          string
+		InputInternalWebhook InternalWebhook
+		ExpectedItem         model.Item
+		ShouldErr            bool
 	}{
 		{
-			Description:  "Expired item",
-			InputWebhook: getExpiredWebhook(),
-			ExpectedItem: getExpiredItem(),
+			Description:          "Expired item",
+			InputInternalWebhook: getExpiredInternalWebhook(),
+			ExpectedItem:         getExpiredItem(),
 		},
 		{
-			Description:  "Happy path",
-			InputWebhook: webhooks[0],
-			ExpectedItem: items[0],
+			Description:          "Happy path",
+			InputInternalWebhook: iws[0],
+			ExpectedItem:         items[0],
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			item, err := webhookToItem(fixedNow, tc.InputWebhook)
+			item, err := internalWebhookToItem(fixedNow, tc.InputInternalWebhook)
 			if tc.ShouldErr {
 				assert.Error(err)
 			}
@@ -279,6 +279,29 @@ func getExpiredWebhook() Webhook {
 		FailureURL: "http://contact-here-when-fails.example.net",
 		Duration:   time.Second,
 		Until:      time.Unix(1, 0).UTC(),
+	}
+}
+
+func getExpiredInternalWebhook() InternalWebhook {
+	return InternalWebhook{
+		Webhook: Webhook{
+			Address: "http://original-requester.example.net",
+			Config: DeliveryConfig{
+				URL:         "http://deliver-here-0.example.net",
+				ContentType: "application/json",
+				Secret:      "superSecretXYZ",
+			},
+			Events: []string{"online"},
+			Matcher: struct {
+				DeviceID []string `json:"device_id"`
+			}{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Duration:   time.Second,
+			Until:      time.Unix(1, 0).UTC(),
+		},
+		PartnerIDs: []string{},
 	}
 }
 
@@ -333,7 +356,7 @@ func getTestInternalWebhooks() []InternalWebhook {
 	refTime := getRefTime()
 	return []InternalWebhook{
 		{
-			webhook: Webhook{
+			Webhook: Webhook{
 				Address: "http://original-requester.example.net",
 				Config: DeliveryConfig{
 					URL:         "http://deliver-here-0.example.net",
@@ -348,10 +371,10 @@ func getTestInternalWebhooks() []InternalWebhook {
 				Duration:   10 * time.Second,
 				Until:      refTime.Add(10 * time.Second),
 			},
-			partnerIDs: []string{},
+			PartnerIDs: []string{},
 		},
 		{
-			webhook: Webhook{
+			Webhook: Webhook{
 				Address: "http://original-requester.example.net",
 				Config: DeliveryConfig{
 					ContentType: "application/json",
@@ -367,7 +390,44 @@ func getTestInternalWebhooks() []InternalWebhook {
 				Duration:   20 * time.Second,
 				Until:      refTime.Add(20 * time.Second),
 			},
-			partnerIDs: []string{},
+			PartnerIDs: []string{},
+		},
+	}
+}
+
+func getTestWebhooks() []Webhook {
+	refTime := getRefTime()
+	return []Webhook{
+		{
+			Address: "http://original-requester.example.net",
+			Config: DeliveryConfig{
+				URL:         "http://deliver-here-0.example.net",
+				ContentType: "application/json",
+				Secret:      "superSecretXYZ",
+			},
+			Events: []string{"online"},
+			Matcher: MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Duration:   10 * time.Second,
+			Until:      refTime.Add(10 * time.Second),
+		},
+		{
+			Address: "http://original-requester.example.net",
+			Config: DeliveryConfig{
+				ContentType: "application/json",
+				URL:         "http://deliver-here-1.example.net",
+				Secret:      "doNotShare:e=mc^2",
+			},
+			Events: []string{"online"},
+			Matcher: MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Duration:   20 * time.Second,
+			Until:      refTime.Add(20 * time.Second),
 		},
 	}
 }

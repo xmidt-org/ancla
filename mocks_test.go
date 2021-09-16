@@ -48,14 +48,14 @@ type mockService struct {
 	mock.Mock
 }
 
-func (m *mockService) Add(ctx context.Context, owner string, w Webhook) error {
-	args := m.Called(ctx, owner, w)
+func (m *mockService) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+	args := m.Called(ctx, owner, iw)
 	return args.Error(0)
 }
 
-func (m *mockService) AllWebhooks(ctx context.Context) ([]Webhook, error) {
+func (m *mockService) AllInternalWebhooks(ctx context.Context) ([]InternalWebhook, error) {
 	args := m.Called(ctx)
-	return args.Get(0).([]Webhook), args.Error(1)
+	return args.Get(0).([]InternalWebhook), args.Error(1)
 }
 
 type mockCounter struct {

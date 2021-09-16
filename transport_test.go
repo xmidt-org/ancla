@@ -233,7 +233,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			r.RemoteAddr = "original-requester.example.net:443"
 
 			if tc.ExpectedLegacyDecodingCount > 0 {
-				counter.On("With", URLLabel, tc.ExpectedDecodedRequest.webhook.Config.URL).Times(int(tc.ExpectedLegacyDecodingCount))
+				counter.On("With", URLLabel, tc.ExpectedDecodedRequest.internalWebook.Webhook.Config.URL).Times(int(tc.ExpectedLegacyDecodingCount))
 				counter.On("Add", float64(1)).Times(int(tc.ExpectedLegacyDecodingCount))
 			}
 
@@ -315,20 +315,23 @@ func addWebhookDecoderLegacyInput() string {
 func addWebhookDecoderOutput() *addWebhookRequest {
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
-		webhook: Webhook{
-			Address: "original-requester.example.net:443",
-			Config: DeliveryConfig{
-				URL:         "http://deliver-here-0.example.net",
-				ContentType: "application/json",
-				Secret:      "superSecretXYZ",
+		internalWebook: InternalWebhook{
+			Webhook: Webhook{
+				Address: "original-requester.example.net:443",
+				Config: DeliveryConfig{
+					URL:         "http://deliver-here-0.example.net",
+					ContentType: "application/json",
+					Secret:      "superSecretXYZ",
+				},
+				Events: []string{"online"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{"mac:aabbccddee.*"},
+				},
+				FailureURL: "http://contact-here-when-fails.example.net",
+				Duration:   0,
+				Until:      getRefTime().Add(10 * time.Second),
 			},
-			Events: []string{"online"},
-			Matcher: MetadataMatcherConfig{
-				DeviceID: []string{"mac:aabbccddee.*"},
-			},
-			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   0,
-			Until:      getRefTime().Add(10 * time.Second),
+			PartnerIDs: []string{},
 		},
 	}
 
