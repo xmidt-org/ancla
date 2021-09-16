@@ -329,39 +329,45 @@ func getTestItems() chrysom.Items {
 	}
 }
 
-func getTestWebhooks() []Webhook {
+func getTestInternalWebhooks() []InternalWebhook {
 	refTime := getRefTime()
-	return []Webhook{
+	return []InternalWebhook{
 		{
-			Address: "http://original-requester.example.net",
-			Config: DeliveryConfig{
-				URL:         "http://deliver-here-0.example.net",
-				ContentType: "application/json",
-				Secret:      "superSecretXYZ",
+			webhook: Webhook{
+				Address: "http://original-requester.example.net",
+				Config: DeliveryConfig{
+					URL:         "http://deliver-here-0.example.net",
+					ContentType: "application/json",
+					Secret:      "superSecretXYZ",
+				},
+				Events: []string{"online"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{"mac:aabbccddee.*"},
+				},
+				FailureURL: "http://contact-here-when-fails.example.net",
+				Duration:   10 * time.Second,
+				Until:      refTime.Add(10 * time.Second),
 			},
-			Events: []string{"online"},
-			Matcher: MetadataMatcherConfig{
-				DeviceID: []string{"mac:aabbccddee.*"},
-			},
-			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   10 * time.Second,
-			Until:      refTime.Add(10 * time.Second),
+			partnerIDs: []string{},
 		},
 		{
-			Address: "http://original-requester.example.net",
-			Config: DeliveryConfig{
-				ContentType: "application/json",
-				URL:         "http://deliver-here-1.example.net",
-				Secret:      "doNotShare:e=mc^2",
-			},
-			Events: []string{"online"},
-			Matcher: MetadataMatcherConfig{
-				DeviceID: []string{"mac:aabbccddee.*"},
-			},
+			webhook: Webhook{
+				Address: "http://original-requester.example.net",
+				Config: DeliveryConfig{
+					ContentType: "application/json",
+					URL:         "http://deliver-here-1.example.net",
+					Secret:      "doNotShare:e=mc^2",
+				},
+				Events: []string{"online"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{"mac:aabbccddee.*"},
+				},
 
-			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   20 * time.Second,
-			Until:      refTime.Add(20 * time.Second),
+				FailureURL: "http://contact-here-when-fails.example.net",
+				Duration:   20 * time.Second,
+				Until:      refTime.Add(20 * time.Second),
+			},
+			partnerIDs: []string{},
 		},
 	}
 }

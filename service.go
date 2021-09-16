@@ -85,8 +85,13 @@ type service struct {
 	now    func() time.Time
 }
 
-func (s *service) Add(ctx context.Context, owner string, w Webhook) error {
-	item, err := webhookToItem(s.now, w)
+type InternalWebhook struct {
+	partnerIDs []string
+	webhook    Webhook
+}
+
+func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+	item, err := internalWebhookToItem(s.now, iw)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
@@ -122,21 +127,22 @@ func (s *service) AllWebhooks(ctx context.Context) ([]Webhook, error) {
 	return webhooks, nil
 }
 
-func webhookToItem(now func() time.Time, w Webhook) (model.Item, error) {
-	encodedWebhook, err := json.Marshal(w)
+func internalWebhookToItem(now func() time.Time, iw InternalWebhook) (model.Item, error) {
+	encodedWebhook, err := json.Marshal(iw)
 	if err != nil {
 		return model.Item{}, err
 	}
 	var data map[string]interface{}
+
 	err = json.Unmarshal(encodedWebhook, &data)
 	if err != nil {
 		return model.Item{}, err
 	}
 
-	SecondsToExpiry := w.Until.Sub(now()).Seconds()
+	SecondsToExpiry := iw.webhook.Until.Sub(now()).Seconds()
 	TTLSeconds := int64(math.Max(0, SecondsToExpiry))
 
-	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(w.Config.URL)))
+	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(iw.webhook.Config.URL)))
 
 	return model.Item{
 		Data: data,
@@ -145,17 +151,18 @@ func webhookToItem(now func() time.Time, w Webhook) (model.Item, error) {
 	}, nil
 }
 
+// change itemtowebhook webhooktoitem to expect webhookwrapper
 func itemToWebhook(i model.Item) (Webhook, error) {
 	encodedWebhook, err := json.Marshal(i.Data)
 	if err != nil {
 		return Webhook{}, err
 	}
-	var w Webhook
-	err = json.Unmarshal(encodedWebhook, &w)
+	var iw InternalWebhook
+	err = json.Unmarshal(encodedWebhook, &iw)
 	if err != nil {
 		return Webhook{}, err
 	}
-	return w, nil
+	return iw.webhook, nil
 }
 
 func validateConfig(cfg *Config) {

@@ -23,18 +23,23 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/spf13/cast"
 	"github.com/xmidt-org/httpaux/erraux"
+	"github.com/xmidt-org/webpa-common/v2/basculechecks"
 
 	"github.com/xmidt-org/bascule"
 )
 
 var (
-	errNoWebhooksInLegacyDecode = errors.New("no webhooks to decode in legacy decoding format")
-	errFailedWebhookUnmarshal   = errors.New("failed to JSON unmarshal webhook")
+	errNoWebhooksInLegacyDecode  = errors.New("no webhooks to decode in legacy decoding format")
+	errFailedWebhookUnmarshal    = errors.New("failed to JSON unmarshal webhook")
+	errAuthIsNotOfTypeBasicOrJWT = errors.New("auth is not of type Basic of JWT")
+	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
 )
 
 const (
@@ -49,8 +54,8 @@ type transportConfig struct {
 }
 
 type addWebhookRequest struct {
-	owner   string
-	webhook Webhook
+	owner          string
+	internalWebook InternalWebhook
 }
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
@@ -98,9 +103,39 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
 
+		auth, _ := bascule.FromContext(c)
+		var partners []string
+
+		switch auth.Token.Type() {
+		case "Basic":
+			var configurableString string
+			authHeader := r.Header[configurableString]
+
+			for _, value := range authHeader {
+				fields := strings.Split(value, ",")
+				for i := 0; i < len(fields); i++ {
+					fields[i] = strings.TrimSpace(fields[i])
+				}
+				partners = append(partners, fields...)
+			}
+		case "jwt":
+			authToken := auth.Token
+			whatdoesthisinterfacemean, _ := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
+			vals, err := cast.ToStringSliceE(whatdoesthisinterfacemean)
+			if err != nil {
+				return nil, errGettingPartnerIDs
+			}
+			partners = vals
+		default:
+			return nil, errAuthIsNotOfTypeBasicOrJWT
+		}
+
 		return &addWebhookRequest{
-			owner:   getOwner(r.Context()),
-			webhook: webhook,
+			owner: getOwner(r.Context()),
+			internalWebook: InternalWebhook{
+				webhook:    webhook,
+				partnerIDs: partners,
+			},
 		}, nil
 	}
 }

@@ -13,12 +13,12 @@ func TestNewAddWebhookEndpoint(t *testing.T) {
 	m := new(mockService)
 	endpoint := newAddWebhookEndpoint(m)
 	input := &addWebhookRequest{
-		owner:   "owner-val",
-		webhook: Webhook{},
+		owner:          "owner-val",
+		internalWebook: InternalWebhook{},
 	}
 
 	errFake := errors.New("failed")
-	m.On("Add", context.TODO(), "owner-val", input.webhook).Return(errFake)
+	m.On("Add", context.TODO(), "owner-val", input.internalWebook).Return(errFake)
 	resp, err := endpoint(context.Background(), input)
 	assert.Nil(resp)
 	assert.Equal(errFake, err)
