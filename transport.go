@@ -133,8 +133,8 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		return &addWebhookRequest{
 			owner: getOwner(r.Context()),
 			internalWebook: InternalWebhook{
-				webhook:    webhook,
-				partnerIDs: partners,
+				Webhook:    webhook,
+				PartnerIDs: partners,
 			},
 		}, nil
 	}

@@ -50,7 +50,7 @@ var (
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, w Webhook) error
+	Add(ctx context.Context, owner string, iw InternalWebhook) error
 
 	// AllWebhooks lists all the current registered webhooks.
 	AllWebhooks(ctx context.Context) ([]Webhook, error)
@@ -86,8 +86,8 @@ type service struct {
 }
 
 type InternalWebhook struct {
-	partnerIDs []string
-	webhook    Webhook
+	PartnerIDs []string
+	Webhook    Webhook
 }
 
 func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
@@ -139,10 +139,10 @@ func internalWebhookToItem(now func() time.Time, iw InternalWebhook) (model.Item
 		return model.Item{}, err
 	}
 
-	SecondsToExpiry := iw.webhook.Until.Sub(now()).Seconds()
+	SecondsToExpiry := iw.Webhook.Until.Sub(now()).Seconds()
 	TTLSeconds := int64(math.Max(0, SecondsToExpiry))
 
-	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(iw.webhook.Config.URL)))
+	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(iw.Webhook.Config.URL)))
 
 	return model.Item{
 		Data: data,
@@ -162,7 +162,7 @@ func itemToWebhook(i model.Item) (Webhook, error) {
 	if err != nil {
 		return Webhook{}, err
 	}
-	return iw.webhook, nil
+	return iw.Webhook, nil
 }
 
 func validateConfig(cfg *Config) {
