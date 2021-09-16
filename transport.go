@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -40,6 +41,7 @@ var (
 	errFailedWebhookUnmarshal    = errors.New("failed to JSON unmarshal webhook")
 	errAuthIsNotOfTypeBasicOrJWT = errors.New("auth is not of type Basic of JWT")
 	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
+	DefaultBasicPartnerIDsHeader = ""
 )
 
 const (
@@ -51,6 +53,7 @@ type transportConfig struct {
 	webhookLegacyDecodeCount metrics.Counter
 	now                      func() time.Time
 	v                        Validator
+	basicPartnerIDsHeader    string
 }
 
 type addWebhookRequest struct {
@@ -80,6 +83,10 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		now: config.now,
 	}
 
+	if config.basicPartnerIDsHeader == "" {
+		config.basicPartnerIDsHeader = DefaultBasicPartnerIDsHeader
+	}
+
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
 		requestPayload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -107,9 +114,8 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		var partners []string
 
 		switch auth.Token.Type() {
-		case "Basic":
-			var configurableString string
-			authHeader := r.Header[configurableString]
+		case "basic":
+			authHeader := r.Header[config.basicPartnerIDsHeader]
 
 			for _, value := range authHeader {
 				fields := strings.Split(value, ",")
@@ -120,14 +126,14 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 		case "jwt":
 			authToken := auth.Token
-			whatdoesthisinterfacemean, _ := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
-			vals, err := cast.ToStringSliceE(whatdoesthisinterfacemean)
+			partnersInterface, _ := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
+			vals, err := cast.ToStringSliceE(partnersInterface)
 			if err != nil {
-				return nil, errGettingPartnerIDs
+				return nil, fmt.Errorf("%w: %v", errGettingPartnerIDs, err)
 			}
 			partners = vals
 		default:
-			return nil, errAuthIsNotOfTypeBasicOrJWT
+			return nil, fmt.Errorf("%w: %v", errAuthIsNotOfTypeBasicOrJWT, err)
 		}
 
 		return &addWebhookRequest{
