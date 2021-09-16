@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.2.4]
+- Update webhookValidator builder to fix http issue. [#77](https://github.com/xmidt-org/ancla/pull/77)
+
 ## [v0.2.3]
 - Added http check in webhookValidator. [#75](https://github.com/xmidt-org/ancla/pull/75)
 
@@ -59,7 +62,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.2.4...HEAD
+[v0.2.4]:https://github.com/xmidt-org/ancla/compare/0.2.3...v0.2.4
 [v0.2.3]: https://github.com/xmidt-org/ancla/compare/0.2.2...v0.2.3
 [v0.2.2]: https://github.com/xmidt-org/ancla/compare/0.2.1...v0.2.2
 [v0.2.1]: https://github.com/xmidt-org/ancla/compare/0.2.0...v0.2.1
