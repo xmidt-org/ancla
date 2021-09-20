@@ -41,7 +41,10 @@ var (
 	errFailedWebhookUnmarshal    = errors.New("failed to JSON unmarshal webhook")
 	errAuthIsNotOfTypeBasicOrJWT = errors.New("auth is not of type Basic of JWT")
 	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
-	DefaultBasicPartnerIDsHeader = ""
+	errAuthNotPresent            = errors.New("auth not present")
+	errAuthTokenIsNil            = errors.New("auth token is nil")
+	errPartnerIDsDoNotExist      = errors.New("partnerIDs do not exist")
+	DefaultBasicPartnerIDsHeader = "X-partner-ids"
 )
 
 const (
@@ -110,8 +113,14 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
 
-		auth, _ := bascule.FromContext(c)
+		auth, present := bascule.FromContext(c)
 		var partners []string
+		if !present {
+			return nil, errAuthNotPresent
+		}
+		if auth.Token == nil {
+			return nil, errAuthTokenIsNil
+		}
 
 		switch auth.Token.Type() {
 		case "basic":
@@ -126,14 +135,17 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 		case "jwt":
 			authToken := auth.Token
-			partnersInterface, _ := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
+			partnersInterface, attrExist := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
+			if !attrExist {
+				return nil, errPartnerIDsDoNotExist
+			}
 			vals, err := cast.ToStringSliceE(partnersInterface)
 			if err != nil {
 				return nil, fmt.Errorf("%w: %v", errGettingPartnerIDs, err)
 			}
 			partners = vals
 		default:
-			return nil, fmt.Errorf("%w: %v", errAuthIsNotOfTypeBasicOrJWT, err)
+			return nil, errAuthIsNotOfTypeBasicOrJWT
 		}
 
 		return &addWebhookRequest{

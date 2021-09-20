@@ -106,7 +106,7 @@ func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) err
 	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
 }
 
-// AllWebhooks returns all webhooks found on the configured webhooks partition
+// AllInternalWebhooks returns all webhooks found on the configured webhooks partition
 // of Argus.
 func (s *service) AllInternalWebhooks(ctx context.Context) ([]InternalWebhook, error) {
 	items, err := s.argus.GetItems(ctx, "")
@@ -239,7 +239,7 @@ func itemsToInternalWebhooks(items []model.Item) ([]InternalWebhook, error) {
 }
 
 func internalWebhooksToWebhooks(iws []InternalWebhook) []Webhook {
-	var w []Webhook
+	w := make([]Webhook, 0, len(iws))
 	for _, iw := range iws {
 		w = append(w, iw.Webhook)
 	}
