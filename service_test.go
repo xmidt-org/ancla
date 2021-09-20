@@ -152,7 +152,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 				config: Config{},
 			}
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
-			iws, err := svc.AllInternalWebhooks(context.TODO())
+			iws, err := svc.GetAll(context.TODO())
 
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))

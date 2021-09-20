@@ -31,7 +31,7 @@ func TestGetAllWebhooksEndpoint(t *testing.T) {
 	endpoint := newGetAllWebhooksEndpoint(m)
 
 	respFake := []InternalWebhook{}
-	m.On("AllInternalWebhooks", context.TODO()).Return(respFake, nil)
+	m.On("GetAll", context.TODO()).Return(respFake, nil)
 	resp, err := endpoint(context.Background(), nil)
 	assert.Nil(err)
 	assert.Equal(respFake, resp)

@@ -32,6 +32,6 @@ func newAddWebhookEndpoint(s Service) endpoint.Endpoint {
 
 func newGetAllWebhooksEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, _ interface{}) (interface{}, error) {
-		return s.AllInternalWebhooks(ctx)
+		return s.GetAll(ctx)
 	}
 }

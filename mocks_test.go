@@ -53,7 +53,7 @@ func (m *mockService) Add(ctx context.Context, owner string, iw InternalWebhook)
 	return args.Error(0)
 }
 
-func (m *mockService) AllInternalWebhooks(ctx context.Context) ([]InternalWebhook, error) {
+func (m *mockService) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]InternalWebhook), args.Error(1)
 }
