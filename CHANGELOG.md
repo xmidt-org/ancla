@@ -5,7 +5,17 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed webhooks to internalWebhooks to enable the storing of partnerIDs. [#79](https://github.com/xmidt-org/ancla/pull/79)
+
+## [v0.2.4]
+- Update webhookValidator builder to fix http issue. [#77](https://github.com/xmidt-org/ancla/pull/77)
+
+## [v0.2.3]
+- Added http check in webhookValidator. [#75](https://github.com/xmidt-org/ancla/pull/75)
+
+## [v0.2.2]
 - Added validators for deviceID, Until, Duration, Events to webhookValidator. [#67](https://github.com/xmidt-org/ancla/pull/67)
+- Updated decoding errors to return 400 status codes. [#72](https://github.com/xmidt-org/ancla/pull/72)
 
 ## [v0.2.1]
 - Added webhookValidator. Validates the webhook's Config.URL, Config.AlternativeURLs, and FailureURL. [#65](https://github.com/xmidt-org/ancla/pull/65)
@@ -53,7 +63,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.2.4...HEAD
+[v0.2.4]:https://github.com/xmidt-org/ancla/compare/0.2.3...v0.2.4
+[v0.2.3]: https://github.com/xmidt-org/ancla/compare/0.2.2...v0.2.3
+[v0.2.2]: https://github.com/xmidt-org/ancla/compare/0.2.1...v0.2.2
 [v0.2.1]: https://github.com/xmidt-org/ancla/compare/0.2.0...v0.2.1
 [v0.2.0]: https://github.com/xmidt-org/ancla/compare/0.1.6...v0.2.0
 [v0.1.6]: https://github.com/xmidt-org/ancla/compare/0.1.5...v0.1.6
