@@ -71,9 +71,7 @@ type TTLVConfig struct {
 // to be run on the webhook.
 func buildValidURLFuncs(config ValidatorConfig) ([]ValidURLFunc, error) {
 	var v []ValidURLFunc
-	if config.URL.HTTPSOnly {
-		v = append(v, HTTPSOnlyEndpoints())
-	}
+	v = append(v, GoodURLScheme(config.URL.HTTPSOnly))
 	if !config.URL.AllowLoopback {
 		v = append(v, RejectLoopback())
 	}
