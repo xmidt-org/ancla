@@ -50,10 +50,10 @@ var (
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, w Webhook) error
+	Add(ctx context.Context, owner string, iw InternalWebhook) error
 
-	// AllWebhooks lists all the current registered webhooks.
-	AllWebhooks(ctx context.Context) ([]Webhook, error)
+	// GetAll lists all the current registered webhooks.
+	GetAll(ctx context.Context) ([]InternalWebhook, error)
 }
 
 // Config contains information needed to initialize the webhook service.
@@ -85,8 +85,13 @@ type service struct {
 	now    func() time.Time
 }
 
-func (s *service) Add(ctx context.Context, owner string, w Webhook) error {
-	item, err := webhookToItem(s.now, w)
+type InternalWebhook struct {
+	PartnerIDs []string
+	Webhook    Webhook
+}
+
+func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+	item, err := internalWebhookToItem(s.now, iw)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
@@ -101,42 +106,43 @@ func (s *service) Add(ctx context.Context, owner string, w Webhook) error {
 	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
 }
 
-// AllWebhooks returns all webhooks found on the configured webhooks partition
+// GetAll returns all webhooks found on the configured webhooks partition
 // of Argus.
-func (s *service) AllWebhooks(ctx context.Context) ([]Webhook, error) {
+func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
 
-	webhooks := make([]Webhook, len(items))
+	iws := make([]InternalWebhook, len(items))
 
 	for i, item := range items {
-		webhook, err := itemToWebhook(item)
+		webhook, err := itemToInternalWebhook(item)
 		if err != nil {
 			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
 		}
-		webhooks[i] = webhook
+		iws[i] = webhook
 	}
 
-	return webhooks, nil
+	return iws, nil
 }
 
-func webhookToItem(now func() time.Time, w Webhook) (model.Item, error) {
-	encodedWebhook, err := json.Marshal(w)
+func internalWebhookToItem(now func() time.Time, iw InternalWebhook) (model.Item, error) {
+	encodedWebhook, err := json.Marshal(iw)
 	if err != nil {
 		return model.Item{}, err
 	}
 	var data map[string]interface{}
+
 	err = json.Unmarshal(encodedWebhook, &data)
 	if err != nil {
 		return model.Item{}, err
 	}
 
-	SecondsToExpiry := w.Until.Sub(now()).Seconds()
+	SecondsToExpiry := iw.Webhook.Until.Sub(now()).Seconds()
 	TTLSeconds := int64(math.Max(0, SecondsToExpiry))
 
-	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(w.Config.URL)))
+	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(iw.Webhook.Config.URL)))
 
 	return model.Item{
 		Data: data,
@@ -145,17 +151,17 @@ func webhookToItem(now func() time.Time, w Webhook) (model.Item, error) {
 	}, nil
 }
 
-func itemToWebhook(i model.Item) (Webhook, error) {
+func itemToInternalWebhook(i model.Item) (InternalWebhook, error) {
 	encodedWebhook, err := json.Marshal(i.Data)
 	if err != nil {
-		return Webhook{}, err
+		return InternalWebhook{}, err
 	}
-	var w Webhook
-	err = json.Unmarshal(encodedWebhook, &w)
+	var iw InternalWebhook
+	err = json.Unmarshal(encodedWebhook, &iw)
 	if err != nil {
-		return Webhook{}, err
+		return InternalWebhook{}, err
 	}
-	return w, nil
+	return iw, nil
 }
 
 func validateConfig(cfg *Config) {
@@ -208,25 +214,34 @@ func prepArgusConfig(cfg *Config, watches ...Watch) error {
 
 func createArgusListener(logger log.Logger, watches ...Watch) chrysom.Listener {
 	return chrysom.ListenerFunc(func(items chrysom.Items) {
-		webhooks, err := itemsToWebhooks(items)
+		iws, err := itemsToInternalWebhooks(items)
 		if err != nil {
 			level.Error(logger).Log(logging.MessageKey(), "Failed to convert items to webhooks", "err", err)
 			return
 		}
+		ws := internalWebhooksToWebhooks(iws)
 		for _, watch := range watches {
-			watch.Update(webhooks)
+			watch.Update(ws)
 		}
 	})
 }
 
-func itemsToWebhooks(items []model.Item) ([]Webhook, error) {
-	webhooks := []Webhook{}
+func itemsToInternalWebhooks(items []model.Item) ([]InternalWebhook, error) {
+	iws := []InternalWebhook{}
 	for _, item := range items {
-		webhook, err := itemToWebhook(item)
+		iw, err := itemToInternalWebhook(item)
 		if err != nil {
 			return nil, err
 		}
-		webhooks = append(webhooks, webhook)
+		iws = append(iws, iw)
 	}
-	return webhooks, nil
+	return iws, nil
+}
+
+func internalWebhooksToWebhooks(iws []InternalWebhook) []Webhook {
+	w := make([]Webhook, 0, len(iws))
+	for _, iw := range iws {
+		w = append(w, iw.Webhook)
+	}
+	return w
 }

@@ -21,20 +21,32 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-kit/kit/metrics"
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/spf13/cast"
 	"github.com/xmidt-org/httpaux/erraux"
+	"github.com/xmidt-org/webpa-common/v2/basculechecks"
 
 	"github.com/xmidt-org/bascule"
 )
 
 var (
-	errNoWebhooksInLegacyDecode = errors.New("no webhooks to decode in legacy decoding format")
-	errFailedWebhookUnmarshal   = errors.New("failed to JSON unmarshal webhook")
+	errNoWebhooksInLegacyDecode  = errors.New("no webhooks to decode in legacy decoding format")
+	errFailedWebhookUnmarshal    = errors.New("failed to JSON unmarshal webhook")
+	errAuthIsNotOfTypeBasicOrJWT = errors.New("auth is not of type Basic of JWT")
+	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
+	errAuthNotPresent            = errors.New("auth not present")
+	errAuthTokenIsNil            = errors.New("auth token is nil")
+	errPartnerIDsDoNotExist      = errors.New("partnerIDs do not exist")
+	DefaultBasicPartnerIDsHeader = "X-Xmidt-Partner-Ids"
+	jwtstr                       = "jwt"
+	basicstr                     = "basic"
 )
 
 const (
@@ -46,15 +58,17 @@ type transportConfig struct {
 	webhookLegacyDecodeCount metrics.Counter
 	now                      func() time.Time
 	v                        Validator
+	basicPartnerIDsHeader    string
 }
 
 type addWebhookRequest struct {
-	owner   string
-	webhook Webhook
+	owner          string
+	internalWebook InternalWebhook
 }
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
-	webhooks := response.([]Webhook)
+	iws := response.([]InternalWebhook)
+	webhooks := internalWebhooksToWebhooks(iws)
 	if webhooks == nil {
 		// prefer JSON output to be "[]" instead of "<nil>"
 		webhooks = []Webhook{}
@@ -73,6 +87,10 @@ func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, r
 func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc {
 	wv := webhookValidator{
 		now: config.now,
+	}
+
+	if config.basicPartnerIDsHeader == "" {
+		config.basicPartnerIDsHeader = DefaultBasicPartnerIDsHeader
 	}
 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
@@ -98,11 +116,57 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
 
+		partners, err := extractPartnerIDs(config, c, r)
+		if err != nil {
+			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
+		}
+
 		return &addWebhookRequest{
-			owner:   getOwner(r.Context()),
-			webhook: webhook,
+			owner: getOwner(r.Context()),
+			internalWebook: InternalWebhook{
+				Webhook:    webhook,
+				PartnerIDs: partners,
+			},
 		}, nil
 	}
+}
+
+func extractPartnerIDs(config transportConfig, c context.Context, r *http.Request) ([]string, error) {
+	auth, present := bascule.FromContext(c)
+	if !present {
+		return nil, errAuthNotPresent
+	}
+	if auth.Token == nil {
+		return nil, errAuthTokenIsNil
+	}
+
+	var partners []string
+
+	switch auth.Token.Type() {
+	case basicstr:
+		authHeader := r.Header[config.basicPartnerIDsHeader]
+		for _, value := range authHeader {
+			fields := strings.Split(value, ",")
+			for i := 0; i < len(fields); i++ {
+				fields[i] = strings.TrimSpace(fields[i])
+			}
+			partners = append(partners, fields...)
+		}
+		return partners, nil
+	case jwtstr:
+		authToken := auth.Token
+		partnersInterface, attrExist := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
+		if !attrExist {
+			return nil, errPartnerIDsDoNotExist
+		}
+		vals, err := cast.ToStringSliceE(partnersInterface)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", errGettingPartnerIDs, err)
+		}
+		partners = vals
+		return partners, nil
+	}
+	return nil, errAuthIsNotOfTypeBasicOrJWT
 }
 
 func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ interface{}) error {
@@ -117,7 +181,7 @@ func getOwner(ctx context.Context) string {
 		return ""
 	}
 	switch auth.Token.Type() {
-	case "jwt", "basic":
+	case jwtstr, basicstr:
 		return auth.Token.Principal()
 	}
 	return ""
