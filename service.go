@@ -52,7 +52,7 @@ type Service interface {
 	// succeeds, a non-nil error is returned.
 	Add(ctx context.Context, owner string, iw InternalWebhook) error
 
-	// AllWebhooks lists all the current registered webhooks.
+	// GetAll lists all the current registered webhooks.
 	GetAll(ctx context.Context) ([]InternalWebhook, error)
 }
 
@@ -106,7 +106,7 @@ func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) err
 	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
 }
 
-// AllInternalWebhooks returns all webhooks found on the configured webhooks partition
+// GetAll returns all webhooks found on the configured webhooks partition
 // of Argus.
 func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	items, err := s.argus.GetItems(ctx, "")

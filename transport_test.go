@@ -119,16 +119,16 @@ func TestGetOwner(t *testing.T) {
 
 func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 	type testCase struct {
-		Description      string
-		InputWebhooks    []Webhook
-		ExpectedJSONResp string
-		ExpectedErr      error
+		Description           string
+		InputInternalWebhooks []InternalWebhook
+		ExpectedJSONResp      string
+		ExpectedErr           error
 	}
 	tcs := []testCase{
 		{
-			Description:      "Two webhooks",
-			InputWebhooks:    encodeGetAllInput(),
-			ExpectedJSONResp: encodeGetAllOutput(),
+			Description:           "Two webhooks",
+			InputInternalWebhooks: encodeGetAllInput(),
+			ExpectedJSONResp:      encodeGetAllOutput(),
 		},
 		{
 			Description:      "Nil",
@@ -144,7 +144,7 @@ func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			recorder := httptest.NewRecorder()
-			err := encodeGetAllWebhooksResponse(context.Background(), recorder, tc.InputWebhooks)
+			err := encodeGetAllWebhooksResponse(context.Background(), recorder, tc.InputInternalWebhooks)
 			assert.Nil(err)
 			assert.Equal("application/json", recorder.Header().Get("Content-Type"))
 			assert.JSONEq(tc.ExpectedJSONResp, recorder.Body.String())
@@ -302,7 +302,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 					Token: bascule.NewToken("spongebob", "owner-from-auth", bascule.NewAttributes(
 						map[string]interface{}{})),
 				}
-			default:
 			}
 
 			r, err := http.NewRequestWithContext(bascule.WithAuthentication(context.Background(), auth),
@@ -449,39 +448,45 @@ func addWebhookDecoderLegacyInput() string {
 	`
 }
 
-func encodeGetAllInput() []Webhook {
-	return []Webhook{
+func encodeGetAllInput() []InternalWebhook {
+	return []InternalWebhook{
 		{
-			Address: "http://original-requester.example.net",
-			Config: DeliveryConfig{
-				URL:         "http://deliver-here-0.example.net",
-				ContentType: "application/json",
-				Secret:      "superSecretXYZ",
+			Webhook: Webhook{
+				Address: "http://original-requester.example.net",
+				Config: DeliveryConfig{
+					URL:         "http://deliver-here-0.example.net",
+					ContentType: "application/json",
+					Secret:      "superSecretXYZ",
+				},
+				Events: []string{"online"},
+				Matcher: struct {
+					DeviceID []string `json:"device_id"`
+				}{
+					DeviceID: []string{"mac:aabbccddee.*"},
+				},
+				FailureURL: "http://contact-here-when-fails.example.net",
+				Until:      getRefTime().Add(10 * time.Second),
 			},
-			Events: []string{"online"},
-			Matcher: struct {
-				DeviceID []string `json:"device_id"`
-			}{
-				DeviceID: []string{"mac:aabbccddee.*"},
-			},
-			FailureURL: "http://contact-here-when-fails.example.net",
-			Until:      getRefTime().Add(10 * time.Second),
+			PartnerIDs: []string{"comcast"},
 		},
 		{
-			Address: "http://original-requester.example.net",
-			Config: DeliveryConfig{
-				ContentType: "application/json",
-				URL:         "http://deliver-here-1.example.net",
-				Secret:      "doNotShare:e=mc^2",
+			Webhook: Webhook{
+				Address: "http://original-requester.example.net",
+				Config: DeliveryConfig{
+					ContentType: "application/json",
+					URL:         "http://deliver-here-1.example.net",
+					Secret:      "doNotShare:e=mc^2",
+				},
+				Events: []string{"online"},
+				Matcher: struct {
+					DeviceID []string `json:"device_id"`
+				}{
+					DeviceID: []string{"mac:aabbccddee.*"},
+				},
+				FailureURL: "http://contact-here-when-fails.example.net",
+				Until:      getRefTime().Add(20 * time.Second),
 			},
-			Events: []string{"online"},
-			Matcher: struct {
-				DeviceID []string `json:"device_id"`
-			}{
-				DeviceID: []string{"mac:aabbccddee.*"},
-			},
-			FailureURL: "http://contact-here-when-fails.example.net",
-			Until:      getRefTime().Add(20 * time.Second),
+			PartnerIDs: []string{"comcast"},
 		},
 	}
 }
