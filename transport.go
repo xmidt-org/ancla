@@ -45,6 +45,8 @@ var (
 	errAuthTokenIsNil            = errors.New("auth token is nil")
 	errPartnerIDsDoNotExist      = errors.New("partnerIDs do not exist")
 	DefaultBasicPartnerIDsHeader = "X-Xmidt-Partner-Id"
+	jwtstr                       = "jwt"
+	basicstr                     = "basic"
 )
 
 const (
@@ -141,7 +143,7 @@ func extractPartnerIDs(config transportConfig, c context.Context, r *http.Reques
 	var partners []string
 
 	switch auth.Token.Type() {
-	case "basic":
+	case basicstr:
 		authHeader := r.Header[config.basicPartnerIDsHeader]
 		for _, value := range authHeader {
 			fields := strings.Split(value, ",")
@@ -151,7 +153,7 @@ func extractPartnerIDs(config transportConfig, c context.Context, r *http.Reques
 			partners = append(partners, fields...)
 		}
 		return partners, nil
-	case "jwt":
+	case jwtstr:
 		authToken := auth.Token
 		partnersInterface, attrExist := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
 		if !attrExist {
@@ -179,7 +181,7 @@ func getOwner(ctx context.Context) string {
 		return ""
 	}
 	switch auth.Token.Type() {
-	case "jwt", "basic":
+	case jwtstr, basicstr:
 		return auth.Token.Principal()
 	}
 	return ""
