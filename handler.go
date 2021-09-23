@@ -52,6 +52,7 @@ func NewGetAllWebhooksHandler(s Service) http.Handler {
 type HandlerConfig struct {
 	MetricsProvider provider.Provider
 	V               Validator
+	reqPartnerIDs   bool
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {
@@ -62,5 +63,6 @@ func newTransportConfig(hConfig HandlerConfig) transportConfig {
 		webhookLegacyDecodeCount: hConfig.MetricsProvider.NewCounter(WebhookLegacyDecodeCount),
 		now:                      time.Now,
 		v:                        hConfig.V,
+		reqPartnerIDs:            hConfig.reqPartnerIDs,
 	}
 }

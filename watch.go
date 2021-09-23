@@ -24,18 +24,18 @@ import (
 // Watch is the interface for listening for webhook subcription updates.
 // Updates represent the latest known list of subscriptions.
 type Watch interface {
-	Update([]Webhook)
+	Update([]InternalWebhook)
 }
 
 // WatchFunc allows bare functions to pass as Watches.
-type WatchFunc func([]Webhook)
+type WatchFunc func([]InternalWebhook)
 
-func (f WatchFunc) Update(update []Webhook) {
+func (f WatchFunc) Update(update []InternalWebhook) {
 	f(update)
 }
 
 func webhookListSizeWatch(s metrics.Gauge) Watch {
-	return WatchFunc(func(webhooks []Webhook) {
+	return WatchFunc(func(webhooks []InternalWebhook) {
 		s.Set(float64(len(webhooks)))
 	})
 }

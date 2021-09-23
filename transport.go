@@ -59,6 +59,7 @@ type transportConfig struct {
 	now                      func() time.Time
 	v                        Validator
 	basicPartnerIDsHeader    string
+	reqPartnerIDs            bool
 }
 
 type addWebhookRequest struct {
@@ -116,9 +117,12 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
 
-		partners, err := extractPartnerIDs(config, c, r)
-		if err != nil {
-			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
+		var partners []string
+		if config.reqPartnerIDs {
+			partners, err = extractPartnerIDs(config, c, r)
+			if err != nil {
+				return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
+			}
 		}
 
 		return &addWebhookRequest{

@@ -219,9 +219,8 @@ func createArgusListener(logger log.Logger, watches ...Watch) chrysom.Listener {
 			level.Error(logger).Log(logging.MessageKey(), "Failed to convert items to webhooks", "err", err)
 			return
 		}
-		ws := internalWebhooksToWebhooks(iws)
 		for _, watch := range watches {
-			watch.Update(ws)
+			watch.Update(iws)
 		}
 	})
 }
