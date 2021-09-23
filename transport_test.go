@@ -271,7 +271,8 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				now: func() time.Time {
 					return getRefTime()
 				},
-				v: tc.Validator,
+				v:             tc.Validator,
+				reqPartnerIDs: true,
 			}
 			decode := addWebhookRequestDecoder(config)
 			var auth bascule.Authentication
@@ -355,25 +356,25 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 
 func addWebhookDecoderInput() string {
 	return `
-			{
-				"config": {
-					"url": "http://deliver-here-0.example.net",
-					"content_type": "application/json",
-					"secret": "superSecretXYZ"
-				},
-				"events": ["online"],
-				"matcher": {
-					"device_id": ["mac:aabbccddee.*"]
-				},
-				"failure_url": "http://contact-here-when-fails.example.net",
-				"duration": 0,
-				"until": "2021-01-02T15:04:10Z"
-			}
-		`
+		{
+			"config": {
+				"url": "http://deliver-here-0.example.net",
+				"content_type": "application/json",
+				"secret": "superSecretXYZ"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": 0,
+			"until": "2021-01-02T15:04:10Z"
+		}
+	`
 }
 
 func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
-	if !withPIDs {
+	if withPIDs {
 		return &addWebhookRequest{
 			owner: "owner-from-auth",
 			internalWebook: InternalWebhook{
@@ -392,7 +393,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 					Duration:   0,
 					Until:      getRefTime().Add(10 * time.Second),
 				},
-				PartnerIDs: []string{},
+				PartnerIDs: []string{"comcast"},
 			},
 		}
 	}
@@ -414,7 +415,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 				Duration:   0,
 				Until:      getRefTime().Add(10 * time.Second),
 			},
-			PartnerIDs: []string{"comcast"},
+			PartnerIDs: []string{},
 		},
 	}
 }
