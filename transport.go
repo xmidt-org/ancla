@@ -118,11 +118,9 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
 
 		var partners []string
-		if config.reqPartnerIDs {
-			partners, err = extractPartnerIDs(config, c, r)
-			if err != nil {
-				return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
-			}
+		partners, err = extractPartnerIDs(config, c, r)
+		if err != nil && config.reqPartnerIDs {
+			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
 
 		return &addWebhookRequest{
