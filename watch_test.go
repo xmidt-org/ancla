@@ -29,6 +29,6 @@ func TestWebhookListSizeWatch(t *testing.T) {
 	watch := webhookListSizeWatch(gauge)
 	require.NotNil(watch)
 	gauge.On("Set", float64(2))
-	watch.Update([]Webhook{{}, {}})
+	watch.Update([]InternalWebhook{{}, {}})
 	gauge.AssertExpectations(t)
 }

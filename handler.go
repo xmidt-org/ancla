@@ -50,8 +50,9 @@ func NewGetAllWebhooksHandler(s Service) http.Handler {
 // HandlerConfig contains configuration for all components that handlers depend on
 // from the service to the transport layers.
 type HandlerConfig struct {
-	MetricsProvider provider.Provider
-	V               Validator
+	MetricsProvider   provider.Provider
+	V                 Validator
+	requirePartnerIDs bool
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {
@@ -62,5 +63,6 @@ func newTransportConfig(hConfig HandlerConfig) transportConfig {
 		webhookLegacyDecodeCount: hConfig.MetricsProvider.NewCounter(WebhookLegacyDecodeCount),
 		now:                      time.Now,
 		v:                        hConfig.V,
+		requirePartnerIDs:        hConfig.requirePartnerIDs,
 	}
 }
