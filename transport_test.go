@@ -271,8 +271,8 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				now: func() time.Time {
 					return getRefTime()
 				},
-				v:             tc.Validator,
-				reqPartnerIDs: true,
+				v:                 tc.Validator,
+				requirePartnerIDs: true,
 			}
 			decode := addWebhookRequestDecoder(config)
 			var auth bascule.Authentication
