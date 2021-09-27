@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Added configurability for partnerIDs check and continued converting webhooks to 
-internalWebhooks. [#80] (https://github.com/xmidt-org/ancla/pull/80)
+internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 - Changed webhooks to internalWebhooks to enable the storing of partnerIDs. [#79](https://github.com/xmidt-org/ancla/pull/79)
 
 ## [v0.2.4]
