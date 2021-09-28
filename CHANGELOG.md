@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.3.0]
 - Added configurability for partnerIDs check and continued converting webhooks to 
 internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 - Changed webhooks to internalWebhooks to enable the storing of partnerIDs. [#79](https://github.com/xmidt-org/ancla/pull/79)
@@ -65,8 +67,9 @@ internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.2.4...HEAD
-[v0.2.4]:https://github.com/xmidt-org/ancla/compare/0.2.3...v0.2.4
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/xmidt-org/ancla/compare/0.2.4...v0.3.0
+[v0.2.4]: https://github.com/xmidt-org/ancla/compare/0.2.3...v0.2.4
 [v0.2.3]: https://github.com/xmidt-org/ancla/compare/0.2.2...v0.2.3
 [v0.2.2]: https://github.com/xmidt-org/ancla/compare/0.2.1...v0.2.2
 [v0.2.1]: https://github.com/xmidt-org/ancla/compare/0.2.0...v0.2.1

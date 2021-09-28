@@ -52,7 +52,7 @@ func NewGetAllWebhooksHandler(s Service) http.Handler {
 type HandlerConfig struct {
 	MetricsProvider   provider.Provider
 	V                 Validator
-	requirePartnerIDs bool
+	disablePartnerIDs bool
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {
@@ -63,6 +63,6 @@ func newTransportConfig(hConfig HandlerConfig) transportConfig {
 		webhookLegacyDecodeCount: hConfig.MetricsProvider.NewCounter(WebhookLegacyDecodeCount),
 		now:                      time.Now,
 		v:                        hConfig.V,
-		requirePartnerIDs:        hConfig.requirePartnerIDs,
+		disablePartnerIDs:        hConfig.disablePartnerIDs,
 	}
 }
