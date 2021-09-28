@@ -164,6 +164,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 		ExpectedStatusCode          int
 		Auth                        string
 		WrongContext                bool
+		DisablePartnerIDs           bool
 	}
 
 	tcs := []testCase{
@@ -173,6 +174,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
 			Validator:              Validators{},
 			Auth:                   "jwt",
+		},
+		{
+			Description:            "Do not check PartnerIDs",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              Validators{},
+			Auth:                   "jwt",
+			DisablePartnerIDs:      true,
 		},
 		{
 			Description:            "Auth token not present failure",
@@ -272,7 +281,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 					return getRefTime()
 				},
 				v:                 tc.Validator,
-				requirePartnerIDs: true,
+				disablePartnerIDs: tc.DisablePartnerIDs,
 			}
 			decode := addWebhookRequestDecoder(config)
 			var auth bascule.Authentication
