@@ -76,6 +76,17 @@ type Config struct {
 	// Raw: parser assumes all of the token payload == JWT token
 	// (Optional). Defaults to 'simple'
 	JWTParserType jwtAcquireParserType
+
+	// DisablePartnerIDs, if true, will allow webhooks to register without
+	// checking the validity of the partnerIDs in the request
+	DisablePartnerIDs bool
+
+	// WebhookValidationConfig provides options for validating the webhook's URL and TTL
+	// related fields. Some validation happens regardless of the configuration:
+	// URLs must be a valid URL structure, the Matcher.DeviceID values must
+	// compile into regular expressions, and the Events field must have at
+	// least one value and all values must compile into regular expressions.
+	WebhookValidationConfig ValidatorConfig
 }
 
 type service struct {
