@@ -154,17 +154,16 @@ func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 
 func TestAddWebhookRequestDecoder(t *testing.T) {
 	type testCase struct {
-		Description                 string
-		InputPayload                string
-		ExpectedLegacyDecodingCount float64
-		ExpectedErr                 error
-		ExpectedDecodedRequest      *addWebhookRequest
-		ReadBodyFail                bool
-		Validator                   Validator
-		ExpectedStatusCode          int
-		Auth                        string
-		WrongContext                bool
-		DisablePartnerIDs           bool
+		Description            string
+		InputPayload           string
+		ExpectedErr            error
+		ExpectedDecodedRequest *addWebhookRequest
+		ReadBodyFail           bool
+		Validator              Validator
+		ExpectedStatusCode     int
+		Auth                   string
+		WrongContext           bool
+		DisablePartnerIDs      bool
 	}
 
 	tcs := []testCase{
@@ -230,25 +229,9 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Auth:                   "basic",
 		},
 		{
-			Description:                 "Legacy decoding",
-			InputPayload:                addWebhookDecoderLegacyInput(),
-			ExpectedLegacyDecodingCount: 1,
-			ExpectedDecodedRequest:      addWebhookDecoderOutput(true),
-			Validator:                   Validators{},
-			Auth:                        "jwt",
-		},
-		{
 			Description:        "Failed to JSON Unmarshal",
 			InputPayload:       "{",
 			ExpectedErr:        errFailedWebhookUnmarshal,
-			Validator:          Validators{},
-			ExpectedStatusCode: 400,
-			Auth:               "jwt",
-		},
-		{
-			Description:        "Empty legacy case",
-			InputPayload:       "[]",
-			ExpectedErr:        errNoWebhooksInLegacyDecode,
 			Validator:          Validators{},
 			ExpectedStatusCode: 400,
 			Auth:               "jwt",
@@ -276,7 +259,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			require := require.New(t)
 			counter := new(mockCounter)
 			config := transportConfig{
-				webhookLegacyDecodeCount: counter,
 				now: func() time.Time {
 					return getRefTime()
 				},
@@ -326,10 +308,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			}
 			r.RemoteAddr = "original-requester.example.net:443"
 
-			if tc.ExpectedLegacyDecodingCount > 0 {
-				counter.On("With", URLLabel, tc.ExpectedDecodedRequest.internalWebook.Webhook.Config.URL).Times(int(tc.ExpectedLegacyDecodingCount))
-				counter.On("Add", float64(1)).Times(int(tc.ExpectedLegacyDecodingCount))
-			}
 			var decodedRequest interface{}
 			if tc.WrongContext {
 				decodedRequest, err = decode(context.Background(), r)
@@ -351,11 +329,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			} else {
 				assert.Nil(err)
 				assert.EqualValues(tc.ExpectedDecodedRequest, decodedRequest)
-			}
-
-			if tc.ExpectedLegacyDecodingCount < 1 {
-				counter.AssertNotCalled(t, "With")
-				counter.AssertNotCalled(t, "Add")
 			}
 
 			counter.AssertExpectations(t)

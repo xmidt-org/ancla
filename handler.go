@@ -60,9 +60,8 @@ func newTransportConfig(hConfig HandlerConfig) transportConfig {
 		hConfig.MetricsProvider = provider.NewDiscardProvider()
 	}
 	return transportConfig{
-		webhookLegacyDecodeCount: hConfig.MetricsProvider.NewCounter(WebhookLegacyDecodeCount),
-		now:                      time.Now,
-		v:                        hConfig.V,
-		disablePartnerIDs:        hConfig.DisablePartnerIDs,
+		now:               time.Now,
+		v:                 hConfig.V,
+		disablePartnerIDs: hConfig.DisablePartnerIDs,
 	}
 }

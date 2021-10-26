@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-kit/kit/metrics"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/httpaux/erraux"
@@ -37,7 +36,6 @@ import (
 )
 
 var (
-	errNoWebhooksInLegacyDecode  = errors.New("no webhooks to decode in legacy decoding format")
 	errFailedWebhookUnmarshal    = errors.New("failed to JSON unmarshal webhook")
 	errAuthIsNotOfTypeBasicOrJWT = errors.New("auth is not of type Basic of JWT")
 	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
@@ -55,11 +53,10 @@ const (
 )
 
 type transportConfig struct {
-	webhookLegacyDecodeCount metrics.Counter
-	now                      func() time.Time
-	v                        Validator
-	basicPartnerIDsHeader    string
-	disablePartnerIDs        bool
+	now                   func() time.Time
+	v                     Validator
+	basicPartnerIDsHeader string
+	disablePartnerIDs     bool
 }
 
 type addWebhookRequest struct {
@@ -103,7 +100,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		err = json.Unmarshal(requestPayload, &webhook)
 		if err != nil {
-			return errFailedWebhookUnmarshal, err
+			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
 		}
 
 		err = config.v.Validate(webhook)
