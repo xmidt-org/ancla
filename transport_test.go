@@ -402,35 +402,6 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 	}
 }
 
-func addWebhookDecoderLegacyInput() string {
-	return `
-	[
-		{
-			"config": {
-				"url": "http://deliver-here-0.example.net",
-				"content_type": "application/json",
-				"secret": "superSecretXYZ"
-			},
-			"events": ["online"],
-			"matcher": {
-				"device_id": ["mac:aabbccddee.*"]
-			},
-			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
-			"until": "2021-01-02T15:04:10Z"
-		},
-		{
-			"config": {
-				"url": "http://deliver-here-1.example.net",
-				"content_type": "application/json",
-				"secret": "superSecretXYZ"
-			},
-			"events": ["online"]
-		}
-	]
-	`
-}
-
 func encodeGetAllInput() []InternalWebhook {
 	return []InternalWebhook{
 		{
