@@ -30,8 +30,7 @@ const (
 
 // Labels
 const (
-	OutcomeLabel = "outcome"
-	URLLabel     = "url"
+	URLLabel = "url"
 )
 
 // Label Values
