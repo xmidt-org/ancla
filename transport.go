@@ -103,11 +103,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		err = json.Unmarshal(requestPayload, &webhook)
 		if err != nil {
-			webhook, err = getFirstFromList(requestPayload)
-			if err != nil {
-				return nil, err
-			}
-			config.webhookLegacyDecodeCount.With(URLLabel, webhook.Config.URL).Add(1)
+			return errFailedWebhookUnmarshal, err
 		}
 
 		err = config.v.Validate(webhook)
