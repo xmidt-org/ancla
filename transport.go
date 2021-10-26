@@ -185,20 +185,6 @@ func getOwner(ctx context.Context) string {
 	return ""
 }
 
-func getFirstFromList(requestPayload []byte) (Webhook, error) {
-	var webhooks []Webhook
-
-	err := json.Unmarshal(requestPayload, &webhooks)
-	if err != nil {
-		return Webhook{}, &erraux.Error{Err: errFailedWebhookUnmarshal, Code: http.StatusBadRequest}
-	}
-
-	if len(webhooks) < 1 {
-		return Webhook{}, &erraux.Error{Err: errNoWebhooksInLegacyDecode, Code: http.StatusBadRequest}
-	}
-	return webhooks[0], nil
-}
-
 func obfuscateSecrets(webhooks []Webhook) {
 	for i := range webhooks {
 		webhooks[i].Config.Secret = "<obfuscated>"
