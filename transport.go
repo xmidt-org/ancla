@@ -200,7 +200,10 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 	if webhook.Until.IsZero() {
 		webhook.Until = wv.now().Add(webhook.Duration)
 	}
-	webhook.Address = requestOriginHost
+	if requestOriginHost != "" {
+		webhook.Address = requestOriginHost
+	}
+
 }
 
 func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {
