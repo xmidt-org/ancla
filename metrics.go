@@ -27,11 +27,6 @@ const (
 	WebhookListSizeGauge = "webhook_list_size_value"
 )
 
-// Labels
-const (
-	URLLabel = "url"
-)
-
 // Label Values
 const (
 	SuccessOutcome = "success"
