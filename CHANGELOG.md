@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Removed legacy logic condition for inserting a webhook. [#85](https://github.com/xmidt-org/ancla/pull/85)
+- Changed webhook address handling. [#84](https://github.com/xmidt-org/ancla/pull/84)
 
 ## [v0.3.2]
 - Added PartnerID and WebhookValidation to Config. [#83](https://github.com/xmidt-org/ancla/pull/83)

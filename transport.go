@@ -196,14 +196,13 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 	if len(webhook.Matcher.DeviceID) == 0 {
 		webhook.Matcher.DeviceID = []string{".*"} // match anything
 	}
-
-	if webhook.Address == "" && requestOriginHost != "" {
-		webhook.Address = requestOriginHost
-	}
-
 	if webhook.Until.IsZero() {
 		webhook.Until = wv.now().Add(webhook.Duration)
 	}
+	if requestOriginHost != "" {
+		webhook.Address = requestOriginHost
+	}
+
 }
 
 func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {

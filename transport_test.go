@@ -549,6 +549,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 				Duration: 5 * time.Minute,
 				Until:    mockNow().Add(5 * time.Minute),
 			},
+			remoteAddr: "requester.example.net:443",
 			expectedWebhook: Webhook{
 				Address: "requester.example.net:443",
 				Config: DeliveryConfig{
