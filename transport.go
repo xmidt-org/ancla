@@ -108,9 +108,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		if err != nil {
 			return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 		}
-		if r.RemoteAddr == "" {
-			return nil, errRemoteAddrIsNil
-		}
+
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
 
 		var partners []string
