@@ -402,43 +402,6 @@ func getTestInternalWebhooks() []InternalWebhook {
 	}
 }
 
-func getTestWebhooks() []Webhook {
-	refTime := getRefTime()
-	return []Webhook{
-		{
-			Address: "http://original-requester.example.net",
-			Config: DeliveryConfig{
-				URL:         "http://deliver-here-0.example.net",
-				ContentType: "application/json",
-				Secret:      "superSecretXYZ",
-			},
-			Events: []string{"online"},
-			Matcher: MetadataMatcherConfig{
-				DeviceID: []string{"mac:aabbccddee.*"},
-			},
-			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   10 * time.Second,
-			Until:      refTime.Add(10 * time.Second),
-		},
-		{
-			Address: "http://original-requester.example.net",
-			Config: DeliveryConfig{
-				ContentType: "application/json",
-				URL:         "http://deliver-here-1.example.net",
-				Secret:      "doNotShare:e=mc^2",
-			},
-			Events: []string{"online"},
-			Matcher: MetadataMatcherConfig{
-				DeviceID: []string{"mac:aabbccddee.*"},
-			},
-
-			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   20 * time.Second,
-			Until:      refTime.Add(20 * time.Second),
-		},
-	}
-}
-
 func getRefTime() time.Time {
 	refTime, err := time.Parse(time.RFC3339, "2021-01-02T15:04:00Z")
 	if err != nil {
