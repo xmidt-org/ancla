@@ -42,7 +42,6 @@ var (
 	errAuthNotPresent            = errors.New("auth not present")
 	errAuthTokenIsNil            = errors.New("auth token is nil")
 	errPartnerIDsDoNotExist      = errors.New("partnerIDs do not exist")
-	errRemoteAddrIsNil           = errors.New("remoteAddr is nil")
 	DefaultBasicPartnerIDsHeader = "X-Xmidt-Partner-Ids"
 	jwtstr                       = "jwt"
 	basicstr                     = "basic"
