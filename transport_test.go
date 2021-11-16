@@ -237,6 +237,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Auth:               "jwt",
 		},
 		{
+			Description:        "Failed to JSON Unmarshal",
+			InputPayload:       addWebhookDecoderUnmarshalingErrorInput(),
+			ExpectedErr:        errFailedWebhookUnmarshal,
+			Validator:          Validators{},
+			ExpectedStatusCode: 400,
+			Auth:               "jwt",
+		},
+		{
 			Description:  "Webhook validation Failure",
 			InputPayload: addWebhookDecoderInput(),
 			Validator:    Validators{mockValidator()},
@@ -350,6 +358,25 @@ func addWebhookDecoderInput() string {
 			},
 			"failure_url": "http://contact-here-when-fails.example.net",
 			"duration": 0,
+			"until": "2021-01-02T15:04:10Z"
+		}
+	`
+}
+
+func addWebhookDecoderUnmarshalingErrorInput() string {
+	return `
+		{
+			"config": {
+				"url": "http://deliver-here-0.example.net",
+				"content_type": "application/json",
+				"secret": "superSecretXYZ"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": "hehe",
 			"until": "2021-01-02T15:04:10Z"
 		}
 	`

@@ -100,6 +100,10 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		err = json.Unmarshal(requestPayload, &webhook)
 		if err != nil {
+			var e *json.UnmarshalTypeError
+			if errors.As(err, &e) {
+				return nil, &erraux.Error{Err: fmt.Errorf("%w: %v must be of type %v", errFailedWebhookUnmarshal, e.Field, e.Type), Code: http.StatusBadRequest}
+			}
 			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
 		}
 
