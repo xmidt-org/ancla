@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.3.3]
 - Removed legacy logic condition for inserting a webhook. [#85](https://github.com/xmidt-org/ancla/pull/85)
 - Changed webhook address handling. [#84](https://github.com/xmidt-org/ancla/pull/84)
 - Changed webhook unmarshaling error to be more descriptive. [#88](https://github.com/xmidt-org/ancla/pull/88)
@@ -76,7 +78,8 @@ internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.3...HEAD
+[v0.3.3]: https://github.com/xmidt-org/ancla/compare/0.3.2...v0.3.3
 [v0.3.2]: https://github.com/xmidt-org/ancla/compare/0.3.1...v0.3.2
 [v0.3.1]: https://github.com/xmidt-org/ancla/compare/0.3.0...v0.3.1
 [v0.3.0]: https://github.com/xmidt-org/ancla/compare/0.2.4...v0.3.0
