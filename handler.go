@@ -18,11 +18,14 @@
 package ancla
 
 import (
+	"context"
 	"net/http"
 	"time"
 
+	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics/provider"
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/xmidt-org/webpa-common/v2/logging"
 )
 
 // NewAddWebhookHandler returns an HTTP handler for adding
@@ -32,18 +35,18 @@ func NewAddWebhookHandler(s Service, config HandlerConfig) http.Handler {
 		newAddWebhookEndpoint(s),
 		addWebhookRequestDecoder(newTransportConfig(config)),
 		encodeAddWebhookResponse,
-		kithttp.ServerErrorEncoder(errorEncoder(s)),
+		kithttp.ServerErrorEncoder(errorEncoder(config.GetLoggerFunc)),
 	)
 }
 
 // NewGetAllWebhooksHandler returns an HTTP handler for fetching
 // all the currently registered webhooks.
-func NewGetAllWebhooksHandler(s Service) http.Handler {
+func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 	return kithttp.NewServer(
 		newGetAllWebhooksEndpoint(s),
 		kithttp.NopRequestDecoder,
 		encodeGetAllWebhooksResponse,
-		kithttp.ServerErrorEncoder(errorEncoder(s)),
+		kithttp.ServerErrorEncoder(errorEncoder(config.GetLoggerFunc)),
 	)
 }
 
@@ -53,6 +56,7 @@ type HandlerConfig struct {
 	MetricsProvider   provider.Provider
 	V                 Validator
 	DisablePartnerIDs bool
+	GetLoggerFunc     func(context.Context) log.Logger
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {
@@ -64,4 +68,9 @@ func newTransportConfig(hConfig HandlerConfig) transportConfig {
 		v:                 hConfig.V,
 		disablePartnerIDs: hConfig.DisablePartnerIDs,
 	}
+}
+
+func getLogger(ctx context.Context) log.Logger {
+	logger := log.With(logging.GetLogger(ctx), "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
+	return logger
 }

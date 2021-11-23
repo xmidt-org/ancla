@@ -35,23 +35,27 @@ import (
 )
 
 func TestErrorEncoder(t *testing.T) {
+	mockHandlerConfig := HandlerConfig{
+		// GetLoggerFunc: mockGetLoggerFunc(context.Background()),
+	}
+
 	type testCase struct {
 		Description  string
 		InputErr     error
 		ExpectedCode int
-		Service      Service
+		HConfig      HandlerConfig
 	}
 	tcs := []testCase{
 		{
 			Description:  "Internal",
 			InputErr:     errors.New("some failure"),
-			Service:      &mockService{},
+			HConfig:      mockHandlerConfig,
 			ExpectedCode: 500,
 		},
 		{
 			Description:  "Coded request",
 			InputErr:     store.BadRequestErr{Message: "invalid param"},
-			Service:      &mockService{},
+			HConfig:      mockHandlerConfig,
 			ExpectedCode: 400,
 		},
 	}
@@ -59,7 +63,7 @@ func TestErrorEncoder(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			recorder := httptest.NewRecorder()
-			e := errorEncoder(tc.Service)
+			e := errorEncoder(tc.HConfig.GetLoggerFunc)
 			e(context.Background(), tc.InputErr, recorder)
 			assert.Equal(tc.ExpectedCode, recorder.Code)
 			assert.JSONEq(fmt.Sprintf(`{"message": "%s"}`, tc.InputErr.Error()), recorder.Body.String())

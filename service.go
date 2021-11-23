@@ -54,10 +54,6 @@ type Service interface {
 
 	// GetAll lists all the current registered webhooks.
 	GetAll(ctx context.Context) ([]InternalWebhook, error)
-
-	// GetLoggerFunc is the function used to get a request-specific logger from
-	// its context.
-	GetLogger(context.Context) log.Logger
 }
 
 // Config contains information needed to initialize the webhook service.
@@ -140,11 +136,6 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	}
 
 	return iws, nil
-}
-
-func (s *service) GetLogger(ctx context.Context) log.Logger {
-	logger := log.With(logging.GetLogger(ctx), "ts", log.DefaultTimestampUTC, "caller", log.DefaultCaller)
-	return logger
 }
 
 func internalWebhookToItem(now func() time.Time, iw InternalWebhook) (model.Item, error) {

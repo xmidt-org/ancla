@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/metrics"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
@@ -74,10 +73,6 @@ func (m *mockService) Add(ctx context.Context, owner string, iw InternalWebhook)
 func (m *mockService) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]InternalWebhook), args.Error(1)
-}
-
-func (m *mockService) GetLogger(ctx context.Context) log.Logger {
-	return log.NewNopLogger()
 }
 
 type mockCounter struct {
@@ -134,3 +129,7 @@ func mockValidator() ValidatorFunc {
 		return errMockValidatorFail
 	}
 }
+
+// func mockGetLoggerFunc(ctx context.Context) *log.Logger {
+// 	return *log.NewNopLogger()
+// }

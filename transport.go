@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	kitlog "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/httpaux/erraux"
@@ -67,7 +67,7 @@ type addWebhookRequest struct {
 
 // GetLoggerFunc is the function used to get a request-specific logger from
 // its context.
-type GetLoggerFunc func(context.Context) kitlog.Logger
+type GetLoggerFunc func(context.Context) *log.Logger
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	iws := response.([]InternalWebhook)
@@ -214,7 +214,13 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 
 }
 
-func errorEncoder(s Service) kithttp.ErrorEncoder {
+func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
+	if getLogger == nil {
+		getLogger = func(_ context.Context) *log.Logger {
+			return nil
+		}
+	}
+
 	return func(ctx context.Context, err error, w http.ResponseWriter) {
 		w.Header().Set(contentTypeHeader, jsonContentType)
 		code := http.StatusInternalServerError
@@ -223,7 +229,7 @@ func errorEncoder(s Service) kithttp.ErrorEncoder {
 			code = sc.StatusCode()
 		}
 
-		logger := s.GetLogger(ctx)
+		logger := *getLogger(ctx)
 		if logger != nil && code != http.StatusNotFound {
 			logger.Log("sending non-200, non-404 response", err, code)
 		}
