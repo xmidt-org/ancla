@@ -96,7 +96,7 @@ func TestAdd(t *testing.T) {
 		{
 			Description: "Unknown push result",
 			PushItemResults: pushItemResults{
-				result: "unknownResult",
+				result: chrysom.UnknownPushResult,
 			},
 			ExpectedErr: errNonSuccessPushResult,
 		},
