@@ -90,8 +90,8 @@ type Config struct {
 }
 
 type ArgusConfig struct {
-	chrysom.BasicClientConfig
-	Listen chrysom.ListenerClientConfig
+	chrysom.BasicClientConfig `mapstructure:",squash"`
+	Listen                    chrysom.ListenerClientConfig
 }
 
 type service struct {
