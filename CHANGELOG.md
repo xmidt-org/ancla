@@ -5,6 +5,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Added more details to some validation errors. [#91](https://github.com/xmidt-org/ancla/pull/91)
+- Fixed naming mismatch for Validator config: changed name in Config struct to what we send in yaml. [#91](https://github.com/xmidt-org/ancla/pull/91)
+- Bumped chrysom: updated code to create basic and listener clients. [#91](https://github.com/xmidt-org/ancla/pull/91)
 
 ## [v0.3.3]
 - Removed legacy logic condition for inserting a webhook. [#85](https://github.com/xmidt-org/ancla/pull/85)
