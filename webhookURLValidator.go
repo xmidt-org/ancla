@@ -37,7 +37,7 @@ var (
 	errInvalidSubnet         = errors.New("invalid subnet")
 	errNoSuchHost            = errors.New("host does not exist")
 	errBadURLProtocol        = errors.New("bad URL protocol")
-	errEmptyURL              = errors.New("error cannot be an empty string")
+	errEmptyURL              = errors.New("url cannot be an empty string")
 )
 
 // filterNil takes out all entries of Nil value from the slice.
