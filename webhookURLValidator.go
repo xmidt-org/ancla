@@ -30,13 +30,14 @@ var (
 	errInvalidFailureURL     = errors.New("invalid Failure URL")
 	errInvalidAlternativeURL = errors.New("invalid Alternative URL(s)")
 	errURLIsNotHTTPS         = errors.New("URL scheme is not HTTPS")
-	errInvalidHost           = errors.New("invalid host")
+	errInvalidHost           = errors.New("host is blocked")
 	errIPGivenAsHost         = errors.New("cannot use IP as host")
 	errLoopbackGivenAsHost   = errors.New("cannot use loopback host")
 	errIPinInvalidSubnets    = errors.New("IP is within a blocked subnet")
 	errInvalidSubnet         = errors.New("invalid subnet")
 	errNoSuchHost            = errors.New("host does not exist")
 	errBadURLProtocol        = errors.New("bad URL protocol")
+	errEmptyURL              = errors.New("error cannot be an empty string")
 )
 
 // filterNil takes out all entries of Nil value from the slice.
@@ -55,6 +56,10 @@ func filterNil(vs []ValidURLFunc) (filtered []ValidURLFunc) {
 func GoodConfigURL(vs []ValidURLFunc) ValidatorFunc {
 	vs = filterNil(vs)
 	return func(w Webhook) error {
+		if w.Config.URL == "" {
+			return fmt.Errorf("%w: %v",
+				errInvalidURL, errEmptyURL)
+		}
 		parsedURL, err := url.ParseRequestURI(w.Config.URL)
 		if err != nil {
 			return fmt.Errorf("%w: %v", errInvalidURL, err)
@@ -99,16 +104,19 @@ func GoodAlternativeURLs(vs []ValidURLFunc) ValidatorFunc {
 	return func(w Webhook) error {
 		for _, u := range w.Config.AlternativeURLs {
 			if u == "" {
-				return errInvalidAlternativeURL
+				return fmt.Errorf("%w: %v",
+					errInvalidAlternativeURL, errEmptyURL)
 			}
 			parsedAlternativeURL, err := url.ParseRequestURI(u)
 			if err != nil {
-				return fmt.Errorf("%w: %v", errInvalidAlternativeURL, err)
+				return fmt.Errorf("%w '%s': %v",
+					errInvalidAlternativeURL, u, err)
 			}
 			for _, f := range vs {
 				err = f(parsedAlternativeURL)
 				if err != nil {
-					return fmt.Errorf("%w: %v", errInvalidAlternativeURL, err)
+					return fmt.Errorf("%w '%s': %v",
+						errInvalidAlternativeURL, u, err)
 				}
 			}
 		}
@@ -122,10 +130,10 @@ func GoodAlternativeURLs(vs []ValidURLFunc) ValidatorFunc {
 func GoodURLScheme(httpsOnly bool) ValidURLFunc {
 	return func(u *url.URL) error {
 		if u.Scheme != "https" && u.Scheme != "http" {
-			return errBadURLProtocol
+			return fmt.Errorf("%w: %s", errBadURLProtocol, u.Scheme)
 		}
 		if httpsOnly && u.Scheme != "https" {
-			return errURLIsNotHTTPS
+			return fmt.Errorf("%w: %s", errURLIsNotHTTPS, u.Scheme)
 		}
 		return nil
 	}
@@ -144,7 +152,7 @@ func RejectHosts(invalidHosts []string) ValidURLFunc {
 	return func(u *url.URL) error {
 		for _, v := range ih {
 			if strings.Contains(u.Host, v) {
-				return errInvalidHost
+				return fmt.Errorf("%w: %s", errInvalidHost, u.Host)
 			}
 		}
 		return nil
@@ -158,7 +166,7 @@ func RejectAllIPs() ValidURLFunc {
 		host := u.Hostname()
 		ip := net.ParseIP(host)
 		if ip != nil {
-			return errIPGivenAsHost
+			return fmt.Errorf("%w: %v", errIPGivenAsHost, host)
 		}
 		return nil
 	}
@@ -171,7 +179,7 @@ func RejectLoopback() ValidURLFunc {
 		host := u.Hostname()
 		ip := net.ParseIP(host)
 		if ip != nil && ip.IsLoopback() {
-			return errLoopbackGivenAsHost
+			return fmt.Errorf("%w: %v", errLoopbackGivenAsHost, ip)
 		}
 		ips, err := net.LookupIP(host)
 		if err != nil {
@@ -179,7 +187,8 @@ func RejectLoopback() ValidURLFunc {
 		}
 		for _, i := range ips {
 			if i.IsLoopback() {
-				return errLoopbackGivenAsHost
+				return fmt.Errorf("%w: %v lookup includes %v",
+					errLoopbackGivenAsHost, host, i)
 			}
 		}
 		return nil
@@ -193,19 +202,20 @@ func InvalidSubnets(i []string) (ValidURLFunc, error) {
 	for _, sp := range i {
 		_, n, err := net.ParseCIDR(sp)
 		if err != nil {
-			return nil, errInvalidSubnet
+			return nil, fmt.Errorf("%w %s: %v", errInvalidSubnet, sp, err)
 		}
 		invalidSubnets = append(invalidSubnets, n)
 	}
 	return func(u *url.URL) error {
 		ips, err := net.LookupIP(u.Hostname())
 		if err != nil {
-			return errInvalidURL
+			return fmt.Errorf("%w: %v", errInvalidURL, err)
 		}
 		for _, d := range ips {
 			for _, s := range invalidSubnets {
 				if s.Contains(d) {
-					return errIPinInvalidSubnets
+					return fmt.Errorf("%w: ip %s in %s",
+						errIPinInvalidSubnets, d, s)
 				}
 			}
 		}

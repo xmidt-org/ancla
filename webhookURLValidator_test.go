@@ -92,6 +92,13 @@ func TestGoodConfigURL(t *testing.T) {
 			validURLFuncs: simpleFuncs,
 		},
 		{
+			desc: "Parse Failure",
+			webhook: Webhook{Config: DeliveryConfig{URL: "\\\\"},
+				FailureURL: ""},
+			expectedErr:   errInvalidURL,
+			validURLFuncs: simpleFuncs,
+		},
+		{
 			desc: "No https url Failure",
 			webhook: Webhook{Config: DeliveryConfig{URL: "http://www.google.com/"},
 				FailureURL: "https://www.google.com/"},

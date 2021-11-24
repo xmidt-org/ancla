@@ -19,6 +19,7 @@ package ancla
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"time"
@@ -31,8 +32,8 @@ var (
 	errInvalidDuration     = errors.New("duration value of webhook is out of bounds")
 	errInvalidUntil        = errors.New("until value of webhook is out of bounds")
 	errUntilDurationAbsent = errors.New("until and duration are both absent")
-	errInvalidTTL          = errors.New("invalid TTL")
-	errInvalidJitter       = errors.New("invalid jitter")
+	errInvalidTTL          = errors.New("TTL must be non-negative")
+	errInvalidJitter       = errors.New("jitter must be non-negative")
 )
 
 // Validator is a WebhookValidator that allows access to the Validate function.
@@ -108,7 +109,8 @@ func CheckDuration(maxTTL time.Duration) (ValidatorFunc, error) {
 	}
 	return func(w Webhook) error {
 		if maxTTL < w.Duration || w.Duration < 0 {
-			return errInvalidDuration
+			return fmt.Errorf("%w: %v not between 0 and %v",
+				errInvalidDuration, w.Duration, maxTTL)
 		}
 		return nil
 	}, nil
@@ -131,7 +133,8 @@ func CheckUntil(jitter time.Duration, maxTTL time.Duration, now func() time.Time
 		limit := (now().Add(maxTTL)).Add(jitter)
 		proposed := (w.Until)
 		if proposed.After(limit) {
-			return errInvalidUntil
+			return fmt.Errorf("%w: %v after %v",
+				errInvalidUntil, proposed.String(), limit.String())
 		}
 		return nil
 	}, nil
