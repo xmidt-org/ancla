@@ -59,7 +59,7 @@ type Service interface {
 // Config contains information needed to initialize the webhook service.
 type Config struct {
 	// Argus contains configuration to initialize an Argus client.
-	Argus chrysom.ClientConfig
+	Argus ArgusConfig
 
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
@@ -81,12 +81,17 @@ type Config struct {
 	// checking the validity of the partnerIDs in the request
 	DisablePartnerIDs bool
 
-	// WebhookValidationConfig provides options for validating the webhook's URL and TTL
+	// Validation provides options for validating the webhook's URL and TTL
 	// related fields. Some validation happens regardless of the configuration:
 	// URLs must be a valid URL structure, the Matcher.DeviceID values must
 	// compile into regular expressions, and the Events field must have at
 	// least one value and all values must compile into regular expressions.
-	WebhookValidationConfig ValidatorConfig
+	Validation ValidatorConfig
+}
+
+type ArgusConfig struct {
+	chrysom.BasicClientConfig `mapstructure:",squash"`
+	Listen                    chrysom.ListenerClientConfig
 }
 
 type service struct {
@@ -193,21 +198,25 @@ func Initialize(cfg Config, getLogger func(ctx context.Context) log.Logger, setL
 	m := &chrysom.Measures{
 		Polls: cfg.MetricsProvider.NewCounterVec(chrysom.PollCounter),
 	}
-	argus, err := chrysom.NewClient(cfg.Argus, m, getLogger, setLogger)
+	basic, err := chrysom.NewBasicClient(cfg.Argus.BasicClientConfig, getLogger, setLogger)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
+	}
+	listener, err := chrysom.NewListenerClient(cfg.Argus.Listen, setLogger, m, basic)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
 	}
 
 	svc := &service{
 		logger: cfg.Logger,
-		argus:  argus,
+		argus:  basic,
 		config: cfg,
 		now:    time.Now,
 	}
 
-	argus.Start(context.Background())
+	listener.Start(context.Background())
 
-	return svc, func() { argus.Stop(context.Background()) }, nil
+	return svc, func() { listener.Stop(context.Background()) }, nil
 }
 
 func prepArgusConfig(cfg *Config, watches ...Watch) error {
