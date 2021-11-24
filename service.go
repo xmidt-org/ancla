@@ -81,12 +81,12 @@ type Config struct {
 	// checking the validity of the partnerIDs in the request
 	DisablePartnerIDs bool
 
-	// WebhookValidationConfig provides options for validating the webhook's URL and TTL
+	// Validation provides options for validating the webhook's URL and TTL
 	// related fields. Some validation happens regardless of the configuration:
 	// URLs must be a valid URL structure, the Matcher.DeviceID values must
 	// compile into regular expressions, and the Events field must have at
 	// least one value and all values must compile into regular expressions.
-	WebhookValidationConfig ValidatorConfig
+	Validation ValidatorConfig
 }
 
 type service struct {
