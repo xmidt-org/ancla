@@ -35,9 +35,7 @@ import (
 )
 
 func TestErrorEncoder(t *testing.T) {
-	mockHandlerConfig := HandlerConfig{
-		// GetLoggerFunc: mockGetLoggerFunc(context.Background()),
-	}
+	mockHandlerConfig := HandlerConfig{}
 
 	type testCase struct {
 		Description  string
@@ -63,7 +61,7 @@ func TestErrorEncoder(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			recorder := httptest.NewRecorder()
-			e := errorEncoder(tc.HConfig.GetLoggerFunc)
+			e := errorEncoder(tc.HConfig.GetLogger)
 			e(context.Background(), tc.InputErr, recorder)
 			assert.Equal(tc.ExpectedCode, recorder.Code)
 			assert.JSONEq(fmt.Sprintf(`{"message": "%s"}`, tc.InputErr.Error()), recorder.Body.String())

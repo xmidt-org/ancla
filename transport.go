@@ -67,7 +67,7 @@ type addWebhookRequest struct {
 
 // GetLoggerFunc is the function used to get a request-specific logger from
 // its context.
-type GetLoggerFunc func(context.Context) *log.Logger
+type GetLoggerFunc func(ctx context.Context) log.Logger
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	iws := response.([]InternalWebhook)
@@ -216,7 +216,7 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 
 func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 	if getLogger == nil {
-		getLogger = func(_ context.Context) *log.Logger {
+		getLogger = func(_ context.Context) log.Logger {
 			return nil
 		}
 	}
@@ -229,7 +229,7 @@ func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 			code = sc.StatusCode()
 		}
 
-		logger := *getLogger(ctx)
+		logger := getLogger(ctx)
 		if logger != nil && code != http.StatusNotFound {
 			logger.Log("sending non-200, non-404 response", err, code)
 		}

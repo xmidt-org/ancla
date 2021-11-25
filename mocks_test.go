@@ -129,7 +129,3 @@ func mockValidator() ValidatorFunc {
 		return errMockValidatorFail
 	}
 }
-
-// func mockGetLoggerFunc(ctx context.Context) *log.Logger {
-// 	return *log.NewNopLogger()
-// }
