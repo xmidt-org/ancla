@@ -180,6 +180,12 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Auth:                   "jwt",
 		},
 		{
+			Description:            "No validator provided",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Auth:                   "jwt",
+		},
+		{
 			Description:            "Do not check PartnerIDs",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
