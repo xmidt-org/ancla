@@ -71,6 +71,13 @@ func (vf ValidatorFunc) Validate(w Webhook) error {
 	return vf(w)
 }
 
+// AlwaysValid doesn't check anything in the webhook and never returns an error.
+func AlwaysValid() ValidatorFunc {
+	return func(w Webhook) error {
+		return nil
+	}
+}
+
 // CheckEvents makes sure there is at least one value in Events and ensures that
 // all values should parse into regex.
 func CheckEvents() ValidatorFunc {
