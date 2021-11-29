@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 - Changed errorEncoder to log errors. [#90](https://github.com/xmidt-org/ancla/pull/90)
+- Fixed webhook request decoder panic; added default validator when none given. [#92](https://github.com/xmidt-org/ancla/pull/92)
 
 ## [v0.3.4]
 - Added more details to some validation errors. [#91](https://github.com/xmidt-org/ancla/pull/91)
