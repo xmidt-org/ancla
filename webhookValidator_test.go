@@ -34,6 +34,11 @@ var (
 	negativeThreeDuration = -3 * time.Minute
 )
 
+func TestAlwaysValid(t *testing.T) {
+	err := AlwaysValid()(Webhook{})
+	assert.NoError(t, err)
+}
+
 func TestCheckEvents(t *testing.T) {
 	tcs := []struct {
 		desc        string

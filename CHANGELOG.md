@@ -5,7 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.3.5]
 - Changed errorEncoder to log errors. [#90](https://github.com/xmidt-org/ancla/pull/90)
+- Fixed webhook request decoder panic; added default validator when none given. [#92](https://github.com/xmidt-org/ancla/pull/92)
 
 ## [v0.3.4]
 - Added more details to some validation errors. [#91](https://github.com/xmidt-org/ancla/pull/91)
@@ -84,7 +87,8 @@ internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.4...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.5...HEAD
+[v0.3.5]: https://github.com/xmidt-org/ancla/compare/0.3.4...v0.3.5
 [v0.3.4]: https://github.com/xmidt-org/ancla/compare/0.3.3...v0.3.4
 [v0.3.3]: https://github.com/xmidt-org/ancla/compare/0.3.2...v0.3.3
 [v0.3.2]: https://github.com/xmidt-org/ancla/compare/0.3.1...v0.3.2

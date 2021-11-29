@@ -97,6 +97,11 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		config.basicPartnerIDsHeader = DefaultBasicPartnerIDsHeader
 	}
 
+	// if no validators are given, we accept anything.
+	if config.v == nil {
+		config.v = AlwaysValid()
+	}
+
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
 		requestPayload, err := ioutil.ReadAll(r.Body)
 		if err != nil {
