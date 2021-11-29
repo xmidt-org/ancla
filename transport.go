@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/httpaux/erraux"
@@ -231,7 +232,7 @@ func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 
 		logger := getLogger(ctx)
 		if logger != nil && code != http.StatusNotFound {
-			logger.Log("sending non-200, non-404 response", err, code)
+			logger.Log("sending non-200, non-404 response", level.Key(), level.ErrorValue(), err, code)
 		}
 
 		w.WriteHeader(code)

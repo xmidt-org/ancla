@@ -5,6 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- Changed errorEncoder to log errors. [#90](https://github.com/xmidt-org/ancla/pull/90)
 
 ## [v0.3.3]
 - Removed legacy logic condition for inserting a webhook. [#85](https://github.com/xmidt-org/ancla/pull/85)
