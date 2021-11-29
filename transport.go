@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/httpaux/erraux"
@@ -63,6 +65,10 @@ type addWebhookRequest struct {
 	owner          string
 	internalWebook InternalWebhook
 }
+
+// GetLoggerFunc is the function used to get a request-specific logger from
+// its context.
+type GetLoggerFunc func(context.Context) log.Logger
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	iws := response.([]InternalWebhook)
@@ -209,17 +215,31 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 
 }
 
-func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {
-	w.Header().Set(contentTypeHeader, jsonContentType)
-	code := http.StatusInternalServerError
-	var sc kithttp.StatusCoder
-	if errors.As(err, &sc) {
-		code = sc.StatusCode()
+func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
+	if getLogger == nil {
+		getLogger = func(_ context.Context) log.Logger {
+			return nil
+		}
 	}
-	w.WriteHeader(code)
 
-	json.NewEncoder(w).Encode(
-		map[string]interface{}{
-			"message": err.Error(),
-		})
+	return func(ctx context.Context, err error, w http.ResponseWriter) {
+		w.Header().Set(contentTypeHeader, jsonContentType)
+		code := http.StatusInternalServerError
+		var sc kithttp.StatusCoder
+		if errors.As(err, &sc) {
+			code = sc.StatusCode()
+		}
+
+		logger := getLogger(ctx)
+		if logger != nil && code != http.StatusNotFound {
+			logger.Log("sending non-200, non-404 response", level.Key(), level.ErrorValue(), err, code)
+		}
+
+		w.WriteHeader(code)
+
+		json.NewEncoder(w).Encode(
+			map[string]interface{}{
+				"message": err.Error(),
+			})
+	}
 }

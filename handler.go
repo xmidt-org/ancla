@@ -32,18 +32,18 @@ func NewAddWebhookHandler(s Service, config HandlerConfig) http.Handler {
 		newAddWebhookEndpoint(s),
 		addWebhookRequestDecoder(newTransportConfig(config)),
 		encodeAddWebhookResponse,
-		kithttp.ServerErrorEncoder(errorEncoder),
+		kithttp.ServerErrorEncoder(errorEncoder(config.GetLogger)),
 	)
 }
 
 // NewGetAllWebhooksHandler returns an HTTP handler for fetching
 // all the currently registered webhooks.
-func NewGetAllWebhooksHandler(s Service) http.Handler {
+func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 	return kithttp.NewServer(
 		newGetAllWebhooksEndpoint(s),
 		kithttp.NopRequestDecoder,
 		encodeGetAllWebhooksResponse,
-		kithttp.ServerErrorEncoder(errorEncoder),
+		kithttp.ServerErrorEncoder(errorEncoder(config.GetLogger)),
 	)
 }
 
@@ -53,6 +53,7 @@ type HandlerConfig struct {
 	MetricsProvider   provider.Provider
 	V                 Validator
 	DisablePartnerIDs bool
+	GetLogger         GetLoggerFunc
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {
