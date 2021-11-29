@@ -67,7 +67,7 @@ type addWebhookRequest struct {
 
 // GetLoggerFunc is the function used to get a request-specific logger from
 // its context.
-type GetLoggerFunc func(ctx context.Context) log.Logger
+type GetLoggerFunc func(context.Context) log.Logger
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	iws := response.([]InternalWebhook)
