@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.3.6]
+- Exported helper functions related to InternalWebhook struct. [#94](https://github.com/xmidt-org/ancla/pull/94)
+
 ## [v0.3.5]
 - Changed errorEncoder to log errors. [#90](https://github.com/xmidt-org/ancla/pull/90)
 - Fixed webhook request decoder panic; added default validator when none given. [#92](https://github.com/xmidt-org/ancla/pull/92)

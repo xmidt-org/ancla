@@ -72,7 +72,7 @@ type GetLoggerFunc func(context.Context) log.Logger
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	iws := response.([]InternalWebhook)
-	webhooks := internalWebhooksToWebhooks(iws)
+	webhooks := InternalWebhooksToWebhooks(iws)
 	if webhooks == nil {
 		// prefer JSON output to be "[]" instead of "<nil>"
 		webhooks = []Webhook{}

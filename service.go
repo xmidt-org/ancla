@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 Comcast Cable Communications Management, LLC
+ * Copyright 2022 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,17 +19,13 @@ package ancla
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/webpa-common/v2/logging"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
@@ -101,13 +97,8 @@ type service struct {
 	now    func() time.Time
 }
 
-type InternalWebhook struct {
-	PartnerIDs []string
-	Webhook    Webhook
-}
-
 func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
-	item, err := internalWebhookToItem(s.now, iw)
+	item, err := InternalWebhookToItem(s.now, iw)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
 	}
@@ -133,7 +124,7 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	iws := make([]InternalWebhook, len(items))
 
 	for i, item := range items {
-		webhook, err := itemToInternalWebhook(item)
+		webhook, err := ItemToInternalWebhook(item)
 		if err != nil {
 			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
 		}
@@ -141,43 +132,6 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	}
 
 	return iws, nil
-}
-
-func internalWebhookToItem(now func() time.Time, iw InternalWebhook) (model.Item, error) {
-	encodedWebhook, err := json.Marshal(iw)
-	if err != nil {
-		return model.Item{}, err
-	}
-	var data map[string]interface{}
-
-	err = json.Unmarshal(encodedWebhook, &data)
-	if err != nil {
-		return model.Item{}, err
-	}
-
-	SecondsToExpiry := iw.Webhook.Until.Sub(now()).Seconds()
-	TTLSeconds := int64(math.Max(0, SecondsToExpiry))
-
-	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(iw.Webhook.Config.URL)))
-
-	return model.Item{
-		Data: data,
-		ID:   checksum,
-		TTL:  &TTLSeconds,
-	}, nil
-}
-
-func itemToInternalWebhook(i model.Item) (InternalWebhook, error) {
-	encodedWebhook, err := json.Marshal(i.Data)
-	if err != nil {
-		return InternalWebhook{}, err
-	}
-	var iw InternalWebhook
-	err = json.Unmarshal(encodedWebhook, &iw)
-	if err != nil {
-		return InternalWebhook{}, err
-	}
-	return iw, nil
 }
 
 func validateConfig(cfg *Config) {
@@ -234,7 +188,7 @@ func prepArgusConfig(cfg *Config, watches ...Watch) error {
 
 func createArgusListener(logger log.Logger, watches ...Watch) chrysom.Listener {
 	return chrysom.ListenerFunc(func(items chrysom.Items) {
-		iws, err := itemsToInternalWebhooks(items)
+		iws, err := ItemsToInternalWebhooks(items)
 		if err != nil {
 			level.Error(logger).Log(logging.MessageKey(), "Failed to convert items to webhooks", "err", err)
 			return
@@ -243,24 +197,4 @@ func createArgusListener(logger log.Logger, watches ...Watch) chrysom.Listener {
 			watch.Update(iws)
 		}
 	})
-}
-
-func itemsToInternalWebhooks(items []model.Item) ([]InternalWebhook, error) {
-	iws := []InternalWebhook{}
-	for _, item := range items {
-		iw, err := itemToInternalWebhook(item)
-		if err != nil {
-			return nil, err
-		}
-		iws = append(iws, iw)
-	}
-	return iws, nil
-}
-
-func internalWebhooksToWebhooks(iws []InternalWebhook) []Webhook {
-	w := make([]Webhook, 0, len(iws))
-	for _, iw := range iws {
-		w = append(w, iw.Webhook)
-	}
-	return w
 }
