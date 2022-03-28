@@ -152,7 +152,7 @@ func Initialize(cfg Config, getLogger func(ctx context.Context) log.Logger, setL
 	m := &chrysom.Measures{
 		Polls: cfg.MetricsProvider.NewCounterVec(chrysom.PollCounter),
 	}
-	basic, err := chrysom.NewBasicClient(cfg.Argus.BasicClientConfig, getLogger, setLogger)
+	basic, err := chrysom.NewBasicClient(cfg.Argus.BasicClientConfig, getLogger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 	}

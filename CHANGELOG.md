@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.3.7]
+- Bumped argus to v0.8.0. []()
+
 ## [v0.3.6]
 - Exported helper functions related to InternalWebhook struct. [#94](https://github.com/xmidt-org/ancla/pull/94)
 
