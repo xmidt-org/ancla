@@ -27,7 +27,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/webpa-common/v2/logging"
-	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
 const errFmt = "%w: %v"
@@ -62,9 +61,9 @@ type Config struct {
 	// (Optional). Defaults to a no op logger.
 	Logger log.Logger
 
-	// MetricsProvider for instrumenting this package.
+	// Measures for instrumenting this package.
 	// Gets passed to Argus config before initializing the client.
-	MetricsProvider xmetrics.Registry
+	Measures Measures
 
 	// JWTParserType establishes which parser type will be used by the JWT token
 	// acquirer used by Argus. Options include 'simple' and 'raw'.
@@ -146,11 +145,8 @@ func Initialize(cfg Config, getLogger func(ctx context.Context) log.Logger, setL
 	validateConfig(&cfg)
 	prepArgusConfig(&cfg, watches...)
 
-	if cfg.MetricsProvider == nil {
-		return nil, nil, errNilProvider
-	}
 	m := &chrysom.Measures{
-		Polls: cfg.MetricsProvider.NewCounterVec(chrysom.PollCounter),
+		Polls: cfg.Measures.ChrysomPollsTotalCounter,
 	}
 	basic, err := chrysom.NewBasicClient(cfg.Argus.BasicClientConfig, getLogger)
 	if err != nil {
@@ -174,7 +170,7 @@ func Initialize(cfg Config, getLogger func(ctx context.Context) log.Logger, setL
 }
 
 func prepArgusConfig(cfg *Config, watches ...Watch) error {
-	watches = append(watches, webhookListSizeWatch(cfg.MetricsProvider.NewGauge(WebhookListSizeGauge)))
+	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGauge))
 	cfg.Argus.Logger = cfg.Logger
 	cfg.Argus.Listen.Listener = createArgusListener(cfg.Logger, watches...)
 	p, err := newJWTAcquireParser(cfg.JWTParserType)
