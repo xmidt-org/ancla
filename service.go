@@ -145,10 +145,6 @@ func Initialize(cfg Config, getLogger func(ctx context.Context) log.Logger, setL
 	validateConfig(&cfg)
 	prepArgusConfig(&cfg, watches...)
 
-	if &cfg.Measures == nil {
-		return nil, nil, errNilProvider
-	}
-
 	m := &chrysom.Measures{
 		Polls: cfg.Measures.ChrysomPollsTotalCounter,
 	}
