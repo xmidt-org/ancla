@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-kit/kit/metrics/provider"
 	kithttp "github.com/go-kit/kit/transport/http"
 )
 
@@ -50,16 +49,12 @@ func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 // HandlerConfig contains configuration for all components that handlers depend on
 // from the service to the transport layers.
 type HandlerConfig struct {
-	MetricsProvider   provider.Provider
 	V                 Validator
 	DisablePartnerIDs bool
 	GetLogger         GetLoggerFunc
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {
-	if hConfig.MetricsProvider == nil {
-		hConfig.MetricsProvider = provider.NewDiscardProvider()
-	}
 	return transportConfig{
 		now:               time.Now,
 		v:                 hConfig.V,
