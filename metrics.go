@@ -19,9 +19,9 @@ package ancla
 
 import (
 	"github.com/go-kit/kit/metrics"
-	"github.com/go-kit/kit/metrics/provider"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/touchstone"
 	"github.com/xmidt-org/touchstone/touchkit"
 	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/fx"
@@ -64,21 +64,21 @@ func Metrics() []xmetrics.Metric {
 // Measures describes the defined metrics that will be used by clients.
 type Measures struct {
 	WebhookListSizeGauge     metrics.Gauge
-	ChrysomPollsTotalCounter metrics.Counter
+	ChrysomPollsTotalCounter *prometheus.CounterVec
 }
 
 // MeasuresIn is an uber/fx parameter with the webhook registration counter.
 type MeasuresIn struct {
 	fx.In
-	WebhookListSizeGauge     metrics.Gauge   `name:"webhook_list_size"`
-	ChrysomPollsTotalCounter metrics.Counter `name:"chrysom_polls_total"`
+	WebhookListSizeGauge     metrics.Gauge          `name:"webhook_list_size"`
+	ChrysomPollsTotalCounter *prometheus.CounterVec `name:"chrysom_polls_total"`
 }
 
 // NewMeasures realizes desired metrics.
-func NewMeasures(p provider.Provider) *Measures {
+func NewMeasures(p xmetrics.Registry) *Measures {
 	return &Measures{
 		WebhookListSizeGauge:     p.NewGauge(WebhookListSizeGauge),
-		ChrysomPollsTotalCounter: p.NewCounter(ChrysomPollsTotalCounter),
+		ChrysomPollsTotalCounter: p.NewCounterVec(ChrysomPollsTotalCounter),
 	}
 }
 
@@ -91,7 +91,7 @@ func ProvideMetrics() fx.Option {
 				Help: "Size of the current list of webhooks.",
 			},
 		),
-		touchkit.Counter(
+		touchstone.CounterVec(
 			prometheus.CounterOpts{
 				Name: ChrysomPollsTotalCounter,
 				Help: "Counter for the number of polls (and their success/failure outcomes) to fetch new items.",

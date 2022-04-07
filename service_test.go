@@ -41,6 +41,7 @@ func TestValidateConfig(t *testing.T) {
 
 	logger := log.NewJSONLogger(ioutil.Discard)
 	metricsProvider, err := xmetrics.NewRegistry(nil, Metrics)
+	measures := NewMeasures(metricsProvider)
 	require.Nil(t, err)
 	tcs := []testCase{
 		{
@@ -53,12 +54,12 @@ func TestValidateConfig(t *testing.T) {
 		{
 			Description: "Given values",
 			InputConfig: &Config{
-				Logger:          logger,
-				MetricsProvider: metricsProvider,
+				Logger:   logger,
+				Measures: *measures,
 			},
 			ExpectedConfig: &Config{
-				Logger:          logger,
-				MetricsProvider: metricsProvider,
+				Logger:   logger,
+				Measures: *measures,
 			},
 		},
 	}
