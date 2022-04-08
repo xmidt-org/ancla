@@ -29,7 +29,7 @@ import (
 
 // Names
 const (
-	WebhookListSizeGauge     = "webhook_list_size_value"
+	WebhookListSizeGauge     = "webhook_list_size"
 	ChrysomPollsTotalCounter = chrysom.PollCounter
 )
 
