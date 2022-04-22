@@ -32,6 +32,7 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/httpaux/erraux"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/v2/basculechecks"
 
 	"github.com/xmidt-org/bascule"
