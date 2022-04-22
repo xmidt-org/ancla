@@ -237,7 +237,7 @@ func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 
 		logger := getLogger(ctx)
 		if logger != nil && code != http.StatusNotFound {
-			logger.Log("msg", "sending non-200, non-404 response", level.Key(), level.ErrorValue(), code, err)
+			logger.Log("msg", "sending non-200, non-404 response", level.Key(), level.ErrorValue(), "code", code, logging.ErrorKey(), err)
 		}
 
 		w.WriteHeader(code)
