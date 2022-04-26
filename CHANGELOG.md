@@ -5,7 +5,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+
+## [v0.3.8]
 - Added measures and providemetrics func to metrics.go. [#98](https://github.com/xmidt-org/ancla/pull/98)
+- Fixed missing field in errorEncoder logging. [#102](https://github.com/xmidt-org/ancla/pull/102)
 
 ## [v0.3.7]
 - Bumped argus to v0.8.0. [#97](https://github.com/xmidt-org/ancla/pull/97)
@@ -94,7 +98,8 @@ internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.7...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.8...HEAD
+[v0.3.8]: https://github.com/xmidt-org/ancla/compare/v0.3.7...v0.3.8
 [v0.3.7]: https://github.com/xmidt-org/ancla/compare/v0.3.6...v0.3.7
 [v0.3.6]: https://github.com/xmidt-org/ancla/compare/v0.3.5...v0.3.6
 [v0.3.5]: https://github.com/xmidt-org/ancla/compare/v0.3.4...v0.3.5
