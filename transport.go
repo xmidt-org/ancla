@@ -32,6 +32,7 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/httpaux/erraux"
+	"github.com/xmidt-org/webpa-common/logging"
 	"github.com/xmidt-org/webpa-common/v2/basculechecks"
 
 	"github.com/xmidt-org/bascule"
@@ -237,7 +238,7 @@ func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 
 		logger := getLogger(ctx)
 		if logger != nil && code != http.StatusNotFound {
-			logger.Log("sending non-200, non-404 response", level.Key(), level.ErrorValue(), err, code)
+			logger.Log("msg", "sending non-200, non-404 response", level.Key(), level.ErrorValue(), "code", code, logging.ErrorKey(), err)
 		}
 
 		w.WriteHeader(code)
