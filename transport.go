@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 Comcast Cable Communications Management, LLC
+ * Copyright 2022 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -108,9 +108,9 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		if err != nil {
 			return nil, err
 		}
-		var webhook Webhook
+		var wr WebhookRegistration
 
-		err = json.Unmarshal(requestPayload, &webhook)
+		err = json.Unmarshal(requestPayload, &wr)
 		if err != nil {
 			var e *json.UnmarshalTypeError
 			if errors.As(err, &e) {
@@ -119,6 +119,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
 		}
 
+		webhook := wr.ToWebhook()
 		err = config.v.Validate(webhook)
 		if err != nil {
 			return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}

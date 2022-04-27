@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 Comcast Cable Communications Management, LLC
+ * Copyright 2022 Comcast Cable Communications Management, LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,9 +62,47 @@ type Webhook struct {
 	Matcher MetadataMatcherConfig `json:"matcher,omitempty"`
 
 	// Duration describes how long the subscription lasts once added.
-	// Deprecated. User input is ignored and value is always 5m.
 	Duration time.Duration `json:"duration"`
 
 	// Until describes the time this subscription expires.
 	Until time.Time `json:"until"`
+}
+
+// WebhookRegistration is a special struct for unmarshaling a webhook as part of
+// a webhook registration request.  The only difference between this struct and
+// the Webhook struct is the Duration field.
+type WebhookRegistration struct {
+	// Address is the subscription request origin HTTP Address.
+	Address string `json:"registered_from_address"`
+
+	// Config contains data to inform how events are delivered.
+	Config DeliveryConfig `json:"config"`
+
+	// FailureURL is the URL used to notify subscribers when they've been cut off due to event overflow.
+	// Optional, set to "" to disable notifications.
+	FailureURL string `json:"failure_url"`
+
+	// Events is the list of regular expressions to match an event type against.
+	Events []string `json:"events"`
+
+	// Matcher type contains values to match against the metadata.
+	Matcher MetadataMatcherConfig `json:"matcher,omitempty"`
+
+	// Duration describes how long the subscription lasts once added.
+	Duration CustomDuration `json:"duration"`
+
+	// Until describes the time this subscription expires.
+	Until time.Time `json:"until"`
+}
+
+func (w WebhookRegistration) ToWebhook() Webhook {
+	return Webhook{
+		Address:    w.Address,
+		Config:     w.Config,
+		FailureURL: w.FailureURL,
+		Events:     w.Events,
+		Matcher:    w.Matcher,
+		Duration:   time.Duration(w.Duration),
+		Until:      w.Until,
+	}
 }
