@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.3.9]
+- Updated wrp decoding for webhook registration to accept an int in seconds or a string of the form "5m". [#103](https://github.com/xmidt-org/ancla/pull/103)
 
 ## [v0.3.8]
 - Added measures and providemetrics func to metrics.go. [#98](https://github.com/xmidt-org/ancla/pull/98)
@@ -98,7 +100,8 @@ internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.8...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.9...HEAD
+[v0.3.9]: https://github.com/xmidt-org/ancla/compare/v0.3.8...v0.3.9
 [v0.3.8]: https://github.com/xmidt-org/ancla/compare/v0.3.7...v0.3.8
 [v0.3.7]: https://github.com/xmidt-org/ancla/compare/v0.3.6...v0.3.7
 [v0.3.6]: https://github.com/xmidt-org/ancla/compare/v0.3.5...v0.3.6
