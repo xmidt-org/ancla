@@ -180,6 +180,13 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Auth:                   "jwt",
 		},
 		{
+			Description:            "Normal happy path using Duration",
+			InputPayload:           addWebhookDecoderDurationInput(),
+			ExpectedDecodedRequest: addWebhookDecoderDurationOutput(true),
+			Validator:              Validators{},
+			Auth:                   "jwt",
+		},
+		{
 			Description:            "No validator provided",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
@@ -248,8 +255,16 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Auth:               "jwt",
 		},
 		{
-			Description:        "Failed to JSON Unmarshal",
-			InputPayload:       addWebhookDecoderUnmarshalingErrorInput(),
+			Description:        "Failed to JSON Unmarshal Type Error",
+			InputPayload:       addWebhookDecoderUnmarshalingErrorInput(false),
+			ExpectedErr:        errFailedWebhookUnmarshal,
+			Validator:          Validators{},
+			ExpectedStatusCode: 400,
+			Auth:               "jwt",
+		},
+		{
+			Description:        "Failed to JSON Unmarshal Invalid Duration Error",
+			InputPayload:       addWebhookDecoderUnmarshalingErrorInput(true),
 			ExpectedErr:        errFailedWebhookUnmarshal,
 			Validator:          Validators{},
 			ExpectedStatusCode: 400,
@@ -346,7 +361,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				}
 
 			} else {
-				assert.Nil(err)
+				assert.NoError(err)
 				assert.EqualValues(tc.ExpectedDecodedRequest, decodedRequest)
 			}
 
@@ -373,8 +388,7 @@ func addWebhookDecoderInput() string {
 		}
 	`
 }
-
-func addWebhookDecoderUnmarshalingErrorInput() string {
+func addWebhookDecoderDurationInput() string {
 	return `
 		{
 			"config": {
@@ -387,7 +401,43 @@ func addWebhookDecoderUnmarshalingErrorInput() string {
 				"device_id": ["mac:aabbccddee.*"]
 			},
 			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": 300
+		}
+	`
+}
+
+func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
+	if duration {
+		return `
+		{
+			"config": {
+				"url": "http://deliver-here-0.example.net",
+				"content_type": "application/json",
+				"secret": "superSecretXYZ"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
 			"duration": "hehe",
+			"until": "2021-01-02T15:04:10Z"
+		}
+	`
+	}
+	return `
+		{
+			"config": {
+				"url": "http://deliver-here-0.example.net",
+				"content_type": 5,
+				"secret": "superSecretXYZ"
+			},
+			"events": ["online"],
+			"matcher": {
+				"device_id": ["mac:aabbccddee.*"]
+			},
+			"failure_url": "http://contact-here-when-fails.example.net",
+			"duration": 0,
 			"until": "2021-01-02T15:04:10Z"
 		}
 	`
@@ -434,6 +484,52 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 				FailureURL: "http://contact-here-when-fails.example.net",
 				Duration:   0,
 				Until:      getRefTime().Add(10 * time.Second),
+			},
+			PartnerIDs: []string{},
+		},
+	}
+}
+func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
+	if withPIDs {
+		return &addWebhookRequest{
+			owner: "owner-from-auth",
+			internalWebook: InternalWebhook{
+				Webhook: Webhook{
+					Address: "original-requester.example.net:443",
+					Config: DeliveryConfig{
+						URL:         "http://deliver-here-0.example.net",
+						ContentType: "application/json",
+						Secret:      "superSecretXYZ",
+					},
+					Events: []string{"online"},
+					Matcher: MetadataMatcherConfig{
+						DeviceID: []string{"mac:aabbccddee.*"},
+					},
+					FailureURL: "http://contact-here-when-fails.example.net",
+					Duration:   5 * time.Minute,
+					Until:      getRefTime().Add(5 * time.Minute),
+				},
+				PartnerIDs: []string{"comcast"},
+			},
+		}
+	}
+	return &addWebhookRequest{
+		owner: "owner-from-auth",
+		internalWebook: InternalWebhook{
+			Webhook: Webhook{
+				Address: "original-requester.example.net:443",
+				Config: DeliveryConfig{
+					URL:         "http://deliver-here-0.example.net",
+					ContentType: "application/json",
+					Secret:      "superSecretXYZ",
+				},
+				Events: []string{"online"},
+				Matcher: MetadataMatcherConfig{
+					DeviceID: []string{"mac:aabbccddee.*"},
+				},
+				FailureURL: "http://contact-here-when-fails.example.net",
+				Duration:   5 * time.Minute,
+				Until:      getRefTime().Add(5 * time.Minute),
 			},
 			PartnerIDs: []string{},
 		},

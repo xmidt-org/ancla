@@ -18,6 +18,7 @@
 package ancla
 
 import (
+	"bytes"
 	"strconv"
 	"strings"
 	"time"
@@ -29,7 +30,7 @@ type InvalidDurationError struct {
 
 func (ide *InvalidDurationError) Error() string {
 	var o strings.Builder
-	o.WriteString("Invalid duration value: ")
+	o.WriteString("duration must be of type int or string (ex:'5m'); Invalid value: ")
 	o.WriteString(ide.Value)
 	return o.String()
 }
@@ -41,7 +42,11 @@ func (cd CustomDuration) String() string {
 }
 
 func (cd CustomDuration) MarshalJSON() ([]byte, error) {
-	return []byte(cd.String()), nil
+	d := bytes.NewBuffer(nil)
+	d.WriteByte('"')
+	d.WriteString(cd.String())
+	d.WriteByte('"')
+	return d.Bytes(), nil
 }
 
 func (cd *CustomDuration) UnmarshalJSON(b []byte) (err error) {
