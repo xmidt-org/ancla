@@ -43,7 +43,7 @@ type MetadataMatcherConfig struct {
 	DeviceID []string `json:"device_id"`
 }
 
-// Webhook contains all the information needed to serve events to webhook listeners.
+// Webhook contains all the information needed to serve events to webhook s.
 type Webhook struct {
 	// Address is the subscription request origin HTTP Address.
 	Address string `json:"registered_from_address"`

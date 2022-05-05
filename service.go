@@ -32,7 +32,6 @@ import (
 const errFmt = "%w: %v"
 
 var (
-	errNilProvider             = errors.New("provider cannot be nil")
 	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
 	errFailedWebhookPush       = errors.New("failed to add webhook to registry")
 	errFailedWebhookConversion = errors.New("failed to convert webhook to argus item")
@@ -53,8 +52,9 @@ type Service interface {
 
 // Config contains information needed to initialize the webhook service.
 type Config struct {
-	// Argus contains configuration to initialize an Argus client.
-	Argus ArgusConfig
+	BasicClientConfig chrysom.BasicClientConfig `mapstructure:",squash"`
+
+	ListenerClientConfig chrysom.ListenerClientConfig
 
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
@@ -82,11 +82,6 @@ type Config struct {
 	// compile into regular expressions, and the Events field must have at
 	// least one value and all values must compile into regular expressions.
 	Validation ValidatorConfig
-}
-
-type ArgusConfig struct {
-	chrysom.BasicClientConfig `mapstructure:",squash"`
-	Listen                    chrysom.ListenerClientConfig
 }
 
 type service struct {
@@ -148,11 +143,11 @@ func Initialize(cfg Config, getLogger func(ctx context.Context) log.Logger, setL
 	m := &chrysom.Measures{
 		Polls: cfg.Measures.ChrysomPollsTotalCounter,
 	}
-	basic, err := chrysom.NewBasicClient(cfg.Argus.BasicClientConfig, getLogger)
+	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 	}
-	listener, err := chrysom.NewListenerClient(cfg.Argus.Listen, setLogger, m, basic)
+	listener, err := chrysom.NewListenerClient(cfg.ListenerClientConfig, setLogger, m, basic)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
 	}
@@ -171,14 +166,14 @@ func Initialize(cfg Config, getLogger func(ctx context.Context) log.Logger, setL
 
 func prepArgusConfig(cfg *Config, watches ...Watch) error {
 	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGauge))
-	cfg.Argus.Logger = cfg.Logger
-	cfg.Argus.Listen.Listener = createArgusListener(cfg.Logger, watches...)
+	cfg.BasicClientConfig.Logger = cfg.Logger
+	cfg.ListenerClientConfig.Listener = createArgusListener(cfg.Logger, watches...)
 	p, err := newJWTAcquireParser(cfg.JWTParserType)
 	if err != nil {
 		return err
 	}
-	cfg.Argus.Auth.JWT.GetToken = p.token
-	cfg.Argus.Auth.JWT.GetExpiration = p.expiration
+	cfg.BasicClientConfig.Auth.JWT.GetToken = p.token
+	cfg.BasicClientConfig.Auth.JWT.GetExpiration = p.expiration
 	return nil
 }
 
