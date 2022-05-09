@@ -67,7 +67,9 @@ func TestValidateConfig(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			validateConfig(tc.InputConfig)
+			if tc.InputConfig.Logger == nil {
+				tc.InputConfig.Logger = log.NewNopLogger()
+			}
 			assert.EqualValues(tc.ExpectedConfig, tc.InputConfig)
 		})
 	}
@@ -122,7 +124,7 @@ func TestAdd(t *testing.T) {
 			m := new(mockPushReader)
 			svc := service{
 				logger: log.NewNopLogger(),
-				config: Config{},
+				config: BasicClientConfig{},
 				argus:  m,
 				now:    time.Now,
 			}
@@ -166,7 +168,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 			svc := service{
 				argus:  m,
 				logger: log.NewNopLogger(),
-				config: Config{},
+				config: BasicClientConfig{},
 			}
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
 			iws, err := svc.GetAll(context.TODO())

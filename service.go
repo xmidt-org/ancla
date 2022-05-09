@@ -50,6 +50,48 @@ type Service interface {
 	GetAll(ctx context.Context) ([]InternalWebhook, error)
 }
 
+// BasicClientConfig contains information needed to initialize the Basic Client service.
+type BasicClientConfig struct {
+	Config chrysom.BasicClientConfig `mapstructure:",squash"`
+
+	// Logger for this package.
+	// Gets passed to Argus config before initializing the client.
+	// (Optional). Defaults to a no op logger.
+	Logger log.Logger
+
+	// JWTParserType establishes which parser type will be used by the JWT token
+	// acquirer used by Argus. Options include 'simple' and 'raw'.
+	// Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
+	// Raw: parser assumes all of the token payload == JWT token
+	// (Optional). Defaults to 'simple'
+	JWTParserType jwtAcquireParserType
+
+	// DisablePartnerIDs, if true, will allow webhooks to register without
+	// checking the validity of the partnerIDs in the request
+	DisablePartnerIDs bool
+
+	// Validation provides options for validating the webhook's URL and TTL
+	// related fields. Some validation happens regardless of the configuration:
+	// URLs must be a valid URL structure, the Matcher.DeviceID values must
+	// compile into regular expressions, and the Events field must have at
+	// least one value and all values must compile into regular expressions.
+	Validation ValidatorConfig
+}
+
+// ListenerClientConfig contains information needed to initialize the Listener Client service.
+type ListenerClientConfig struct {
+	Config chrysom.ListenerClientConfig
+
+	// Logger for this package.
+	// Gets passed to Argus config before initializing the client.
+	// (Optional). Defaults to a no op logger.
+	Logger log.Logger
+
+	// Measures for instrumenting this package.
+	// Gets passed to Argus config before initializing the client.
+	Measures Measures
+}
+
 // Config contains information needed to initialize the webhook service.
 type Config struct {
 	BasicClientConfig chrysom.BasicClientConfig `mapstructure:",squash"`
@@ -87,7 +129,7 @@ type Config struct {
 type service struct {
 	argus  chrysom.PushReader
 	logger log.Logger
-	config Config
+	config BasicClientConfig
 	now    func() time.Time
 }
 
@@ -129,10 +171,12 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 }
 
 // InitializeArgusBasicClient builds the Argus basic client service from the given configuration.
-func InitializeArgusBasicClient(cfg Config, getLogger func(ctx context.Context) log.Logger) (Service, error) {
-	validateConfig(&cfg)
+func InitializeArgusBasicClient(cfg BasicClientConfig, getLogger func(ctx context.Context) log.Logger) (Service, error) {
+	if cfg.Logger == nil {
+		cfg.Logger = log.NewNopLogger()
+	}
 	prepArgusBasicClientConfig(&cfg)
-	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
+	basic, err := chrysom.NewBasicClient(cfg.Config, getLogger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 	}
@@ -148,13 +192,15 @@ func InitializeArgusBasicClient(cfg Config, getLogger func(ctx context.Context) 
 // InitializeArgusListenerClient builds the Argus listener client service from the given configuration.
 // It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func InitializeArgusListenerClient(cfg Config, setLogger func(context.Context, log.Logger) context.Context, basic *chrysom.BasicClient, watches ...Watch) (func(), error) {
-	validateConfig(&cfg)
+func InitializeArgusListenerClient(cfg ListenerClientConfig, setLogger func(context.Context, log.Logger) context.Context, basic *chrysom.BasicClient, watches ...Watch) (func(), error) {
+	if cfg.Logger == nil {
+		cfg.Logger = log.NewNopLogger()
+	}
 	prepArgusListenerClientConfig(&cfg, watches...)
 	m := &chrysom.Measures{
 		Polls: cfg.Measures.ChrysomPollsTotalCounter,
 	}
-	listener, err := chrysom.NewListenerClient(cfg.ListenerClientConfig, setLogger, m, basic)
+	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, m, basic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
 	}
@@ -163,27 +209,21 @@ func InitializeArgusListenerClient(cfg Config, setLogger func(context.Context, l
 	return func() { listener.Stop(context.Background()) }, nil
 }
 
-func validateConfig(cfg *Config) {
-	if cfg.Logger == nil {
-		cfg.Logger = log.NewNopLogger()
-	}
-}
-
-func prepArgusBasicClientConfig(cfg *Config) error {
-	cfg.BasicClientConfig.Logger = cfg.Logger
+func prepArgusBasicClientConfig(cfg *BasicClientConfig) error {
+	cfg.Config.Logger = cfg.Logger
 	p, err := newJWTAcquireParser(cfg.JWTParserType)
 	if err != nil {
 		return err
 	}
-	cfg.BasicClientConfig.Auth.JWT.GetToken = p.token
-	cfg.BasicClientConfig.Auth.JWT.GetExpiration = p.expiration
+	cfg.Config.Auth.JWT.GetToken = p.token
+	cfg.Config.Auth.JWT.GetExpiration = p.expiration
 	return nil
 }
 
-func prepArgusListenerClientConfig(cfg *Config, watches ...Watch) {
+func prepArgusListenerClientConfig(cfg *ListenerClientConfig, watches ...Watch) {
 	logger := cfg.Logger
 	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGauge))
-	cfg.ListenerClientConfig.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
+	cfg.Config.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
 		iws, err := ItemsToInternalWebhooks(items)
 		if err != nil {
 			level.Error(logger).Log(logging.MessageKey(), "Failed to convert items to webhooks", "err", err)
