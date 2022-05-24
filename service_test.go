@@ -20,60 +20,14 @@ package ancla
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"testing"
 	"time"
 
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
-
-func TestValidateConfig(t *testing.T) {
-	type testCase struct {
-		Description    string
-		InputConfig    *Config
-		ExpectedConfig *Config
-	}
-
-	logger := log.NewJSONLogger(ioutil.Discard)
-	metricsProvider, err := xmetrics.NewRegistry(nil, Metrics)
-	measures := NewMeasures(metricsProvider)
-	require.Nil(t, err)
-	tcs := []testCase{
-		{
-			Description: "DefaultedValues",
-			InputConfig: &Config{},
-			ExpectedConfig: &Config{
-				Logger: log.NewNopLogger(),
-			},
-		},
-		{
-			Description: "Given values",
-			InputConfig: &Config{
-				Logger:   logger,
-				Measures: *measures,
-			},
-			ExpectedConfig: &Config{
-				Logger:   logger,
-				Measures: *measures,
-			},
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.Description, func(t *testing.T) {
-			assert := assert.New(t)
-			if tc.InputConfig.Logger == nil {
-				tc.InputConfig.Logger = log.NewNopLogger()
-			}
-			assert.EqualValues(tc.ExpectedConfig, tc.InputConfig)
-		})
-	}
-}
 
 func TestAdd(t *testing.T) {
 	type pushItemResults struct {
@@ -124,7 +78,7 @@ func TestAdd(t *testing.T) {
 			m := new(mockPushReader)
 			svc := service{
 				logger: log.NewNopLogger(),
-				config: BasicClientConfig{},
+				config: Config{},
 				argus:  m,
 				now:    time.Now,
 			}
@@ -168,7 +122,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 			svc := service{
 				argus:  m,
 				logger: log.NewNopLogger(),
-				config: BasicClientConfig{},
+				config: Config{},
 			}
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
 			iws, err := svc.GetAll(context.TODO())
