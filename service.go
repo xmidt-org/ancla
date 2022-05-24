@@ -50,7 +50,7 @@ type Service interface {
 	GetAll(ctx context.Context) ([]InternalWebhook, error)
 }
 
-// BasicClientConfig contains information needed to initialize the Basic Client service.
+// Config contains information needed to initialize the Basic Client service.
 type Config struct {
 	Config chrysom.BasicClientConfig `mapstructure:",squash"`
 
@@ -78,7 +78,7 @@ type Config struct {
 	Validation ValidatorConfig
 }
 
-// ListenerClientConfig contains information needed to initialize the Listener Client service.
+// ListenerConfig contains information needed to initialize the Listener Client service.
 type ListenerConfig struct {
 	Config chrysom.ListenerClientConfig
 
@@ -97,6 +97,45 @@ type service struct {
 	logger log.Logger
 	config Config
 	now    func() time.Time
+}
+
+// NewService builds the Argus basic client service from the given configuration.
+func NewService(cfg Config, getLogger func(ctx context.Context) log.Logger) (*service, error) {
+	if cfg.Logger == nil {
+		cfg.Logger = log.NewNopLogger()
+	}
+	prepArgusBasicClientConfig(&cfg)
+	basic, err := chrysom.NewBasicClient(cfg.Config, getLogger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
+	}
+	svc := &service{
+		logger: cfg.Logger,
+		argus:  basic,
+		config: cfg,
+		now:    time.Now,
+	}
+	return svc, nil
+}
+
+// StartListener builds the Argus listener client service from the given configuration.
+// It allows adding watchers for the internal subscription state. Call the returned
+// function when you are done watching for updates.
+func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, log.Logger) context.Context, watches ...Watch) (func(), error) {
+	if cfg.Logger == nil {
+		cfg.Logger = log.NewNopLogger()
+	}
+	prepArgusListenerClientConfig(&cfg, watches...)
+	m := &chrysom.Measures{
+		Polls: cfg.Measures.ChrysomPollsTotalCounter,
+	}
+	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, m, s.argus)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
+	}
+
+	listener.Start(context.Background())
+	return func() { listener.Stop(context.Background()) }, nil
 }
 
 func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
@@ -136,45 +175,6 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	return iws, nil
 }
 
-// InitializeArgusBasicClient builds the Argus basic client service from the given configuration.
-func InitializeArgusBasicClient(cfg Config, getLogger func(ctx context.Context) log.Logger) (Service, error) {
-	if cfg.Logger == nil {
-		cfg.Logger = log.NewNopLogger()
-	}
-	prepArgusBasicClientConfig(&cfg)
-	basic, err := chrysom.NewBasicClient(cfg.Config, getLogger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
-	}
-	svc := &service{
-		logger: cfg.Logger,
-		argus:  basic,
-		config: cfg,
-		now:    time.Now,
-	}
-	return svc, nil
-}
-
-// InitializeArgusListenerClient builds the Argus listener client service from the given configuration.
-// It allows adding watchers for the internal subscription state. Call the returned
-// function when you are done watching for updates.
-func InitializeArgusListenerClient(cfg ListenerConfig, setLogger func(context.Context, log.Logger) context.Context, basic *chrysom.BasicClient, watches ...Watch) (func(), error) {
-	if cfg.Logger == nil {
-		cfg.Logger = log.NewNopLogger()
-	}
-	prepArgusListenerClientConfig(&cfg, watches...)
-	m := &chrysom.Measures{
-		Polls: cfg.Measures.ChrysomPollsTotalCounter,
-	}
-	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, m, basic)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
-	}
-
-	listener.Start(context.Background())
-	return func() { listener.Stop(context.Background()) }, nil
-}
-
 func prepArgusBasicClientConfig(cfg *Config) error {
 	cfg.Config.Logger = cfg.Logger
 	p, err := newJWTAcquireParser(cfg.JWTParserType)
@@ -199,14 +199,4 @@ func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
 			watch.Update(iws)
 		}
 	})
-}
-
-func NewService(cfg Config, getLogger func(ctx context.Context) log.Logger) (*service, error) { // don't return an interface
-	// stuff from the basic client initialization here
-	return nil, nil
-}
-
-func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, log.Logger) context.Context, watches ...Watch) (func(), error) {
-	// use argus client in service to set up the chrysom listener client
-	return nil, nil
 }
