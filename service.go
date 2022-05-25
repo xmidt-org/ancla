@@ -50,9 +50,9 @@ type Service interface {
 	GetAll(ctx context.Context) ([]InternalWebhook, error)
 }
 
-// Config contains information needed to initialize the Basic Client service.
+// Config contains information needed to initialize the Argus Client service.
 type Config struct {
-	Config chrysom.BasicClientConfig `mapstructure:",squash"`
+	BasicClientConfig chrysom.BasicClientConfig `mapstructure:",squash"`
 
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
@@ -99,13 +99,13 @@ type service struct {
 	now    func() time.Time
 }
 
-// NewService builds the Argus basic client service from the given configuration.
+// NewService builds the Argus client service from the given configuration.
 func NewService(cfg Config, getLogger func(ctx context.Context) log.Logger) (*service, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = log.NewNopLogger()
 	}
 	prepArgusBasicClientConfig(&cfg)
-	basic, err := chrysom.NewBasicClient(cfg.Config, getLogger)
+	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 	}
@@ -176,13 +176,13 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 }
 
 func prepArgusBasicClientConfig(cfg *Config) error {
-	cfg.Config.Logger = cfg.Logger
+	cfg.BasicClientConfig.Logger = cfg.Logger
 	p, err := newJWTAcquireParser(cfg.JWTParserType)
 	if err != nil {
 		return err
 	}
-	cfg.Config.Auth.JWT.GetToken = p.token
-	cfg.Config.Auth.JWT.GetExpiration = p.expiration
+	cfg.BasicClientConfig.Auth.JWT.GetToken = p.token
+	cfg.BasicClientConfig.Auth.JWT.GetExpiration = p.expiration
 	return nil
 }
 
