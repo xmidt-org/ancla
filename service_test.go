@@ -26,8 +26,43 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
 )
+
+func TestNewService(t *testing.T) {
+	tcs := []struct {
+		desc        string
+		config      Config
+		getLogger   func(ctx context.Context) log.Logger
+		expectedErr bool
+	}{
+		{
+			desc: "Success Case",
+			config: Config{
+				BasicClientConfig: chrysom.BasicClientConfig{
+					Address: "test",
+					Bucket:  "test",
+				},
+			},
+		},
+		{
+			desc:        "Chrysom Basic Client Creation Failure",
+			expectedErr: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			_, err := NewService(tc.config, tc.getLogger)
+			if tc.expectedErr {
+				assert.NotNil(err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
 
 func TestAdd(t *testing.T) {
 	type pushItemResults struct {
