@@ -80,7 +80,7 @@ type Config struct {
 
 // ListenerConfig contains information needed to initialize the Listener Client service.
 type ListenerConfig struct {
-	Config chrysom.ListenerClientConfig
+	ListenerClientConfig chrysom.ListenerClientConfig
 
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
@@ -129,7 +129,7 @@ func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Conte
 	m := &chrysom.Measures{
 		Polls: cfg.Measures.ChrysomPollsTotalCounter,
 	}
-	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, m, s.argus)
+	listener, err := chrysom.NewListenerClient(cfg.ListenerClientConfig, setLogger, m, s.argus)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
 	}
@@ -189,7 +189,7 @@ func prepArgusBasicClientConfig(cfg *Config) error {
 func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
 	logger := cfg.Logger
 	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGauge))
-	cfg.Config.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
+	cfg.ListenerClientConfig.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
 		iws, err := ItemsToInternalWebhooks(items)
 		if err != nil {
 			level.Error(logger).Log(logging.MessageKey(), "Failed to convert items to webhooks", "err", err)

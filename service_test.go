@@ -64,6 +64,46 @@ func TestNewService(t *testing.T) {
 	}
 }
 
+func TestStartListener(t *testing.T) {
+	mockServiceConfig := Config{
+		BasicClientConfig: chrysom.BasicClientConfig{
+			Address: "test",
+			Bucket:  "test",
+		},
+	}
+	mockService, _ := NewService(mockServiceConfig, nil)
+	tcs := []struct {
+		desc           string
+		serviceConfig  Config
+		listenerConfig ListenerConfig
+		svc            service
+		expectedErr    bool
+	}{
+		{
+			desc: "Success Case",
+			svc:  *mockService,
+			listenerConfig: ListenerConfig{
+				ListenerClientConfig: chrysom.ListenerClientConfig{},
+			},
+		},
+		{
+			desc:        "Chrysom Listener Client Creation Failure",
+			expectedErr: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			_, err := tc.svc.StartListener(tc.listenerConfig, nil)
+			if tc.expectedErr {
+				assert.NotNil(err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestAdd(t *testing.T) {
 	type pushItemResults struct {
 		result chrysom.PushResult
