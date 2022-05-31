@@ -83,7 +83,7 @@ func TestStartListener(t *testing.T) {
 			desc: "Success Case",
 			svc:  *mockService,
 			listenerConfig: ListenerConfig{
-				ListenerClientConfig: chrysom.ListenerClientConfig{},
+				Config: chrysom.ListenerClientConfig{},
 			},
 		},
 		{
