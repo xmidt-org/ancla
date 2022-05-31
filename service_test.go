@@ -20,7 +20,6 @@ package ancla
 import (
 	"context"
 	"errors"
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -29,46 +28,78 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 )
 
-func TestValidateConfig(t *testing.T) {
-	type testCase struct {
-		Description    string
-		InputConfig    *Config
-		ExpectedConfig *Config
-	}
-
-	logger := log.NewJSONLogger(ioutil.Discard)
-	metricsProvider, err := xmetrics.NewRegistry(nil, Metrics)
-	measures := NewMeasures(metricsProvider)
-	require.Nil(t, err)
-	tcs := []testCase{
+func TestNewService(t *testing.T) {
+	tcs := []struct {
+		desc        string
+		config      Config
+		getLogger   func(ctx context.Context) log.Logger
+		expectedErr bool
+	}{
 		{
-			Description: "DefaultedValues",
-			InputConfig: &Config{},
-			ExpectedConfig: &Config{
-				Logger: log.NewNopLogger(),
+			desc: "Success Case",
+			config: Config{
+				BasicClientConfig: chrysom.BasicClientConfig{
+					Address: "test",
+					Bucket:  "test",
+				},
 			},
 		},
 		{
-			Description: "Given values",
-			InputConfig: &Config{
-				Logger:   logger,
-				Measures: *measures,
-			},
-			ExpectedConfig: &Config{
-				Logger:   logger,
-				Measures: *measures,
-			},
+			desc:        "Chrysom Basic Client Creation Failure",
+			expectedErr: true,
 		},
 	}
-
 	for _, tc := range tcs {
-		t.Run(tc.Description, func(t *testing.T) {
+		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			validateConfig(tc.InputConfig)
-			assert.EqualValues(tc.ExpectedConfig, tc.InputConfig)
+			_, err := NewService(tc.config, tc.getLogger)
+			if tc.expectedErr {
+				assert.NotNil(err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestStartListener(t *testing.T) {
+	mockServiceConfig := Config{
+		BasicClientConfig: chrysom.BasicClientConfig{
+			Address: "test",
+			Bucket:  "test",
+		},
+	}
+	mockService, _ := NewService(mockServiceConfig, nil)
+	tcs := []struct {
+		desc           string
+		serviceConfig  Config
+		listenerConfig ListenerConfig
+		svc            service
+		expectedErr    bool
+	}{
+		{
+			desc: "Success Case",
+			svc:  *mockService,
+			listenerConfig: ListenerConfig{
+				Config: chrysom.ListenerClientConfig{},
+			},
+		},
+		{
+			desc:        "Chrysom Listener Client Creation Failure",
+			expectedErr: true,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			_, err := tc.svc.StartListener(tc.listenerConfig, nil)
+			if tc.expectedErr {
+				assert.NotNil(err)
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }
