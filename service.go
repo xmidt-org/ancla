@@ -52,7 +52,7 @@ type Service interface {
 
 // Config contains information needed to initialize the Argus Client service.
 type Config struct {
-	BasicClientConfig chrysom.BasicClientConfig `mapstructure:",squash"`
+	BasicClientConfig chrysom.BasicClientConfig
 
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
