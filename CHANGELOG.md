@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [v0.3.10]
+- JWT Migration JWK Migration #113
+  - update argus & bascule dependencies
+- replaced `ancla.Initialize` with `ancla.NewService`
+- removed `Measures Measures` from `Config` and introduced `ListenerConfig`
+
 ## [v0.3.9]
 - Updated wrp decoding for webhook registration to accept an int in seconds or a string of the form "5m". [#103](https://github.com/xmidt-org/ancla/pull/103)
 
@@ -100,7 +106,8 @@ internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.9...HEAD
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.10...HEAD
+[v0.3.9]: https://github.com/xmidt-org/ancla/compare/v0.3.9...v0.3.10
 [v0.3.9]: https://github.com/xmidt-org/ancla/compare/v0.3.8...v0.3.9
 [v0.3.8]: https://github.com/xmidt-org/ancla/compare/v0.3.7...v0.3.8
 [v0.3.7]: https://github.com/xmidt-org/ancla/compare/v0.3.6...v0.3.7
