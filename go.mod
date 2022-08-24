@@ -19,10 +19,9 @@ require (
 	github.com/xmidt-org/httpaux v0.3.2
 	github.com/xmidt-org/sallust v0.1.6 // indirect
 	github.com/xmidt-org/themis v0.4.8 // indirect
-	github.com/xmidt-org/touchstone v0.1.1
+	github.com/xmidt-org/touchstone v0.1.2
 	github.com/xmidt-org/webpa-common v1.11.9
 	github.com/xmidt-org/webpa-common/v2 v2.0.6
 	go.uber.org/fx v1.18.1
-	golang.org/x/sys v0.0.0-20220804214406-8e32c043e418 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 )
