@@ -9,7 +9,7 @@ require (
 	github.com/spf13/cast v1.5.0
 	github.com/stretchr/testify v1.8.1
 	github.com/xmidt-org/argus v0.9.4
-	github.com/xmidt-org/bascule v0.11.0
+	github.com/xmidt-org/bascule v0.11.1
 	github.com/xmidt-org/httpaux v0.3.2
 	github.com/xmidt-org/touchstone v0.1.2
 	github.com/xmidt-org/webpa-common v1.11.9
