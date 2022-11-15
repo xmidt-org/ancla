@@ -11,10 +11,8 @@ require (
 	github.com/xmidt-org/argus v0.9.4
 	github.com/xmidt-org/bascule v0.11.1
 	github.com/xmidt-org/httpaux v0.3.2
-	github.com/xmidt-org/sallust v0.1.6
 	github.com/xmidt-org/touchstone v0.1.2
-	github.com/xmidt-org/webpa-common v1.11.9 // indirect
+	github.com/xmidt-org/webpa-common v1.11.9
 	github.com/xmidt-org/webpa-common/v2 v2.0.7
 	go.uber.org/fx v1.18.2
-	go.uber.org/zap v1.23.0
 )
