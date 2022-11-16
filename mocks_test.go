@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/mock"
@@ -81,7 +80,7 @@ type mockCounter struct {
 	mock.Mock
 }
 
-func (m *mockCounter) With(labelValues ...string) metrics.Counter {
+func (m *mockCounter) With(labelValues ...string) prometheus.Counter {
 	m.Called(interfacify(labelValues)...)
 	return m
 }
@@ -94,7 +93,7 @@ type mockGauge struct {
 	mock.Mock
 }
 
-func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
+func (m *mockGauge) With(labelValues ...string) prometheus.Gauge {
 	m.Called(interfacify(labelValues)...)
 	return m
 }
