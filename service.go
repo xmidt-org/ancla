@@ -23,10 +23,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 const errFmt = "%w: %v"
@@ -57,7 +56,7 @@ type Config struct {
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
 	// (Optional). Defaults to a no op logger.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// JWTParserType establishes which parser type will be used by the JWT token
 	// acquirer used by Argus. Options include 'simple' and 'raw'.
@@ -85,7 +84,7 @@ type ListenerConfig struct {
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
 	// (Optional). Defaults to a no op logger.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// Measures for instrumenting this package.
 	// Gets passed to Argus config before initializing the client.
@@ -94,15 +93,15 @@ type ListenerConfig struct {
 
 type service struct {
 	argus  chrysom.PushReader
-	logger log.Logger
+	logger *zap.Logger
 	config Config
 	now    func() time.Time
 }
 
 // NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config, getLogger func(ctx context.Context) log.Logger) (*service, error) {
+func NewService(cfg Config, getLogger sallust.GetLoggerFunc) (*service, error) {
 	if cfg.Logger == nil {
-		cfg.Logger = log.NewNopLogger()
+		cfg.Logger = sallust.Default()
 	}
 	prepArgusBasicClientConfig(&cfg)
 	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
@@ -121,13 +120,13 @@ func NewService(cfg Config, getLogger func(ctx context.Context) log.Logger) (*se
 // StartListener builds the Argus listener client service from the given configuration.
 // It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, log.Logger) context.Context, watches ...Watch) (func(), error) {
+func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, watches ...Watch) (func(), error) {
 	if cfg.Logger == nil {
-		cfg.Logger = log.NewNopLogger()
+		cfg.Logger = sallust.Default()
 	}
 	prepArgusListenerClientConfig(&cfg, watches...)
 	m := &chrysom.Measures{
-		Polls: cfg.Measures.ChrysomPollsTotalCounter,
+		Polls: cfg.Measures.ChrysomPollsTotalCounterName,
 	}
 	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, m, s.argus)
 	if err != nil {
@@ -188,11 +187,11 @@ func prepArgusBasicClientConfig(cfg *Config) error {
 
 func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
 	logger := cfg.Logger
-	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGauge))
+	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGaugeName))
 	cfg.Config.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
 		iws, err := ItemsToInternalWebhooks(items)
 		if err != nil {
-			level.Error(logger).Log(logging.MessageKey(), "Failed to convert items to webhooks", "err", err)
+			logger.Error("Failed to convert items to webhooks", zap.Error(err))
 			return
 		}
 		for _, watch := range watches {

@@ -22,6 +22,8 @@ import (
 	"errors"
 
 	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
@@ -103,6 +105,42 @@ func (m *mockGauge) Set(value float64) {
 
 func (m *mockGauge) Add(delta float64) {
 	m.Called(delta)
+}
+
+func (m *mockGauge) Sub(value float64) {
+	m.Called(value)
+}
+
+func (m *mockGauge) SetToCurrentTime() {
+	m.Called()
+}
+
+func (m *mockGauge) Inc() {
+	m.Called()
+}
+
+func (m *mockGauge) Dec() {
+	m.Called()
+}
+
+func (m *mockGauge) Write(out *dto.Metric) error {
+	m.Called()
+
+	return nil
+}
+
+func (m *mockGauge) Desc() *prometheus.Desc {
+	m.Called()
+
+	return &prometheus.Desc{}
+}
+
+func (m *mockGauge) Collect(ch chan<- prometheus.Metric) {
+	m.Called()
+}
+
+func (m *mockGauge) Describe(ch chan<- *prometheus.Desc) {
+	m.Called()
 }
 
 func interfacify(vals []string) []interface{} {

@@ -18,19 +18,19 @@
 package ancla
 
 import (
-	"github.com/go-kit/kit/metrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/touchstone"
-	"github.com/xmidt-org/touchstone/touchkit"
-	"github.com/xmidt-org/webpa-common/v2/xmetrics"
 	"go.uber.org/fx"
+	"go.uber.org/multierr"
 )
 
 // Names
 const (
-	WebhookListSizeGauge     = "webhook_list_size"
-	ChrysomPollsTotalCounter = chrysom.PollCounter
+	WebhookListSizeGaugeName     = "webhook_list_size"
+	WebhookListSizeGaugeHelp     = "Size of the current list of webhooks."
+	ChrysomPollsTotalCounterName = chrysom.PollCounter
+	ChrysomPollsTotalCounterHelp = "Counter for the number of polls (and their success/failure outcomes) to fetch new items."
 )
 
 // Labels
@@ -44,66 +44,54 @@ const (
 	FailureOutcome = "failure"
 )
 
-// Metrics returns the Metrics relevant to this package.
-func Metrics() []xmetrics.Metric {
-	return []xmetrics.Metric{
-		{
-			Name: WebhookListSizeGauge,
-			Type: xmetrics.GaugeType,
-			Help: "Size of the current list of webhooks.",
-		},
-		{
-			Name:       ChrysomPollsTotalCounter,
-			Type:       xmetrics.CounterType,
-			Help:       "Counter for the number of polls (and their success/failure outcomes) to fetch new items.",
-			LabelNames: []string{OutcomeLabel},
-		},
-	}
-}
-
 // Measures describes the defined metrics that will be used by clients.
 type Measures struct {
-	WebhookListSizeGauge     metrics.Gauge
-	ChrysomPollsTotalCounter *prometheus.CounterVec
+	WebhookListSizeGaugeName     prometheus.Gauge       `name:"webhook_list_size"`
+	ChrysomPollsTotalCounterName *prometheus.CounterVec `name:"chrysom_polls_total"`
+}
+
+type MeasuresOut struct {
+	fx.Out
+
+	M *Measures
 }
 
 // MeasuresIn is an uber/fx parameter with the webhook registration counter.
 type MeasuresIn struct {
 	fx.In
-	WebhookListSizeGauge     metrics.Gauge          `name:"webhook_list_size"`
-	ChrysomPollsTotalCounter *prometheus.CounterVec `name:"chrysom_polls_total"`
+
+	Factory *touchstone.Factory `optional:"true"`
 }
 
 // NewMeasures realizes desired metrics.
-func NewMeasures(p xmetrics.Registry) *Measures {
-	return &Measures{
-		WebhookListSizeGauge:     p.NewGauge(WebhookListSizeGauge),
-		ChrysomPollsTotalCounter: p.NewCounterVec(ChrysomPollsTotalCounter),
-	}
+func NewMeasures(in MeasuresIn) (*MeasuresOut, error) {
+	var metricErr error
+	wlm, err := in.Factory.NewGauge(
+		prometheus.GaugeOpts{
+			Name: WebhookListSizeGaugeName,
+			Help: WebhookListSizeGaugeHelp,
+		},
+	)
+	err = multierr.Append(err, metricErr)
+	cpm, err := in.Factory.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: ChrysomPollsTotalCounterName,
+			Help: ChrysomPollsTotalCounterHelp,
+		},
+		OutcomeLabel,
+	)
+
+	return &MeasuresOut{
+		M: &Measures{
+			WebhookListSizeGaugeName:     wlm,
+			ChrysomPollsTotalCounterName: cpm,
+		},
+	}, multierr.Append(err, metricErr)
 }
 
 // ProvideMetrics provides the metrics relevant to this package as uber/fx options.
 func ProvideMetrics() fx.Option {
 	return fx.Options(
-		touchkit.Gauge(
-			prometheus.GaugeOpts{
-				Name: WebhookListSizeGauge,
-				Help: "Size of the current list of webhooks.",
-			},
-		),
-		touchstone.CounterVec(
-			prometheus.CounterOpts{
-				Name: ChrysomPollsTotalCounter,
-				Help: "Counter for the number of polls (and their success/failure outcomes) to fetch new items.",
-			}, OutcomeLabel,
-		),
-		fx.Provide(
-			func(in MeasuresIn) *Measures {
-				return &Measures{
-					WebhookListSizeGauge:     in.WebhookListSizeGauge,
-					ChrysomPollsTotalCounter: in.ChrysomPollsTotalCounter,
-				}
-			},
-		),
+		fx.Provide(NewMeasures),
 	)
 }

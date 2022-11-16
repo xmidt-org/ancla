@@ -22,6 +22,7 @@ import (
 	"time"
 
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/xmidt-org/sallust"
 )
 
 // NewAddWebhookHandler returns an HTTP handler for adding
@@ -51,7 +52,7 @@ func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 type HandlerConfig struct {
 	V                 Validator
 	DisablePartnerIDs bool
-	GetLogger         GetLoggerFunc
+	GetLogger         sallust.GetLoggerFunc
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {

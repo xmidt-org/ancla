@@ -18,7 +18,7 @@
 package ancla
 
 import (
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // Watch is the interface for listening for webhook subcription updates.
@@ -34,7 +34,7 @@ func (f WatchFunc) Update(update []InternalWebhook) {
 	f(update)
 }
 
-func webhookListSizeWatch(s metrics.Gauge) Watch {
+func webhookListSizeWatch(s prometheus.Gauge) Watch {
 	return WatchFunc(func(webhooks []InternalWebhook) {
 		s.Set(float64(len(webhooks)))
 	})

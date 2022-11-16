@@ -23,18 +23,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-kit/kit/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestNewService(t *testing.T) {
 	tcs := []struct {
 		desc        string
 		config      Config
-		getLogger   func(ctx context.Context) log.Logger
+		getLogger   sallust.GetLoggerFunc
 		expectedErr bool
 	}{
 		{
@@ -152,7 +152,7 @@ func TestAdd(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
 			svc := service{
-				logger: log.NewNopLogger(),
+				logger: sallust.Default(),
 				config: Config{},
 				argus:  m,
 				now:    time.Now,
@@ -196,7 +196,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 
 			svc := service{
 				argus:  m,
-				logger: log.NewNopLogger(),
+				logger: sallust.Default(),
 				config: Config{},
 			}
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
