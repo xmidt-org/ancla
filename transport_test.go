@@ -111,6 +111,7 @@ func TestGetOwner(t *testing.T) {
 	for _, tc := range tcs {
 		assert := assert.New(t)
 		var ctx = context.Background()
+		// nolint:typecheck
 		if tc.Token != nil {
 			auth := bascule.Authentication{
 				Token: tc.Token,
@@ -365,6 +366,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				assert.EqualValues(tc.ExpectedDecodedRequest, decodedRequest)
 			}
 
+			// nolint:typecheck
 			counter.AssertExpectations(t)
 		})
 	}

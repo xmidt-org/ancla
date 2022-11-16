@@ -28,7 +28,9 @@ func TestWebhookListSizeWatch(t *testing.T) {
 	gauge := new(mockGauge)
 	watch := webhookListSizeWatch(gauge)
 	require.NotNil(watch)
+	// nolint:typecheck
 	gauge.On("Set", float64(2))
 	watch.Update([]InternalWebhook{{}, {}})
+	// nolint:typecheck
 	gauge.AssertExpectations(t)
 }

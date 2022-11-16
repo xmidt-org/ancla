@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/chrysom"
+	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/sallust"
 )
 
@@ -157,11 +158,13 @@ func TestAdd(t *testing.T) {
 				argus:  m,
 				now:    time.Now,
 			}
+			// nolint:typecheck
 			m.On("PushItem", context.TODO(), tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
 			err := svc.Add(context.TODO(), tc.Owner, inputWebhook)
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
 			}
+			// nolint:typecheck
 			m.AssertExpectations(t)
 		})
 	}
@@ -199,6 +202,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 				logger: sallust.Default(),
 				config: Config{},
 			}
+			// nolint:typecheck
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
 			iws, err := svc.GetAll(context.TODO())
 
@@ -209,6 +213,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 				assert.EqualValues(tc.ExpectedInternalWebhooks, iws)
 			}
 
+			// nolint:typecheck
 			m.AssertExpectations(t)
 		})
 	}
@@ -220,7 +225,7 @@ func getTestItems() chrysom.Items {
 		secondItemExpiresInSecs int64 = 20
 	)
 	return chrysom.Items{
-		{
+		model.Item{
 			ID: "b3bbc3467366959e0aba3c33588a08c599f68a740fabf4aa348463d3dc7dcfe8",
 			Data: map[string]interface{}{
 				"Webhook": map[string]interface{}{
@@ -243,7 +248,7 @@ func getTestItems() chrysom.Items {
 
 			TTL: &firstItemExpiresInSecs,
 		},
-		{
+		model.Item{
 			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
 			Data: map[string]interface{}{
 				"webhook": map[string]interface{}{
