@@ -5,6 +5,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [v0.3.11]
 - [Remove Deprecated webpa-common #119](https://github.com/xmidt-org/ancla/issues/119)
 - [replace go-kit/log with zap #130](https://github.com/xmidt-org/ancla/issues/130)
 - [replace go-kit/kit/metrics with prometheus/client_golang/prometheus #131](https://github.com/xmidt-org/ancla/issues/131)
@@ -110,8 +112,9 @@ internalWebhooks. [#80](https://github.com/xmidt-org/ancla/pull/80)
 ## [v0.1.0]
 - Initial release
 
-[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.10...HEAD
-[v0.3.9]: https://github.com/xmidt-org/ancla/compare/v0.3.9...v0.3.10
+[Unreleased]: https://github.com/xmidt-org/ancla/compare/v0.3.11...HEAD
+[v0.3.11]: https://github.com/xmidt-org/ancla/compare/v0.3.10...v0.3.11
+[v0.3.10]: https://github.com/xmidt-org/ancla/compare/v0.3.9...v0.3.10
 [v0.3.9]: https://github.com/xmidt-org/ancla/compare/v0.3.8...v0.3.9
 [v0.3.8]: https://github.com/xmidt-org/ancla/compare/v0.3.7...v0.3.8
 [v0.3.7]: https://github.com/xmidt-org/ancla/compare/v0.3.6...v0.3.7
