@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+- [Remove Deprecated webpa-common #119](https://github.com/xmidt-org/ancla/issues/119)
+- [replace go-kit/log with zap #130](https://github.com/xmidt-org/ancla/issues/130)
+- [replace go-kit/kit/metrics with prometheus/client_golang/prometheus #131](https://github.com/xmidt-org/ancla/issues/131)
+- [Enable & Fix Linter Errors #129](https://github.com/xmidt-org/ancla/issues/129)
 
 ## [v0.3.10]
 - JWT Migration JWK Migration #113
