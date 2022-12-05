@@ -217,7 +217,7 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 
 }
 
-func errorEncoder(getLogger sallust.GetLoggerFunc) kithttp.ErrorEncoder {
+func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
 	if getLogger == nil {
 		getLogger = sallust.Get
 	}

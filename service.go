@@ -99,7 +99,7 @@ type service struct {
 }
 
 // NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config, getLogger sallust.GetLoggerFunc) (*service, error) {
+func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*service, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = sallust.Default()
 	}
