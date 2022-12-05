@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - [replace go-kit/log with zap #130](https://github.com/xmidt-org/ancla/issues/130)
 - [replace go-kit/kit/metrics with prometheus/client_golang/prometheus #131](https://github.com/xmidt-org/ancla/issues/131)
 - [Enable & Fix Linter Errors #129](https://github.com/xmidt-org/ancla/issues/129)
+- Vuln patches
+  - [CVE-2022-32149 (High) detected in golang.org/x/text-v0.3.7](https://github.com/xmidt-org/ancla/issues/123)
 
 ## [v0.3.10]
 - JWT Migration JWK Migration #113
