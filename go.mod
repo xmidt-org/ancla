@@ -63,6 +63,7 @@ require (
 	github.com/xmidt-org/candlelight v0.0.12 // indirect
 	github.com/xmidt-org/chronon v0.1.1 // indirect
 	github.com/xmidt-org/clortho v0.0.4 // indirect
+	github.com/xmidt-org/themis v0.4.10 // indirect
 	go.opentelemetry.io/otel v1.11.1 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.11.1 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.11.1 // indirect
@@ -80,4 +81,3 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
