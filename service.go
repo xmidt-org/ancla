@@ -175,7 +175,6 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 }
 
 func prepArgusBasicClientConfig(cfg *Config) error {
-	cfg.BasicClientConfig.Logger = cfg.Logger
 	p, err := newJWTAcquireParser(cfg.JWTParserType)
 	if err != nil {
 		return err
