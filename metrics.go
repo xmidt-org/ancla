@@ -64,7 +64,7 @@ type MeasuresIn struct {
 }
 
 // NewMeasures realizes desired metrics.
-func NewMeasures(in MeasuresIn) (*MeasuresOut, error) {
+func NewMeasures(in MeasuresIn) (MeasuresOut, error) {
 	var metricErr error
 	wlm, err := in.Factory.NewGauge(
 		prometheus.GaugeOpts{
@@ -73,15 +73,16 @@ func NewMeasures(in MeasuresIn) (*MeasuresOut, error) {
 		},
 	)
 	err = multierr.Append(err, metricErr)
-	cpm, err := in.Factory.NewCounterVec(
+	cpm, err2 := in.Factory.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: ChrysomPollsTotalCounterName,
 			Help: ChrysomPollsTotalCounterHelp,
 		},
 		OutcomeLabel,
 	)
+	err = multierr.Append(err, err2)
 
-	return &MeasuresOut{
+	return MeasuresOut{
 		M: &Measures{
 			WebhookListSizeGaugeName:     wlm,
 			ChrysomPollsTotalCounterName: cpm,

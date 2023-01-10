@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -31,7 +31,6 @@ import (
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/httpaux/erraux"
-	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 
 	"github.com/xmidt-org/bascule"
@@ -99,7 +98,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 	}
 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
-		requestPayload, err := ioutil.ReadAll(r.Body)
+		requestPayload, err := io.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -217,11 +216,7 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 
 }
 
-func errorEncoder(getLogger sallust.GetLoggerFunc) kithttp.ErrorEncoder {
-	if getLogger == nil {
-		getLogger = sallust.Get
-	}
-
+func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
 	return func(ctx context.Context, err error, w http.ResponseWriter) {
 		w.Header().Set(contentTypeHeader, jsonContentType)
 		code := http.StatusInternalServerError
