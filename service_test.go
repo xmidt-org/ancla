@@ -29,13 +29,14 @@ import (
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
 	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 func TestNewService(t *testing.T) {
 	tcs := []struct {
 		desc        string
 		config      Config
-		getLogger   sallust.GetLoggerFunc
+		getLogger   func(context.Context) *zap.Logger
 		expectedErr bool
 	}{
 		{
