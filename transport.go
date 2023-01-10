@@ -31,7 +31,6 @@ import (
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/httpaux/erraux"
-	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 
 	"github.com/xmidt-org/bascule"
@@ -218,10 +217,6 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 }
 
 func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
-	if getLogger == nil {
-		getLogger = sallust.Get
-	}
-
 	return func(ctx context.Context, err error, w http.ResponseWriter) {
 		w.Header().Set(contentTypeHeader, jsonContentType)
 		code := http.StatusInternalServerError
