@@ -32,10 +32,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/argus/store"
 	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/sallust"
 )
 
 func TestErrorEncoder(t *testing.T) {
-	mockHandlerConfig := HandlerConfig{}
+	mockHandlerConfig := HandlerConfig{GetLogger: sallust.Get}
 
 	type testCase struct {
 		Description  string
