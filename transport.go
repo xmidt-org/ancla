@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -98,7 +98,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 	}
 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
-		requestPayload, err := ioutil.ReadAll(r.Body)
+		requestPayload, err := io.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}

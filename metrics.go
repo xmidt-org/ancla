@@ -73,13 +73,14 @@ func NewMeasures(in MeasuresIn) (MeasuresOut, error) {
 		},
 	)
 	err = multierr.Append(err, metricErr)
-	cpm, err := in.Factory.NewCounterVec(
+	cpm, err2 := in.Factory.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: ChrysomPollsTotalCounterName,
 			Help: ChrysomPollsTotalCounterHelp,
 		},
 		OutcomeLabel,
 	)
+	err = multierr.Append(err, err2)
 
 	return MeasuresOut{
 		M: &Measures{
