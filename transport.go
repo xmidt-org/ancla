@@ -22,18 +22,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/cast"
+	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/httpaux/erraux"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/v2/basculechecks"
+	"go.uber.org/zap"
 
 	"github.com/xmidt-org/bascule"
 )
@@ -66,10 +64,6 @@ type addWebhookRequest struct {
 	owner          string
 	internalWebook InternalWebhook
 }
-
-// GetLoggerFunc is the function used to get a request-specific logger from
-// its context.
-type GetLoggerFunc func(context.Context) log.Logger
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
 	iws := response.([]InternalWebhook)
@@ -104,7 +98,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 	}
 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
-		requestPayload, err := ioutil.ReadAll(r.Body)
+		requestPayload, err := io.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -222,13 +216,7 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 
 }
 
-func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
-	if getLogger == nil {
-		getLogger = func(_ context.Context) log.Logger {
-			return nil
-		}
-	}
-
+func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
 	return func(ctx context.Context, err error, w http.ResponseWriter) {
 		w.Header().Set(contentTypeHeader, jsonContentType)
 		code := http.StatusInternalServerError
@@ -239,7 +227,7 @@ func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 
 		logger := getLogger(ctx)
 		if logger != nil && code != http.StatusNotFound {
-			logger.Log("msg", "sending non-200, non-404 response", level.Key(), level.ErrorValue(), "code", code, logging.ErrorKey(), err)
+			logger.Error("sending non-200, non-404 response", zap.Int("code", code), zap.Error(err))
 		}
 
 		w.WriteHeader(code)

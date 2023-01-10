@@ -24,6 +24,7 @@ import (
 	"math"
 	"time"
 
+	// nolint:typecheck
 	"github.com/xmidt-org/argus/model"
 )
 
