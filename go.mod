@@ -14,7 +14,7 @@ require (
 	github.com/xmidt-org/httpaux v0.3.2
 	github.com/xmidt-org/sallust v0.2.0
 	github.com/xmidt-org/touchstone v0.1.2
-	go.uber.org/fx v1.19.0
+	go.uber.org/fx v1.19.1
 	go.uber.org/multierr v1.9.0
 	go.uber.org/zap v1.24.0
 )
