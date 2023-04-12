@@ -8,6 +8,11 @@ Provides a configurable webhook registry component for XMiDT services. Applicati
 [![GitHub Release](https://img.shields.io/github/release/xmidt-org/ancla.svg)](CHANGELOG.md)
 [![GoDoc](https://pkg.go.dev/badge/github.com/xmidt-org/ancla)](https://pkg.go.dev/github.com/xmidt-org/ancla)
 
+## Maintenance Instructions
+
+This repository uses `shared-go` for it's workflows.  [Here is documentation](https://github.com/xmidt-org/shared-go/#maintaining-a-repository-using-shared-go)
+for how to best maintain this repository.
+
 ## Code of Conduct
 
 This project and everyone participating in it are governed by the [XMiDT Code Of Conduct](https://xmidt.io/docs/community/code_of_conduct). 
