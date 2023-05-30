@@ -8,7 +8,7 @@ require (
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/client_model v0.4.0
 	github.com/spf13/cast v1.5.1
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	github.com/xmidt-org/argus v0.9.10
 	github.com/xmidt-org/bascule v0.11.5
 	github.com/xmidt-org/httpaux v0.3.2
