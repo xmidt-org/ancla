@@ -11,7 +11,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/xmidt-org/argus v0.9.10
 	github.com/xmidt-org/bascule v0.11.5
-	github.com/xmidt-org/httpaux v0.3.2
+	github.com/xmidt-org/httpaux v0.4.0
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.2
 	go.uber.org/fx v1.20.0
