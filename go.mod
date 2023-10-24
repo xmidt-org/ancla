@@ -3,7 +3,7 @@ module github.com/xmidt-org/ancla
 go 1.15
 
 require (
-	github.com/go-kit/kit v0.12.0
+	github.com/go-kit/kit v0.13.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/prometheus/client_golang v1.16.0
 	github.com/prometheus/client_model v0.4.0
