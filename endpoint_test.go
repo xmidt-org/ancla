@@ -36,7 +36,7 @@ func TestNewAddWebhookEndpoint(t *testing.T) {
 
 	errFake := errors.New("failed")
 	// nolint:typecheck
-	m.On("Add", context.TODO(), "owner-val", input.internalWebook).Return(errFake)
+	m.On("Add", context.Background(), "owner-val", input.internalWebook).Return(errFake)
 	resp, err := endpoint(context.Background(), input)
 	assert.Nil(resp)
 	assert.Equal(errFake, err)
@@ -51,7 +51,7 @@ func TestGetAllWebhooksEndpoint(t *testing.T) {
 
 	respFake := []InternalWebhook{}
 	// nolint:typecheck
-	m.On("GetAll", context.TODO()).Return(respFake, nil)
+	m.On("GetAll", context.Background()).Return(respFake, nil)
 	resp, err := endpoint(context.Background(), nil)
 	assert.Nil(err)
 	assert.Equal(respFake, resp)
