@@ -695,7 +695,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 			}
 			webhook := tc.webhook
 			w.setWebhookDefaults(&webhook, tc.remoteAddr)
-			assert.Equal(tc.expectedWebhook, tc.webhook)
+			assert.Equal(tc.expectedWebhook, webhook)
 		})
 	}
 }
