@@ -9,7 +9,7 @@ require (
 	github.com/prometheus/client_model v0.5.0
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.8.4
-	github.com/xmidt-org/argus v0.9.10
+	github.com/xmidt-org/argus v0.9.12
 	github.com/xmidt-org/bascule v0.11.6
 	github.com/xmidt-org/httpaux v0.4.0
 	github.com/xmidt-org/sallust v0.2.2
