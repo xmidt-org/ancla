@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/go-kit/kit v0.13.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
-	github.com/prometheus/client_golang v1.19.0
+	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/client_model v0.6.1
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.9.0
