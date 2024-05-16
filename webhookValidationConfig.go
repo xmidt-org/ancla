@@ -4,9 +4,10 @@
 package ancla
 
 import (
-	"errors"
-	"fmt"
 	"time"
+
+	"github.com/xmidt-org/urlegit"
+	webhook "github.com/xmidt-org/webhook-schema"
 )
 
 var (
@@ -22,14 +23,8 @@ var (
 		"2001:0000::/23",     //ipv6 IANA
 		"224.0.0.1/32",       //ipv4 multicast
 	}
-	SpecialUseHosts = []string{
-		".example.",
-		".invalid.",
-		".test.",
-		"localhost",
-	}
-	errFailedToBuildValidators    = errors.New("failed to build validators")
-	errFailedToBuildValidURLFuncs = errors.New("failed to build ValidURLFuncs")
+	// errFailedToBuildValidators    = errors.New("failed to build validators")
+	// errFailedToBuildValidURLFuncs = errors.New("failed to build ValidURLFuncs")
 )
 
 type ValidatorConfig struct {
@@ -53,63 +48,48 @@ type TTLVConfig struct {
 	Now    func() time.Time
 }
 
-// BuildValidURLFuncs translates the configuration into a list of ValidURLFuncs
-// to be run on the webhook.
-func buildValidURLFuncs(config ValidatorConfig) ([]ValidURLFunc, error) {
-	var v []ValidURLFunc
-	v = append(v, GoodURLScheme(config.URL.HTTPSOnly))
+// BuildURLChecker translates the configuration into url Checker to be run on the webhook.
+func buildURLChecker(config ValidatorConfig) (*urlegit.Checker, error) {
+	var o []urlegit.Option
+	if config.URL.HTTPSOnly {
+		o = append(o, urlegit.OnlyAllowSchemes("https"))
+	}
 	if !config.URL.AllowLoopback {
-		v = append(v, RejectLoopback())
+		o = append(o, urlegit.ForbidLoopback())
 	}
 	if !config.URL.AllowIP {
-		v = append(v, RejectAllIPs())
+		o = append(o, urlegit.ForbidAnyIPs())
 	}
 	if !config.URL.AllowSpecialUseHosts {
-		config.URL.InvalidHosts = append(config.URL.InvalidHosts, SpecialUseHosts...)
-	}
-	if len(config.URL.InvalidHosts) > 0 {
-		v = append(v, RejectHosts(config.URL.InvalidHosts))
+		o = append(o, urlegit.ForbidSpecialUseDomains())
 	}
 	if !config.URL.AllowSpecialUseIPs {
-		config.URL.InvalidSubnets = append(config.URL.InvalidSubnets, SpecialUseIPs...)
+		o = append(o, urlegit.ForbidSubnets(SpecialUseIPs))
 	}
-	if len(config.URL.InvalidSubnets) > 0 {
-		fInvalidSubnets, err := InvalidSubnets(config.URL.InvalidSubnets)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errFailedToBuildValidURLFuncs, err)
-		}
-		v = append(v, fInvalidSubnets)
+	checker, err := urlegit.New(o...)
+	if err != nil {
+		return nil, err
 	}
-	return v, nil
+	return checker, nil
 }
 
 // BuildValidators translates the configuration into a list of validators to be run on the
 // webhook.
-func BuildValidators(config ValidatorConfig) (Validators, error) {
-	v, err := buildValidURLFuncs(config)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
-	}
+func BuildValidators(config ValidatorConfig) ([]webhook.Option, error) {
+	var opts []webhook.Option
 
-	vs := Validators{
-		GoodConfigURL(v),
-		GoodFailureURL(v),
-		GoodAlternativeURLs(v),
-		CheckEvents(),
-		CheckDeviceID(),
-		CheckUntilOrDurationExist(),
-	}
-	fCheckDuration, err := CheckDuration(config.TTL.Max)
+	checker, err := buildURLChecker(config)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
+		return nil, err
 	}
-	vs = append(vs, fCheckDuration)
-
-	fCheckUntil, err := CheckUntil(config.TTL.Jitter, config.TTL.Max, config.TTL.Now)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
-	}
-	vs = append(vs, fCheckUntil)
-
-	return vs, nil
+	opts = append(opts,
+		webhook.AtLeastOneEvent(),
+		webhook.EventRegexMustCompile(),
+		webhook.DeviceIDRegexMustCompile(),
+		webhook.ValidateRegistrationDuration(config.TTL.Max),
+		webhook.ProvideReceiverURLValidator(checker),
+		webhook.ProvideFailureURLValidator(checker),
+		webhook.ProvideAlternativeURLValidator(checker),
+	)
+	return opts, nil
 }

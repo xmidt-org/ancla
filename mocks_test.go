@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webhook-schema"
 )
 
 var (
@@ -57,16 +58,16 @@ type mockService struct {
 	mock.Mock
 }
 
-func (m *mockService) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+func (m *mockService) Add(ctx context.Context, owner string, iw webhook.Register) error {
 	// nolint:typecheck
 	args := m.Called(ctx, owner, iw)
 	return args.Error(0)
 }
 
-func (m *mockService) GetAll(ctx context.Context) ([]InternalWebhook, error) {
+func (m *mockService) GetAll(ctx context.Context) ([]webhook.Register, error) {
 	// nolint:typecheck
 	args := m.Called(ctx)
-	return args.Get(0).([]InternalWebhook), args.Error(1)
+	return args.Get(0).([]webhook.Register), args.Error(1)
 }
 
 type mockCounter struct {
@@ -194,10 +195,4 @@ func (e errReader) Read(p []byte) (n int, err error) {
 
 func (e errReader) Close() error {
 	return errors.New("close test error")
-}
-
-func mockValidator() ValidatorFunc {
-	return func(w Webhook) error {
-		return errMockValidatorFail
-	}
 }

@@ -19,6 +19,8 @@ import (
 	"github.com/xmidt-org/httpaux/erraux"
 	"go.uber.org/zap"
 
+	webhook "github.com/xmidt-org/webhook-schema"
+
 	"github.com/xmidt-org/bascule"
 )
 
@@ -41,22 +43,22 @@ const (
 
 type transportConfig struct {
 	now                   func() time.Time
-	v                     Validator
+	v                     webhook.Option
 	basicPartnerIDsHeader string
 	disablePartnerIDs     bool
 }
 
 type addWebhookRequest struct {
 	owner          string
-	internalWebook InternalWebhook
+	internalWebook webhook.Register
 }
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
-	iws := response.([]InternalWebhook)
+	iws := response.([]webhook.Register)
 	webhooks := InternalWebhooksToWebhooks(iws)
 	if webhooks == nil {
 		// prefer JSON output to be "[]" instead of "<nil>"
-		webhooks = []Webhook{}
+		webhooks = []webhook.RegistrationV1{}
 	}
 	obfuscateSecrets(webhooks)
 	encodedWebhooks, err := json.Marshal(&webhooks)
@@ -80,7 +82,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 	// if no validators are given, we accept anything.
 	if config.v == nil {
-		config.v = AlwaysValid()
+		config.v = webhook.AlwaysValid()
 	}
 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
@@ -88,9 +90,9 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		if err != nil {
 			return nil, err
 		}
-		var wr WebhookRegistration
+		var webhook webhook.RegistrationV1
 
-		err = json.Unmarshal(requestPayload, &wr)
+		err = json.Unmarshal(requestPayload, &webhook)
 		if err != nil {
 			var e *json.UnmarshalTypeError
 			if errors.As(err, &e) {
@@ -99,8 +101,10 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
 		}
 
-		webhook := wr.ToWebhook()
-		err = config.v.Validate(webhook)
+		reg := RegistryV1{
+			Webhook: webhook,
+		}
+		err = config.v.Validate(&reg.Webhook)
 		if err != nil {
 			return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 		}
@@ -113,12 +117,11 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
 
+		reg.PartnerIDs = partners
+
 		return &addWebhookRequest{
-			owner: getOwner(r.Context()),
-			internalWebook: InternalWebhook{
-				Webhook:    webhook,
-				PartnerIDs: partners,
-			},
+			owner:          getOwner(r.Context()),
+			internalWebook: reg,
 		}, nil
 	}
 }
@@ -179,7 +182,7 @@ func getOwner(ctx context.Context) string {
 	return ""
 }
 
-func obfuscateSecrets(webhooks []Webhook) {
+func obfuscateSecrets(webhooks []webhook.RegistrationV1) {
 	for i := range webhooks {
 		webhooks[i].Config.Secret = "<obfuscated>"
 	}
@@ -189,12 +192,12 @@ type webhookValidator struct {
 	now func() time.Time
 }
 
-func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHost string) {
+func (wv webhookValidator) setWebhookDefaults(webhook *webhook.RegistrationV1, requestOriginHost string) {
 	if len(webhook.Matcher.DeviceID) == 0 {
 		webhook.Matcher.DeviceID = []string{".*"} // match anything
 	}
 	if webhook.Until.IsZero() {
-		webhook.Until = wv.now().Add(webhook.Duration)
+		webhook.Until = wv.now().Add(time.Duration(webhook.Duration))
 	}
 	if requestOriginHost != "" {
 		webhook.Address = requestOriginHost

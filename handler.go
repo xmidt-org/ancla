@@ -9,6 +9,7 @@ import (
 	"time"
 
 	kithttp "github.com/go-kit/kit/transport/http"
+	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
 )
 
@@ -37,7 +38,7 @@ func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 // HandlerConfig contains configuration for all components that handlers depend on
 // from the service to the transport layers.
 type HandlerConfig struct {
-	V                 Validator
+	V                 webhook.Option
 	DisablePartnerIDs bool
 	GetLogger         func(context.Context) *zap.Logger
 }
