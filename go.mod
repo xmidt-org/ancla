@@ -16,7 +16,6 @@ require (
 	github.com/xmidt-org/httpaux v0.4.0
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.3
-	github.com/xmidt-org/urlegit v0.1.1
 	github.com/xmidt-org/webhook-schema v0.1.0
 	go.uber.org/fx v1.20.1
 	go.uber.org/multierr v1.11.0
@@ -60,6 +59,7 @@ require (
 	github.com/xmidt-org/candlelight v0.0.21 // indirect
 	github.com/xmidt-org/chronon v0.1.1 // indirect
 	github.com/xmidt-org/clortho v0.0.4 // indirect
+	github.com/xmidt-org/urlegit v0.1.1 // indirect
 	github.com/xmidt-org/wrp-go/v3 v3.2.3 // indirect
 	go.opentelemetry.io/otel v1.21.0 // indirect
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0 // indirect
@@ -85,6 +85,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/xmidt-org/webhook-schema => /Users/mforti446/Documents/work/xmidt-repos/webhook-schema
-
 replace github.com/xmidt-org/argus => /Users/mforti446/Documents/work/xmidt-repos/argus
+
+replace github.com/xmidt-org/webhook-schema => /Users/mforti446/Documents/work/xmidt-repos/webhook-schema
