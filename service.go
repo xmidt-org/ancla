@@ -1,19 +1,5 @@
-/**
- * Copyright 2022 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 
 package ancla
 
@@ -23,10 +9,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/webpa-common/v2/logging"
+	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/webhook-schema"
+	"go.uber.org/zap"
 )
 
 const errFmt = "%w: %v"
@@ -44,10 +30,10 @@ var (
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, iw InternalWebhook) error
+	Add(ctx context.Context, owner string, iw webhook.Register) error
 
 	// GetAll lists all the current registered webhooks.
-	GetAll(ctx context.Context) ([]InternalWebhook, error)
+	GetAll(ctx context.Context) ([]webhook.Register, error)
 }
 
 // Config contains information needed to initialize the Argus Client service.
@@ -57,7 +43,7 @@ type Config struct {
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
 	// (Optional). Defaults to a no op logger.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// JWTParserType establishes which parser type will be used by the JWT token
 	// acquirer used by Argus. Options include 'simple' and 'raw'.
@@ -75,7 +61,7 @@ type Config struct {
 	// URLs must be a valid URL structure, the Matcher.DeviceID values must
 	// compile into regular expressions, and the Events field must have at
 	// least one value and all values must compile into regular expressions.
-	Validation ValidatorConfig
+	Validation webhook.ValidatorConfig
 }
 
 // ListenerConfig contains information needed to initialize the Listener Client service.
@@ -85,7 +71,7 @@ type ListenerConfig struct {
 	// Logger for this package.
 	// Gets passed to Argus config before initializing the client.
 	// (Optional). Defaults to a no op logger.
-	Logger log.Logger
+	Logger *zap.Logger
 
 	// Measures for instrumenting this package.
 	// Gets passed to Argus config before initializing the client.
@@ -94,15 +80,15 @@ type ListenerConfig struct {
 
 type service struct {
 	argus  chrysom.PushReader
-	logger log.Logger
+	logger *zap.Logger
 	config Config
 	now    func() time.Time
 }
 
 // NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config, getLogger func(ctx context.Context) log.Logger) (*service, error) {
+func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*service, error) {
 	if cfg.Logger == nil {
-		cfg.Logger = log.NewNopLogger()
+		cfg.Logger = sallust.Default()
 	}
 	prepArgusBasicClientConfig(&cfg)
 	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
@@ -121,13 +107,13 @@ func NewService(cfg Config, getLogger func(ctx context.Context) log.Logger) (*se
 // StartListener builds the Argus listener client service from the given configuration.
 // It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, log.Logger) context.Context, watches ...Watch) (func(), error) {
+func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, watches ...Watch) (func(), error) {
 	if cfg.Logger == nil {
-		cfg.Logger = log.NewNopLogger()
+		cfg.Logger = sallust.Default()
 	}
 	prepArgusListenerClientConfig(&cfg, watches...)
 	m := &chrysom.Measures{
-		Polls: cfg.Measures.ChrysomPollsTotalCounter,
+		Polls: cfg.Measures.ChrysomPollsTotalCounterName,
 	}
 	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, m, s.argus)
 	if err != nil {
@@ -138,7 +124,7 @@ func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Conte
 	return func() { listener.Stop(context.Background()) }, nil
 }
 
-func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+func (s *service) Add(ctx context.Context, owner string, iw webhook.Register) error {
 	item, err := InternalWebhookToItem(s.now, iw)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
@@ -156,13 +142,13 @@ func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) err
 
 // GetAll returns all webhooks found on the configured webhooks partition
 // of Argus.
-func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
+func (s *service) GetAll(ctx context.Context) ([]webhook.Register, error) {
 	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
 
-	iws := make([]InternalWebhook, len(items))
+	iws := make([]webhook.Register, len(items))
 
 	for i, item := range items {
 		webhook, err := ItemToInternalWebhook(item)
@@ -176,7 +162,6 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 }
 
 func prepArgusBasicClientConfig(cfg *Config) error {
-	cfg.BasicClientConfig.Logger = cfg.Logger
 	p, err := newJWTAcquireParser(cfg.JWTParserType)
 	if err != nil {
 		return err
@@ -188,11 +173,11 @@ func prepArgusBasicClientConfig(cfg *Config) error {
 
 func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
 	logger := cfg.Logger
-	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGauge))
+	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGaugeName))
 	cfg.Config.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
 		iws, err := ItemsToInternalWebhooks(items)
 		if err != nil {
-			level.Error(logger).Log(logging.MessageKey(), "Failed to convert items to webhooks", "err", err)
+			logger.Error("Failed to convert items to webhooks", zap.Error(err))
 			return
 		}
 		for _, watch := range watches {

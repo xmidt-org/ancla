@@ -1,19 +1,5 @@
-/**
- * Copyright 2021 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 
 package ancla
 
@@ -21,10 +7,12 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-kit/kit/metrics"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webhook-schema"
 )
 
 var (
@@ -37,26 +25,31 @@ type mockPushReader struct {
 }
 
 func (m *mockPushReader) GetItems(ctx context.Context, owner string) (chrysom.Items, error) {
+	// nolint:typecheck
 	args := m.Called(ctx, owner)
 	return args.Get(0).(chrysom.Items), args.Error(1)
 }
 
 func (m *mockPushReader) Start(ctx context.Context) error {
+	// nolint:typecheck
 	args := m.Called(ctx)
 	return args.Error(0)
 }
 
 func (m *mockPushReader) Stop(ctx context.Context) error {
+	// nolint:typecheck
 	args := m.Called(ctx)
 	return args.Error(0)
 }
 
 func (m *mockPushReader) PushItem(ctx context.Context, owner string, item model.Item) (chrysom.PushResult, error) {
+	// nolint:typecheck
 	args := m.Called(ctx, owner, item)
 	return args.Get(0).(chrysom.PushResult), args.Error(1)
 }
 
 func (m *mockPushReader) RemoveItem(ctx context.Context, id, owner string) (model.Item, error) {
+	// nolint:typecheck
 	args := m.Called(ctx, id, owner)
 	return args.Get(0).(model.Item), args.Error(0)
 }
@@ -65,44 +58,124 @@ type mockService struct {
 	mock.Mock
 }
 
-func (m *mockService) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+func (m *mockService) Add(ctx context.Context, owner string, iw webhook.Register) error {
+	// nolint:typecheck
 	args := m.Called(ctx, owner, iw)
 	return args.Error(0)
 }
 
-func (m *mockService) GetAll(ctx context.Context) ([]InternalWebhook, error) {
+func (m *mockService) GetAll(ctx context.Context) ([]webhook.Register, error) {
+	// nolint:typecheck
 	args := m.Called(ctx)
-	return args.Get(0).([]InternalWebhook), args.Error(1)
+	return args.Get(0).([]webhook.Register), args.Error(1)
 }
 
 type mockCounter struct {
 	mock.Mock
 }
 
-func (m *mockCounter) With(labelValues ...string) metrics.Counter {
+func (m *mockCounter) With(labelValues ...string) prometheus.Counter {
+	// nolint:typecheck
 	m.Called(interfacify(labelValues)...)
 	return m
 }
 
 func (m *mockCounter) Add(delta float64) {
+	// nolint:typecheck
 	m.Called(delta)
+}
+
+func (m *mockCounter) Inc() {
+	// nolint:typecheck
+	m.Called()
+}
+
+func (m *mockCounter) Write(out *dto.Metric) error {
+	// nolint:typecheck
+	m.Called()
+
+	return nil
+}
+
+func (m *mockCounter) Desc() *prometheus.Desc {
+	// nolint:typecheck
+	m.Called()
+
+	return &prometheus.Desc{}
+}
+
+func (m *mockCounter) Collect(ch chan<- prometheus.Metric) {
+	// nolint:typecheck
+	m.Called()
+}
+
+func (m *mockCounter) Describe(ch chan<- *prometheus.Desc) {
+	// nolint:typecheck
+	m.Called()
 }
 
 type mockGauge struct {
 	mock.Mock
 }
 
-func (m *mockGauge) With(labelValues ...string) metrics.Gauge {
+func (m *mockGauge) With(labelValues ...string) prometheus.Gauge {
+	// nolint:typecheck
 	m.Called(interfacify(labelValues)...)
 	return m
 }
 
 func (m *mockGauge) Set(value float64) {
+	// nolint:typecheck
 	m.Called(value)
 }
 
 func (m *mockGauge) Add(delta float64) {
+	// nolint:typecheck
 	m.Called(delta)
+}
+
+func (m *mockGauge) Sub(value float64) {
+	// nolint:typecheck
+	m.Called(value)
+}
+
+func (m *mockGauge) SetToCurrentTime() {
+	// nolint:typecheck
+	m.Called()
+}
+
+func (m *mockGauge) Inc() {
+	// nolint:typecheck
+	m.Called()
+}
+
+func (m *mockGauge) Dec() {
+	// nolint:typecheck
+	m.Called()
+}
+
+func (m *mockGauge) Write(out *dto.Metric) error {
+	// nolint:typecheck
+	m.Called()
+
+	return nil
+}
+
+func (m *mockGauge) Desc() *prometheus.Desc {
+	// nolint:typecheck
+	m.Called()
+
+	return &prometheus.Desc{}
+}
+
+func (m *mockGauge) Collect(ch chan<- prometheus.Metric) {
+	// nolint:typecheck
+	m.Called()
+}
+
+func (m *mockGauge) Describe(ch chan<- *prometheus.Desc) {
+	// nolint:typecheck
+	m.Called()
 }
 
 func interfacify(vals []string) []interface{} {
@@ -122,10 +195,4 @@ func (e errReader) Read(p []byte) (n int, err error) {
 
 func (e errReader) Close() error {
 	return errors.New("close test error")
-}
-
-func mockValidator() ValidatorFunc {
-	return func(w Webhook) error {
-		return errMockValidatorFail
-	}
 }

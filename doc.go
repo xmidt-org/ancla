@@ -1,6 +1,3 @@
-/*
-Package ancla contains the XMiDT event webhook registry. In addition
-to the main service, ancla provides off the shelf HTTP handlers for both
-adding and retrieving webhooks.
-*/
+// SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 package ancla

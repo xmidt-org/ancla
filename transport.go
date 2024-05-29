@@ -1,19 +1,5 @@
-/**
- * Copyright 2022 Comcast Cable Communications Management, LLC
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
+// SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
+// SPDX-License-Identifier: Apache-2.0
 
 package ancla
 
@@ -22,18 +8,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/spf13/cast"
+	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/httpaux/erraux"
-	"github.com/xmidt-org/webpa-common/logging"
-	"github.com/xmidt-org/webpa-common/v2/basculechecks"
+	"go.uber.org/zap"
+
+	webhook "github.com/xmidt-org/webhook-schema"
 
 	"github.com/xmidt-org/bascule"
 )
@@ -57,26 +43,22 @@ const (
 
 type transportConfig struct {
 	now                   func() time.Time
-	v                     Validator
+	v                     []webhook.Option
 	basicPartnerIDsHeader string
 	disablePartnerIDs     bool
 }
 
 type addWebhookRequest struct {
 	owner          string
-	internalWebook InternalWebhook
+	internalWebook webhook.Register
 }
 
-// GetLoggerFunc is the function used to get a request-specific logger from
-// its context.
-type GetLoggerFunc func(context.Context) log.Logger
-
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
-	iws := response.([]InternalWebhook)
+	iws := response.([]webhook.Register)
 	webhooks := InternalWebhooksToWebhooks(iws)
 	if webhooks == nil {
 		// prefer JSON output to be "[]" instead of "<nil>"
-		webhooks = []Webhook{}
+		webhooks = []webhook.RegistrationV1{}
 	}
 	obfuscateSecrets(webhooks)
 	encodedWebhooks, err := json.Marshal(&webhooks)
@@ -100,17 +82,17 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 	// if no validators are given, we accept anything.
 	if config.v == nil {
-		config.v = AlwaysValid()
+		config.v = append(config.v, webhook.AlwaysValid())
 	}
 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
-		requestPayload, err := ioutil.ReadAll(r.Body)
+		requestPayload, err := io.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
 		}
-		var wr WebhookRegistration
+		var wh webhook.RegistrationV1
 
-		err = json.Unmarshal(requestPayload, &wr)
+		err = json.Unmarshal(requestPayload, &wh)
 		if err != nil {
 			var e *json.UnmarshalTypeError
 			if errors.As(err, &e) {
@@ -119,13 +101,15 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
 		}
 
-		webhook := wr.ToWebhook()
-		err = config.v.Validate(webhook)
+		reg := RegistryV1{
+			Webhook: wh,
+		}
+		err = webhook.Validate(&reg.Webhook, config.v)
 		if err != nil {
 			return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 		}
 
-		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
+		wv.setWebhookDefaults(&wh, r.RemoteAddr)
 
 		var partners []string
 		partners, err = extractPartnerIDs(config, c, r)
@@ -133,12 +117,11 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
 
+		reg.PartnerIDs = partners
+
 		return &addWebhookRequest{
-			owner: getOwner(r.Context()),
-			internalWebook: InternalWebhook{
-				Webhook:    webhook,
-				PartnerIDs: partners,
-			},
+			owner:          getOwner(r.Context()),
+			internalWebook: reg,
 		}, nil
 	}
 }
@@ -199,7 +182,7 @@ func getOwner(ctx context.Context) string {
 	return ""
 }
 
-func obfuscateSecrets(webhooks []Webhook) {
+func obfuscateSecrets(webhooks []webhook.RegistrationV1) {
 	for i := range webhooks {
 		webhooks[i].Config.Secret = "<obfuscated>"
 	}
@@ -209,12 +192,12 @@ type webhookValidator struct {
 	now func() time.Time
 }
 
-func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHost string) {
+func (wv webhookValidator) setWebhookDefaults(webhook *webhook.RegistrationV1, requestOriginHost string) {
 	if len(webhook.Matcher.DeviceID) == 0 {
 		webhook.Matcher.DeviceID = []string{".*"} // match anything
 	}
 	if webhook.Until.IsZero() {
-		webhook.Until = wv.now().Add(webhook.Duration)
+		webhook.Until = wv.now().Add(time.Duration(webhook.Duration))
 	}
 	if requestOriginHost != "" {
 		webhook.Address = requestOriginHost
@@ -222,13 +205,7 @@ func (wv webhookValidator) setWebhookDefaults(webhook *Webhook, requestOriginHos
 
 }
 
-func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
-	if getLogger == nil {
-		getLogger = func(_ context.Context) log.Logger {
-			return nil
-		}
-	}
-
+func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
 	return func(ctx context.Context, err error, w http.ResponseWriter) {
 		w.Header().Set(contentTypeHeader, jsonContentType)
 		code := http.StatusInternalServerError
@@ -239,7 +216,7 @@ func errorEncoder(getLogger GetLoggerFunc) kithttp.ErrorEncoder {
 
 		logger := getLogger(ctx)
 		if logger != nil && code != http.StatusNotFound {
-			logger.Log("msg", "sending non-200, non-404 response", level.Key(), level.ErrorValue(), "code", code, logging.ErrorKey(), err)
+			logger.Error("sending non-200, non-404 response", zap.Int("code", code), zap.Error(err))
 		}
 
 		w.WriteHeader(code)
