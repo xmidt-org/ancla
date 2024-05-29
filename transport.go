@@ -43,7 +43,7 @@ const (
 
 type transportConfig struct {
 	now                   func() time.Time
-	v                     webhook.Option
+	v                     []webhook.Option
 	basicPartnerIDsHeader string
 	disablePartnerIDs     bool
 }
@@ -82,7 +82,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 	// if no validators are given, we accept anything.
 	if config.v == nil {
-		config.v = webhook.AlwaysValid()
+		config.v = append(config.v, webhook.AlwaysValid())
 	}
 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
@@ -90,9 +90,9 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		if err != nil {
 			return nil, err
 		}
-		var webhook webhook.RegistrationV1
+		var wh webhook.RegistrationV1
 
-		err = json.Unmarshal(requestPayload, &webhook)
+		err = json.Unmarshal(requestPayload, &wh)
 		if err != nil {
 			var e *json.UnmarshalTypeError
 			if errors.As(err, &e) {
@@ -102,14 +102,14 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		}
 
 		reg := RegistryV1{
-			Webhook: webhook,
+			Webhook: wh,
 		}
-		err = config.v.Validate(&reg.Webhook)
+		err = webhook.Validate(&reg.Webhook, config.v)
 		if err != nil {
 			return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 		}
 
-		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
+		wv.setWebhookDefaults(&wh, r.RemoteAddr)
 
 		var partners []string
 		partners, err = extractPartnerIDs(config, c, r)

@@ -38,7 +38,7 @@ func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 // HandlerConfig contains configuration for all components that handlers depend on
 // from the service to the transport layers.
 type HandlerConfig struct {
-	V                 webhook.Option
+	V                 []webhook.Option
 	DisablePartnerIDs bool
 	GetLogger         func(context.Context) *zap.Logger
 }
