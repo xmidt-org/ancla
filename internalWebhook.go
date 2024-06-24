@@ -32,11 +32,11 @@ func (v1 RegistryV1) GetId() string {
 func (v1 RegistryV1) GetUntil() time.Time {
 	return v1.Webhook.Until
 }
-func (v2 *RegistryV2) GetId() string {
+func (v2 RegistryV2) GetId() string {
 	return v2.Registration.CanonicalName
 }
 
-func (v2 *RegistryV2) GetUntil() time.Time {
+func (v2 RegistryV2) GetUntil() time.Time {
 	return v2.Registration.Expires
 }
 
@@ -64,18 +64,33 @@ func InternalWebhookToItem(now func() time.Time, iw webhook.Register) (model.Ite
 	}, nil
 }
 
-// TODO: i don't believe this function will work correctly
-func ItemToInternalWebhook(i model.Item) (webhook.Register, error) {
-	encodedWebhook, err := json.Marshal(i.Data)
-	if err != nil {
-		return nil, err
+func ItemToInternalWebhook(i model.Item) (r webhook.Register, e error) {
+	var v1 RegistryV1
+	var v2 RegistryV2
+	encodedWebhook, e := json.Marshal(i.Data)
+	if e != nil {
+		return nil, e
 	}
-	var iw webhook.Register
-	err = json.Unmarshal(encodedWebhook, &iw)
-	if err != nil {
-		return nil, err
+
+	for v := range i.Data {
+		if v == "PartnerIds" {
+			continue
+		} else if v == "Registration" {
+			e = json.Unmarshal(encodedWebhook, &v2)
+			if e != nil {
+				return nil, e
+			}
+			return v2, nil
+		} else if v == "Webhook" {
+			e = json.Unmarshal(encodedWebhook, &v1)
+			if e != nil {
+				return nil, e
+			}
+			return v1, nil
+		}
 	}
-	return iw, nil
+
+	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2")
 }
 
 func ItemsToInternalWebhooks(items []model.Item) ([]webhook.Register, error) {
@@ -90,12 +105,14 @@ func ItemsToInternalWebhooks(items []model.Item) ([]webhook.Register, error) {
 	return iws, nil
 }
 
-func InternalWebhooksToWebhooks(iws []webhook.Register) []webhook.RegistrationV1 {
-	w := make([]webhook.RegistrationV1, 0, len(iws))
+func InternalWebhooksToWebhooks(iws []webhook.Register) []any {
+	w := make([]any, 0, len(iws))
 	for _, iw := range iws {
-		switch r1 := iw.(type) {
+		switch r := iw.(type) {
 		case RegistryV1:
-			w = append(w, r1.Webhook)
+			w = append(w, r.Webhook)
+		case RegistryV2:
+			w = append(w, r.Registration)
 		}
 	}
 	return w

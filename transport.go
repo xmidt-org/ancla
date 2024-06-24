@@ -58,7 +58,7 @@ func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, r
 	webhooks := InternalWebhooksToWebhooks(iws)
 	if webhooks == nil {
 		// prefer JSON output to be "[]" instead of "<nil>"
-		webhooks = []webhook.RegistrationV1{}
+		webhooks = []any{}
 	}
 	obfuscateSecrets(webhooks)
 	encodedWebhooks, err := json.Marshal(&webhooks)
@@ -90,26 +90,10 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		if err != nil {
 			return nil, err
 		}
-		var wh webhook.RegistrationV1
-
-		err = json.Unmarshal(requestPayload, &wh)
-		if err != nil {
-			var e *json.UnmarshalTypeError
-			if errors.As(err, &e) {
-				return nil, &erraux.Error{Err: fmt.Errorf("%w: %v must be of type %v", errFailedWebhookUnmarshal, e.Field, e.Type), Code: http.StatusBadRequest}
-			}
-			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
-		}
-
-		reg := RegistryV1{
-			Webhook: wh,
-		}
-		err = webhook.Validate(&reg.Webhook, config.v)
-		if err != nil {
-			return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
-		}
-
-		wv.setWebhookDefaults(&wh, r.RemoteAddr)
+		var v1 webhook.RegistrationV1
+		var v2 webhook.RegistrationV2
+		var whreq addWebhookRequest
+		whreq.owner = getOwner(r.Context())
 
 		var partners []string
 		partners, err = extractPartnerIDs(config, c, r)
@@ -117,12 +101,43 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
 
-		reg.PartnerIDs = partners
+		err = json.Unmarshal(requestPayload, &v1)
+		if err == nil {
+			err = webhook.Validate(&v1, config.v)
+			if err != nil {
+				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
+			}
+			wv.setWebhookDefaults(&v1, r.RemoteAddr)
+			reg := RegistryV1{
+				PartnerIDs: partners,
+				Webhook:    v1,
+			}
 
-		return &addWebhookRequest{
-			owner:          getOwner(r.Context()),
-			internalWebook: reg,
-		}, nil
+			whreq.internalWebook = reg
+		} else {
+			err = json.Unmarshal(requestPayload, &v2)
+			if err == nil {
+				err = webhook.Validate(&v2, config.v)
+				if err != nil {
+					return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
+				}
+				reg := RegistryV2{
+					PartnerIds:   partners,
+					Registration: v2,
+				}
+				whreq.internalWebook = reg
+			}
+		}
+
+		if err != nil {
+			var e *json.UnmarshalTypeError
+			if errors.As(err, &e) {
+				return nil, &erraux.Error{Err: fmt.Errorf("%w: %v must be of type webhook.RegistrationV1 or webhook.RegistrationV2", errFailedWebhookUnmarshal, e.Field), Code: http.StatusBadRequest}
+			}
+			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
+		}
+
+		return &whreq, nil
 	}
 }
 
@@ -182,9 +197,16 @@ func getOwner(ctx context.Context) string {
 	return ""
 }
 
-func obfuscateSecrets(webhooks []webhook.RegistrationV1) {
-	for i := range webhooks {
-		webhooks[i].Config.Secret = "<obfuscated>"
+func obfuscateSecrets(webhooks []any) {
+	for _, v := range webhooks {
+		switch r := v.(type) {
+		case webhook.RegistrationV1:
+			r.Config.Secret = "<obfuscated>"
+		case webhook.RegistrationV2:
+			for i := range r.Webhooks {
+				r.Webhooks[i].Secret = "<obfuscated>"
+			}
+		}
 	}
 }
 
