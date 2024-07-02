@@ -50,11 +50,11 @@ type transportConfig struct {
 
 type addWebhookRequest struct {
 	owner          string
-	internalWebook webhook.Register
+	internalWebook Register
 }
 
 func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
-	iws := response.([]webhook.Register)
+	iws := response.([]Register)
 	webhooks := InternalWebhooksToWebhooks(iws)
 	if webhooks == nil {
 		// prefer JSON output to be "[]" instead of "<nil>"

@@ -45,7 +45,7 @@ func (v2 RegistryV2) GetUntil() time.Time {
 	return v2.Registration.Expires
 }
 
-func InternalWebhookToItem(now func() time.Time, iw webhook.Register) (model.Item, error) {
+func InternalWebhookToItem(now func() time.Time, iw Register) (model.Item, error) {
 	encodedWebhook, err := json.Marshal(iw)
 	if err != nil {
 		return model.Item{}, err
@@ -69,7 +69,7 @@ func InternalWebhookToItem(now func() time.Time, iw webhook.Register) (model.Ite
 	}, nil
 }
 
-func ItemToInternalWebhook(i model.Item) (r webhook.Register, e error) {
+func ItemToInternalWebhook(i model.Item) (r Register, e error) {
 	var v1 RegistryV1
 	var v2 RegistryV2
 	encodedWebhook, e := json.Marshal(i.Data)
@@ -98,8 +98,8 @@ func ItemToInternalWebhook(i model.Item) (r webhook.Register, e error) {
 	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2")
 }
 
-func ItemsToInternalWebhooks(items []model.Item) ([]webhook.Register, error) {
-	iws := []webhook.Register{}
+func ItemsToInternalWebhooks(items []model.Item) ([]Register, error) {
+	iws := []Register{}
 	for _, item := range items {
 		iw, err := ItemToInternalWebhook(item)
 		if err != nil {
@@ -110,7 +110,7 @@ func ItemsToInternalWebhooks(items []model.Item) ([]webhook.Register, error) {
 	return iws, nil
 }
 
-func InternalWebhooksToWebhooks(iws []webhook.Register) []any {
+func InternalWebhooksToWebhooks(iws []Register) []any {
 	w := make([]any, 0, len(iws))
 	for _, iw := range iws {
 		switch r := iw.(type) {

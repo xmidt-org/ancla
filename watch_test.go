@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/webhook-schema"
 )
 
 func TestWebhookListSizeWatch(t *testing.T) {
@@ -17,7 +16,7 @@ func TestWebhookListSizeWatch(t *testing.T) {
 	require.NotNil(watch)
 	// nolint:typecheck
 	gauge.On("Set", float64(2))
-	watch.Update([]webhook.Register{})
+	watch.Update([]Register{})
 	// nolint:typecheck
 	gauge.AssertExpectations(t)
 }
