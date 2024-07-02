@@ -16,6 +16,11 @@ import (
 	webhook "github.com/xmidt-org/webhook-schema"
 )
 
+type Register interface {
+	GetId() string
+	GetUntil() time.Time
+}
+
 type RegistryV1 struct {
 	PartnerIDs []string
 	Webhook    webhook.RegistrationV1
