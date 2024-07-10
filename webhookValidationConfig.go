@@ -52,10 +52,5 @@ func (config *ValidatorConfig) BuildURLChecker() (*urlegit.Checker, error) {
 	if !config.Domain.AllowSpecialUseDomains {
 		o = append(o, urlegit.ForbidSpecialUseDomains())
 	}
-	checker, err := urlegit.New(o...)
-	if err != nil {
-		return nil, err
-	}
-	return checker, nil
-
+	return urlegit.New(o...)
 }
