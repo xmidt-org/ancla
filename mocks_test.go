@@ -6,17 +6,22 @@ package ancla
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webhook-schema"
 )
 
 var (
 	errReadBodyFail      = errors.New("read test error")
 	errMockValidatorFail = errors.New("validation error")
+	mockNow              = func() time.Time {
+		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+	}
 )
 
 type mockPushReader struct {
@@ -57,16 +62,16 @@ type mockService struct {
 	mock.Mock
 }
 
-func (m *mockService) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+func (m *mockService) Add(ctx context.Context, owner string, iw Register) error {
 	// nolint:typecheck
 	args := m.Called(ctx, owner, iw)
 	return args.Error(0)
 }
 
-func (m *mockService) GetAll(ctx context.Context) ([]InternalWebhook, error) {
+func (m *mockService) GetAll(ctx context.Context) ([]Register, error) {
 	// nolint:typecheck
 	args := m.Called(ctx)
-	return args.Get(0).([]InternalWebhook), args.Error(1)
+	return args.Get(0).([]Register), args.Error(1)
 }
 
 type mockCounter struct {
@@ -196,8 +201,17 @@ func (e errReader) Close() error {
 	return errors.New("close test error")
 }
 
-func mockValidator() ValidatorFunc {
-	return func(w Webhook) error {
-		return errMockValidatorFail
-	}
+func mockValidator() (opts []webhook.Option) {
+	opts = append(opts, mockOption{})
+	return
+}
+
+type mockOption struct{}
+
+func (mockOption) Validate(mock any) error {
+	return errMockValidatorFail
+}
+
+func (mockOption) String() string {
+	return "mockOption"
 }

@@ -161,7 +161,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 		Description              string
 		GetItemsResp             chrysom.Items
 		GetItemsErr              error
-		ExpectedInternalWebhooks []InternalWebhook
+		ExpectedInternalWebhooks []Register
 		ExpectedErr              error
 	}
 
@@ -226,7 +226,7 @@ func getTestItems() chrysom.Items {
 						"device_id": []interface{}{"mac:aabbccddee.*"},
 					},
 					"failure_url": "http://contact-here-when-fails.example.net",
-					"duration":    float64((10 * time.Second).Nanoseconds()),
+					"duration":    "10s",
 					"until":       "2021-01-02T15:04:10Z",
 				},
 				"PartnerIDs": []interface{}{"comcast"},
@@ -249,7 +249,7 @@ func getTestItems() chrysom.Items {
 						"device_id": []interface{}{"mac:aabbccddee.*"},
 					},
 					"failure_url": "http://contact-here-when-fails.example.net",
-					"duration":    float64((20 * time.Second).Nanoseconds()),
+					"duration":    "20s",
 					"until":       "2021-01-02T15:04:20Z",
 				},
 				"partnerids": []string{},
