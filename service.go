@@ -11,6 +11,7 @@ import (
 
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/sallust"
+	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
 )
 
@@ -29,10 +30,10 @@ var (
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, iw InternalWebhook) error
+	Add(ctx context.Context, owner string, iw Register) error
 
 	// GetAll lists all the current registered webhooks.
-	GetAll(ctx context.Context) ([]InternalWebhook, error)
+	GetAll(ctx context.Context) ([]Register, error)
 }
 
 // Config contains information needed to initialize the Argus Client service.
@@ -60,7 +61,7 @@ type Config struct {
 	// URLs must be a valid URL structure, the Matcher.DeviceID values must
 	// compile into regular expressions, and the Events field must have at
 	// least one value and all values must compile into regular expressions.
-	Validation ValidatorConfig
+	Validation webhook.ValidatorConfig
 }
 
 // ListenerConfig contains information needed to initialize the Listener Client service.
@@ -123,7 +124,7 @@ func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Conte
 	return func() { listener.Stop(context.Background()) }, nil
 }
 
-func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+func (s *service) Add(ctx context.Context, owner string, iw Register) error {
 	item, err := InternalWebhookToItem(s.now, iw)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
@@ -141,13 +142,13 @@ func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) err
 
 // GetAll returns all webhooks found on the configured webhooks partition
 // of Argus.
-func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
+func (s *service) GetAll(ctx context.Context) ([]Register, error) {
 	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
 
-	iws := make([]InternalWebhook, len(items))
+	iws := make([]Register, len(items))
 
 	for i, item := range items {
 		webhook, err := ItemToInternalWebhook(item)
