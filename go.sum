@@ -476,8 +476,8 @@ github.com/xmidt-org/sallust v0.2.2 h1:MrINLEr7cMj6ENx/O76fvpfd5LNGYnk7OipZAGXPY
 github.com/xmidt-org/sallust v0.2.2/go.mod h1:ytBoypcPw10OmjM6b92Jx3eoqWX4J5zVXOQozGwz4qs=
 github.com/xmidt-org/touchstone v0.1.5 h1:Afm3P0EzCOWD1ITyVLsEDPVQkSE0t2ZhHyV+kOkNZS8=
 github.com/xmidt-org/touchstone v0.1.5/go.mod h1:Dz0fA1eWjm/2WrsdEeaQZMevkmfdYTsAbQfLaTrB8Eo=
-github.com/xmidt-org/urlegit v0.1.1 h1:sjFlckD7Okql7gQACX5hpicqiqD/kIs1hhG7a623dJQ=
-github.com/xmidt-org/urlegit v0.1.1/go.mod h1:ih/VtgW3xfpV7FNIrHUpNdP0GapcfLOND8y0JwH51vA=
+github.com/xmidt-org/urlegit v0.1.12 h1:qlwTgELD2ufKKH4vuioG/BWZ3293Cbx1f1viMDMaLV0=
+github.com/xmidt-org/urlegit v0.1.12/go.mod h1:wEEFUdBOEK3bQNb5LHLMfGnTtGn8WwEKgFPk8p6lhIM=
 github.com/xmidt-org/wrp-go/v3 v3.2.1 h1:nhHqMvlYY61gFsdYXr30etKGXIxOSg4eBjXJwkf/LWM=
 github.com/xmidt-org/wrp-go/v3 v3.2.1/go.mod h1:ZXUMN7ZTOv/F+9/WypWexNxIt33WVLQvb2hidwIHvqw=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
