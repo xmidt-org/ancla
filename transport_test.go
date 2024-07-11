@@ -616,13 +616,13 @@ func encodeGetAllOutput() string {
 func TestSetWebhookDefaults(t *testing.T) {
 	tcs := []struct {
 		desc            string
-		webhook         any
+		webhook         *webhook.RegistrationV1
 		remoteAddr      string
-		expectedWebhook any
+		expectedWebhook *webhook.RegistrationV1
 	}{
 		{
 			desc: "No Until, Address, or DeviceID",
-			webhook: webhook.RegistrationV1{
+			webhook: &webhook.RegistrationV1{
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "https://deliver-here.example.net",
 				},
@@ -631,7 +631,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 				Duration: webhook.CustomDuration(5 * time.Minute),
 			},
 			remoteAddr: "http://original-requester.example.net",
-			expectedWebhook: webhook.RegistrationV1{
+			expectedWebhook: &webhook.RegistrationV1{
 				Address: "http://original-requester.example.net",
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "https://deliver-here.example.net",
@@ -645,7 +645,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 		},
 		{
 			desc: "No Address or Request Address",
-			webhook: webhook.RegistrationV1{
+			webhook: &webhook.RegistrationV1{
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "https://deliver-here.example.net",
 				},
@@ -653,7 +653,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 				Matcher:  webhook.MetadataMatcherConfig{},
 				Duration: webhook.CustomDuration(5 * time.Minute),
 			},
-			expectedWebhook: webhook.RegistrationV1{
+			expectedWebhook: &webhook.RegistrationV1{
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "https://deliver-here.example.net",
 				},
@@ -666,7 +666,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 		},
 		{
 			desc: "All values set",
-			webhook: webhook.RegistrationV1{
+			webhook: &webhook.RegistrationV1{
 				Address: "requester.example.net:443",
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "https://deliver-here.example.net",
@@ -679,7 +679,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 				Until:    mockNow().Add(5 * time.Minute),
 			},
 			remoteAddr: "requester.example.net:443",
-			expectedWebhook: webhook.RegistrationV1{
+			expectedWebhook: &webhook.RegistrationV1{
 				Address: "requester.example.net:443",
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "https://deliver-here.example.net",
@@ -699,9 +699,8 @@ func TestSetWebhookDefaults(t *testing.T) {
 			w := webhookValidator{
 				now: mockNow,
 			}
-			webhook := tc.webhook
-			w.setWebhookDefaults(&webhook, tc.remoteAddr)
-			assert.Equal(tc.expectedWebhook, webhook)
+			w.setV1Defaults(tc.webhook, tc.remoteAddr)
+			assert.Equal(tc.expectedWebhook, tc.webhook)
 		})
 	}
 }

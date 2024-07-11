@@ -107,7 +107,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			if err != nil {
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
-			wv.setWebhookDefaults(v1, r.RemoteAddr)
+			wv.setV1Defaults(v1, r.RemoteAddr)
 			reg := RegistryV1{
 				PartnerIDs: partners,
 				Webhook:    *v1,
@@ -218,26 +218,20 @@ type webhookValidator struct {
 	now func() time.Time
 }
 
-func (wv webhookValidator) setWebhookDefaults(register any, requestOriginHost string) {
-	switch r := register.(type) {
-	case *webhook.RegistrationV1:
+func (wv webhookValidator) setV1Defaults(r *webhook.RegistrationV1, requestOriginHost string) {
 
-		if len(r.Matcher.DeviceID) == 0 {
-			r.Matcher.DeviceID = []string{".*"} // match anything
-		}
-		if r.Until.IsZero() {
-			r.Until = wv.now().Add(time.Duration(r.Duration))
-		}
-		if requestOriginHost != "" {
-			r.Address = requestOriginHost
-		}
-	case *webhook.RegistrationV2:
-		//TODO: do we have any defaults for RegistrationV2 that need to be set?
-		//webhook-schema shows RetryHint, BatchHint, Webhook.SecretHash, and Payload only will have default values
-		//are we setting those values here?
+	if len(r.Matcher.DeviceID) == 0 {
+		r.Matcher.DeviceID = []string{".*"} // match anything
 	}
-
+	if r.Until.IsZero() {
+		r.Until = wv.now().Add(time.Duration(r.Duration))
+	}
+	if requestOriginHost != "" {
+		r.Address = requestOriginHost
+	}
 }
+
+func (wv webhookValidator) setV2Defaults(r *webhook.RegistrationV2) {}
 
 func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
 	return func(ctx context.Context, err error, w http.ResponseWriter) {
