@@ -11,7 +11,6 @@ import (
 
 	"github.com/xmidt-org/argus/chrysom"
 	"github.com/xmidt-org/sallust"
-	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +60,7 @@ type Config struct {
 	// URLs must be a valid URL structure, the Matcher.DeviceID values must
 	// compile into regular expressions, and the Events field must have at
 	// least one value and all values must compile into regular expressions.
-	Validation webhook.ValidatorConfig
+	Validation ValidatorConfig
 }
 
 // ListenerConfig contains information needed to initialize the Listener Client service.

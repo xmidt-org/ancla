@@ -499,7 +499,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 					},
 					FailureURL: "http://contact-here-when-fails.example.net",
 					Duration:   webhook.CustomDuration(5 * time.Minute),
-					// Until:      getRefTime().Add(5 * time.Minute),
+					Until:      getRefTime().Add(5 * time.Minute),
 				},
 				PartnerIDs: []string{"comcast"},
 			},
