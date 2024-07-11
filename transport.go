@@ -89,8 +89,8 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		if err != nil {
 			return nil, err
 		}
-		var v1 webhook.RegistrationV1
-		var v2 webhook.RegistrationV2
+		var v1 *webhook.RegistrationV1
+		var v2 *webhook.RegistrationV2
 		var whreq addWebhookRequest
 
 		opts := config.v
@@ -110,7 +110,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			wv.setWebhookDefaults(v1, r.RemoteAddr)
 			reg := RegistryV1{
 				PartnerIDs: partners,
-				Webhook:    v1,
+				Webhook:    *v1,
 			}
 
 			whreq.internalWebook = reg
@@ -123,7 +123,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				}
 				reg := RegistryV2{
 					PartnerIds:   partners,
-					Registration: v2,
+					Registration: *v2,
 				}
 				whreq.internalWebook = reg
 			}
