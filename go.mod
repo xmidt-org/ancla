@@ -11,13 +11,13 @@ require (
 	github.com/prometheus/client_model v0.6.1
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.9.0
-	github.com/xmidt-org/argus v0.9.10
+	github.com/xmidt-org/argus v0.9.13-0.20240711141248-1f7e75700ffb
 	github.com/xmidt-org/bascule v0.11.6
 	github.com/xmidt-org/httpaux v0.4.0
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.5
 	github.com/xmidt-org/urlegit v0.1.12
-	github.com/xmidt-org/webhook-schema v0.1.0
+	github.com/xmidt-org/webhook-schema v0.1.1-0.20240711140319-0ee06ff248b5
 	go.uber.org/fx v1.22.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
@@ -98,7 +98,3 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/xmidt-org/webhook-schema => /Users/mforti446/Documents/work/xmidt-repos/webhook-schema
-
-replace github.com/xmidt-org/argus => /Users/mforti446/Documents/work/xmidt-repos/argus

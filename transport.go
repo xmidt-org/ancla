@@ -89,8 +89,8 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		if err != nil {
 			return nil, err
 		}
-		var v1 webhook.RegistrationV1
-		var v2 webhook.RegistrationV2
+		var v1 *webhook.RegistrationV1
+		var v2 *webhook.RegistrationV2
 		var whreq addWebhookRequest
 
 		opts := config.v
@@ -110,7 +110,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			wv.setWebhookDefaults(v1, r.RemoteAddr)
 			reg := RegistryV1{
 				PartnerIDs: partners,
-				Webhook:    v1,
+				Webhook:    *v1,
 			}
 
 			whreq.internalWebook = reg
@@ -123,7 +123,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				}
 				reg := RegistryV2{
 					PartnerIds:   partners,
-					Registration: v2,
+					Registration: *v2,
 				}
 				whreq.internalWebook = reg
 			}
@@ -220,7 +220,7 @@ type webhookValidator struct {
 
 func (wv webhookValidator) setWebhookDefaults(register any, requestOriginHost string) {
 	switch r := register.(type) {
-	case webhook.RegistrationV1:
+	case *webhook.RegistrationV1:
 
 		if len(r.Matcher.DeviceID) == 0 {
 			r.Matcher.DeviceID = []string{".*"} // match anything
@@ -231,7 +231,7 @@ func (wv webhookValidator) setWebhookDefaults(register any, requestOriginHost st
 		if requestOriginHost != "" {
 			r.Address = requestOriginHost
 		}
-	case webhook.RegistrationV2:
+	case *webhook.RegistrationV2:
 		//TODO: do we have any defaults for RegistrationV2 that need to be set?
 		//webhook-schema shows RetryHint, BatchHint, Webhook.SecretHash, and Payload only will have default values
 		//are we setting those values here?
