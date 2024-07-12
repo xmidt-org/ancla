@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	// nolint:typecheck
@@ -25,6 +24,7 @@ type RegistryV1 struct {
 	PartnerIDs []string
 	Webhook    webhook.RegistrationV1
 }
+
 type RegistryV2 struct {
 	PartnerIds   []string
 	Registration webhook.RegistrationV2
@@ -76,26 +76,16 @@ func ItemToInternalWebhook(i model.Item) (Register, error) {
 	if e != nil {
 		return nil, e
 	}
-
-	for v := range i.Data {
-		if strings.ToLower(v) == "partnerids" {
-			continue
-		} else if strings.ToLower(v) == "registration" {
-			e = json.Unmarshal(encodedWebhook, &v2)
-			if e != nil {
-				return nil, e
-			}
-			return v2, nil
-		} else if strings.ToLower(v) == "webhook" {
-			e = json.Unmarshal(encodedWebhook, &v1)
-			if e != nil {
-				return nil, e
-			}
-			return v1, nil
-		}
+	e = json.Unmarshal(encodedWebhook, &v1)
+	if e == nil {
+		return v1, nil
 	}
+	e = json.Unmarshal(encodedWebhook, &v2)
+	if e == nil {
+		return v2, nil
+	}
+	return nil, e
 
-	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2")
 }
 
 func ItemsToInternalWebhooks(items []model.Item) ([]Register, error) {

@@ -101,6 +101,8 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
 
+		whreq.owner = getOwner(r.Context())
+
 		err = json.Unmarshal(requestPayload, &v1)
 		if err == nil {
 			err = opts.Validate(&v1)
@@ -114,31 +116,25 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 
 			whreq.internalWebook = reg
-		} else {
-			err = json.Unmarshal(requestPayload, &v2)
-			if err == nil {
-				err = config.v.Validate(&v2)
-				if err != nil {
-					return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
-				}
-				reg := RegistryV2{
-					PartnerIds:   partners,
-					Registration: *v2,
-				}
-				whreq.internalWebook = reg
+		}
+		err = json.Unmarshal(requestPayload, &v2)
+		if err == nil {
+			err = config.v.Validate(&v2)
+			if err != nil {
+				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
+			reg := RegistryV2{
+				PartnerIds:   partners,
+				Registration: *v2,
+			}
+			whreq.internalWebook = reg
 		}
 
-		if err != nil {
-			var e *json.UnmarshalTypeError
-			if errors.As(err, &e) {
-				return nil, &erraux.Error{Err: fmt.Errorf("%w: %v must be of type webhook.RegistrationV1 or webhook.RegistrationV2", errFailedWebhookUnmarshal, e.Field), Code: http.StatusBadRequest}
-			}
-			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
+		var e *json.UnmarshalTypeError
+		if errors.As(err, &e) {
+			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v must be of type webhook.RegistrationV1 or webhook.RegistrationV2", errFailedWebhookUnmarshal, e.Field), Code: http.StatusBadRequest}
 		}
-		whreq.owner = getOwner(r.Context())
-
-		return &whreq, nil
+		return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
 
 	}
 }
