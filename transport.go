@@ -105,13 +105,13 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		whreq.owner = getOwner(r.Context())
 		opts := config.v
-
 		err = json.Unmarshal(requestPayload, &v1)
 		if err == nil {
 			err = opts.Validate(&v1)
 			if err != nil {
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
+			
 			wv.setWebhookDefaults(v1, r.RemoteAddr)
 			reg := RegistryV1{
 				PartnerIDs: partners,
