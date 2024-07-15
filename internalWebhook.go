@@ -6,6 +6,7 @@ package ancla
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -70,21 +71,27 @@ func InternalWebhookToItem(now func() time.Time, iw Register) (model.Item, error
 }
 
 func ItemToInternalWebhook(i model.Item) (Register, error) {
-	var v1 RegistryV1
-	var v2 RegistryV2
-	encodedWebhook, e := json.Marshal(i.Data)
-	if e != nil {
-		return nil, e
+	var (
+		v1   RegistryV1
+		v2   RegistryV2
+		errs error
+	)
+	encodedWebhook, err := json.Marshal(i.Data)
+	if err != nil {
+		return nil, err
 	}
-	e = json.Unmarshal(encodedWebhook, &v1)
-	if e == nil {
+	err = json.Unmarshal(encodedWebhook, &v1)
+	if err == nil {
 		return v1, nil
 	}
-	e = json.Unmarshal(encodedWebhook, &v2)
-	if e == nil {
+	errs = errors.Join(errs, fmt.Errorf("RegistryV1 unmarshal error: %s", err))
+	err = json.Unmarshal(encodedWebhook, &v2)
+	if err == nil {
 		return v2, nil
 	}
-	return nil, e
+	errs = errors.Join(errs, fmt.Errorf("RegistryV2 unmarshal error: %s", err))
+
+	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2: %s", errs)
 
 }
 
