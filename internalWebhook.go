@@ -84,6 +84,7 @@ func ItemToInternalWebhook(i model.Item) (Register, error) {
 	if err == nil {
 		return v1, nil
 	}
+
 	errs = errors.Join(errs, fmt.Errorf("RegistryV1 unmarshal error: %s", err))
 	err = json.Unmarshal(encodedWebhook, &v2)
 	if err == nil {
