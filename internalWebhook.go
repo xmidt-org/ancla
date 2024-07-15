@@ -38,6 +38,7 @@ func (v1 RegistryV1) GetId() string {
 func (v1 RegistryV1) GetUntil() time.Time {
 	return v1.Webhook.Until
 }
+
 func (v2 RegistryV2) GetId() string {
 	return v2.Registration.CanonicalName
 }
@@ -80,19 +81,21 @@ func ItemToInternalWebhook(i model.Item) (Register, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	err = json.Unmarshal(encodedWebhook, &v1)
 	if err == nil {
 		return v1, nil
 	}
+
 	errs = errors.Join(errs, fmt.Errorf("RegistryV1 unmarshal error: %s", err))
 	err = json.Unmarshal(encodedWebhook, &v2)
 	if err == nil {
 		return v2, nil
 	}
+
 	errs = errors.Join(errs, fmt.Errorf("RegistryV2 unmarshal error: %s", err))
 
 	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2: %s", errs)
-
 }
 
 func ItemsToInternalWebhooks(items []model.Item) ([]Register, error) {
