@@ -38,6 +38,7 @@ func (v1 RegistryV1) GetId() string {
 func (v1 RegistryV1) GetUntil() time.Time {
 	return v1.Webhook.Until
 }
+
 func (v2 RegistryV2) GetId() string {
 	return v2.Registration.CanonicalName
 }
