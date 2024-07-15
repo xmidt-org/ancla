@@ -96,7 +96,6 @@ func ItemToInternalWebhook(i model.Item) (Register, error) {
 	errs = errors.Join(errs, fmt.Errorf("RegistryV2 unmarshal error: %s", err))
 
 	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2: %s", errs)
-
 }
 
 func ItemsToInternalWebhooks(items []model.Item) ([]Register, error) {
