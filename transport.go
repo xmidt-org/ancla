@@ -112,6 +112,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			if err != nil {
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
+
 			wv.setWebhookDefaults(v1, r.RemoteAddr)
 			reg := RegistryV1{
 				PartnerIDs: partners,
@@ -120,6 +121,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 			whreq.internalWebook = reg
 		}
+
 		errs = errors.Join(errs, err)
 		err = json.Unmarshal(requestPayload, &v2)
 		if err == nil {
@@ -133,12 +135,14 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 			whreq.internalWebook = reg
 		}
+
 		errs = errors.Join(errs, err)
 
 		var e *json.UnmarshalTypeError
 		if errors.As(err, &e) {
 			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v must be of type webhook.RegistrationV1 or webhook.RegistrationV2", errFailedWebhookUnmarshal, e.Field), Code: http.StatusBadRequest}
 		}
+
 		return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, errs), Code: http.StatusBadRequest}
 
 	}
