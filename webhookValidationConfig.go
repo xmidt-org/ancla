@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/xmidt-org/urlegit"
+	webhook "github.com/xmidt-org/webhook-schema"
 )
 
 type ValidatorConfig struct {
@@ -14,6 +15,7 @@ type ValidatorConfig struct {
 	TTL    TTLVConfig
 	IP     IPConfig
 	Domain DomainConfig
+	Opts   OptionsConfig
 }
 
 type IPConfig struct {
@@ -35,6 +37,16 @@ type TTLVConfig struct {
 	Max    time.Duration
 	Jitter time.Duration
 	Now    func() time.Time
+}
+
+type OptionsConfig struct {
+	AtLeastOneEvent                bool
+	EventRegexMustCompile          bool
+	DeviceIDRegexMustCompile       bool
+	ValidateRegistrationDuration   bool
+	ProvideReceiverURLValidator    bool
+	ProvideFailureURLValidator     bool
+	ProvideAlternativeURLValidator bool
 }
 
 // BuildURLChecker translates the configuration into url Checker to be run on the webhook.
@@ -59,4 +71,31 @@ func (config *ValidatorConfig) BuildURLChecker() (*urlegit.Checker, error) {
 		o = append(o, urlegit.ForbidDomainNames(config.Domain.ForbiddenDomains...))
 	}
 	return urlegit.New(o...)
+}
+
+// BuildOptions translates the configuration into a list of options to be used to validate the registration
+func (config *ValidatorConfig) BuildOptions(checker *urlegit.Checker) []webhook.Option {
+	var opts []webhook.Option
+	if config.Opts.AtLeastOneEvent {
+		opts = append(opts, webhook.AtLeastOneEvent())
+	}
+	if config.Opts.EventRegexMustCompile {
+		opts = append(opts, webhook.EventRegexMustCompile())
+	}
+	if config.Opts.DeviceIDRegexMustCompile {
+		opts = append(opts, webhook.DeviceIDRegexMustCompile())
+	}
+	if config.Opts.ValidateRegistrationDuration {
+		opts = append(opts, webhook.ValidateRegistrationDuration(config.TTL.Max))
+	}
+	if config.Opts.ProvideReceiverURLValidator {
+		opts = append(opts, webhook.ProvideReceiverURLValidator(checker))
+	}
+	if config.Opts.ProvideFailureURLValidator {
+		opts = append(opts, webhook.ProvideFailureURLValidator(checker))
+	}
+	if config.Opts.ProvideAlternativeURLValidator {
+		opts = append(opts, webhook.ProvideAlternativeURLValidator(checker))
+	}
+	return opts
 }
