@@ -49,8 +49,14 @@ func (config *ValidatorConfig) BuildURLChecker() (*urlegit.Checker, error) {
 	if !config.IP.Allow {
 		o = append(o, urlegit.ForbidAnyIPs())
 	}
+	if len(config.IP.ForbiddenSubnets) > 0 {
+		o = append(o, urlegit.ForbidSubnets(config.IP.ForbiddenSubnets))
+	}
 	if !config.Domain.AllowSpecialUseDomains {
 		o = append(o, urlegit.ForbidSpecialUseDomains())
+	}
+	if len(config.Domain.ForbiddenDomains) > 0 {
+		o = append(o, urlegit.ForbidDomainNames(config.Domain.ForbiddenDomains...))
 	}
 	return urlegit.New(o...)
 }
