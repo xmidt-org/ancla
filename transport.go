@@ -89,17 +89,22 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		if err != nil {
 			return nil, err
 		}
-		var v1 *webhook.RegistrationV1
-		var v2 *webhook.RegistrationV2
-		var whreq addWebhookRequest
 
-		opts := config.v
+		var (
+			v1       *webhook.RegistrationV1
+			v2       *webhook.RegistrationV2
+			whreq    addWebhookRequest
+			errs     error
+			partners []string
+		)
 
-		var partners []string
 		partners, err = extractPartnerIDs(config, c, r)
 		if err != nil && !config.disablePartnerIDs {
 			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
+
+		whreq.owner = getOwner(r.Context())
+		opts := config.v
 
 		err = json.Unmarshal(requestPayload, &v1)
 		if err == nil {
@@ -107,39 +112,34 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			if err != nil {
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
+
 			wv.setWebhookDefaults(v1, r.RemoteAddr)
 			reg := RegistryV1{
 				PartnerIDs: partners,
 				Webhook:    *v1,
 			}
-
 			whreq.internalWebook = reg
-		} else {
-			err = json.Unmarshal(requestPayload, &v2)
-			if err == nil {
-				err = config.v.Validate(&v2)
-				if err != nil {
-					return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
-				}
-				reg := RegistryV2{
-					PartnerIds:   partners,
-					Registration: *v2,
-				}
-				whreq.internalWebook = reg
-			}
 		}
 
-		if err != nil {
-			var e *json.UnmarshalTypeError
-			if errors.As(err, &e) {
-				return nil, &erraux.Error{Err: fmt.Errorf("%w: %v must be of type webhook.RegistrationV1 or webhook.RegistrationV2", errFailedWebhookUnmarshal, e.Field), Code: http.StatusBadRequest}
+		errs = errors.Join(errs, err)
+
+		err = json.Unmarshal(requestPayload, &v2)
+		if err == nil {
+			err = config.v.Validate(&v2)
+			if err != nil {
+				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
-			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, err), Code: http.StatusBadRequest}
+
+			reg := RegistryV2{
+				PartnerIds:   partners,
+				Registration: *v2,
+			}
+			whreq.internalWebook = reg
 		}
-		whreq.owner = getOwner(r.Context())
 
-		return &whreq, nil
+		errs = errors.Join(errs, err)
 
+		return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, errs), Code: http.StatusBadRequest}
 	}
 }
 
@@ -220,8 +220,7 @@ type webhookValidator struct {
 
 func (wv webhookValidator) setWebhookDefaults(register any, requestOriginHost string) {
 	switch r := register.(type) {
-	case *webhook.RegistrationV1:
-
+	case webhook.RegistrationV1:
 		if len(r.Matcher.DeviceID) == 0 {
 			r.Matcher.DeviceID = []string{".*"} // match anything
 		}

@@ -6,9 +6,9 @@ package ancla
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
-	"strings"
 	"time"
 
 	// nolint:typecheck
@@ -25,6 +25,7 @@ type RegistryV1 struct {
 	PartnerIDs []string
 	Webhook    webhook.RegistrationV1
 }
+
 type RegistryV2 struct {
 	PartnerIds   []string
 	Registration webhook.RegistrationV2
@@ -37,6 +38,7 @@ func (v1 RegistryV1) GetId() string {
 func (v1 RegistryV1) GetUntil() time.Time {
 	return v1.Webhook.Until
 }
+
 func (v2 RegistryV2) GetId() string {
 	return v2.Registration.CanonicalName
 }
@@ -70,32 +72,30 @@ func InternalWebhookToItem(now func() time.Time, iw Register) (model.Item, error
 }
 
 func ItemToInternalWebhook(i model.Item) (Register, error) {
-	var v1 RegistryV1
-	var v2 RegistryV2
-	encodedWebhook, e := json.Marshal(i.Data)
-	if e != nil {
-		return nil, e
+	var (
+		v1   RegistryV1
+		v2   RegistryV2
+		errs error
+	)
+	encodedWebhook, err := json.Marshal(i.Data)
+	if err != nil {
+		return nil, err
 	}
 
-	for v := range i.Data {
-		if strings.ToLower(v) == "partnerids" {
-			continue
-		} else if strings.ToLower(v) == "registration" {
-			e = json.Unmarshal(encodedWebhook, &v2)
-			if e != nil {
-				return nil, e
-			}
-			return v2, nil
-		} else if strings.ToLower(v) == "webhook" {
-			e = json.Unmarshal(encodedWebhook, &v1)
-			if e != nil {
-				return nil, e
-			}
-			return v1, nil
-		}
+	err = json.Unmarshal(encodedWebhook, &v1)
+	if err == nil {
+		return v1, nil
 	}
 
-	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2")
+	errs = errors.Join(errs, fmt.Errorf("RegistryV1 unmarshal error: %s", err))
+	err = json.Unmarshal(encodedWebhook, &v2)
+	if err == nil {
+		return v2, nil
+	}
+
+	errs = errors.Join(errs, fmt.Errorf("RegistryV2 unmarshal error: %s", err))
+
+	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2: %s", errs)
 }
 
 func ItemsToInternalWebhooks(items []model.Item) ([]Register, error) {
