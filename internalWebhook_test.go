@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/webhook-schema"
 )
 
 func TestItemToInternalWebhook(t *testing.T) {
@@ -17,7 +18,7 @@ func TestItemToInternalWebhook(t *testing.T) {
 	tcs := []struct {
 		Description             string
 		InputItem               model.Item
-		ExpectedInternalWebhook InternalWebhook
+		ExpectedInternalWebhook Register
 		ShouldErr               bool
 	}{
 		{
@@ -57,7 +58,7 @@ func TestInternalWebhookToItem(t *testing.T) {
 	iws := getTestInternalWebhooks()
 	tcs := []struct {
 		Description          string
-		InputInternalWebhook InternalWebhook
+		InputInternalWebhook Register
 		ExpectedItem         model.Item
 		ShouldErr            bool
 	}{
@@ -102,7 +103,7 @@ func getExpiredItem() model.Item {
 					"device_id": []interface{}{"mac:aabbccddee.*"},
 				},
 				"failure_url": "http://contact-here-when-fails.example.net",
-				"duration":    float64(time.Second.Nanoseconds()),
+				"duration":    "1ns",
 				"until":       "1970-01-01T00:00:01Z",
 			},
 			"PartnerIDs": []interface{}{},
@@ -111,12 +112,12 @@ func getExpiredItem() model.Item {
 	}
 }
 
-func getExpiredInternalWebhook() InternalWebhook {
-	return InternalWebhook{
-		Webhook: Webhook{
+func getExpiredInternalWebhook() Register {
+	return RegistryV1{
+		Webhook: webhook.RegistrationV1{
 			Address: "http://original-requester.example.net",
-			Config: DeliveryConfig{
-				URL:         "http://deliver-here-0.example.net",
+			Config: webhook.DeliveryConfig{
+				ReceiverURL: "http://deliver-here-0.example.net",
 				ContentType: "application/json",
 				Secret:      "superSecretXYZ",
 			},
@@ -127,54 +128,55 @@ func getExpiredInternalWebhook() InternalWebhook {
 				DeviceID: []string{"mac:aabbccddee.*"},
 			},
 			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   time.Second,
+			Duration:   webhook.CustomDuration(1),
 			Until:      time.Unix(1, 0).UTC(),
 		},
 		PartnerIDs: []string{},
 	}
 }
 
-func getTestInternalWebhooks() []InternalWebhook {
+func getTestInternalWebhooks() []Register {
+	var reg []Register
 	refTime := getRefTime()
-	return []InternalWebhook{
-		{
-			Webhook: Webhook{
-				Address: "http://original-requester.example.net",
-				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
-					ContentType: "application/json",
-					Secret:      "superSecretXYZ",
-				},
-				Events: []string{"online"},
-				Matcher: MetadataMatcherConfig{
-					DeviceID: []string{"mac:aabbccddee.*"},
-				},
-				FailureURL: "http://contact-here-when-fails.example.net",
-				Duration:   10 * time.Second,
-				Until:      refTime.Add(10 * time.Second),
+	reg = append(reg, RegistryV1{
+		Webhook: webhook.RegistrationV1{
+			Address: "http://original-requester.example.net",
+			Config: webhook.DeliveryConfig{
+				ReceiverURL: "http://deliver-here-0.example.net",
+				ContentType: "application/json",
+				Secret:      "superSecretXYZ",
 			},
-			PartnerIDs: []string{"comcast"},
+			Events: []string{"online"},
+			Matcher: webhook.MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Duration:   webhook.CustomDuration(10 * time.Second),
+			Until:      refTime.Add(10 * time.Second),
 		},
-		{
-			Webhook: Webhook{
-				Address: "http://original-requester.example.net",
-				Config: DeliveryConfig{
-					ContentType: "application/json",
-					URL:         "http://deliver-here-1.example.net",
-					Secret:      "doNotShare:e=mc^2",
-				},
-				Events: []string{"online"},
-				Matcher: MetadataMatcherConfig{
-					DeviceID: []string{"mac:aabbccddee.*"},
-				},
+		PartnerIDs: []string{"comcast"},
+	})
+	reg = append(reg, RegistryV1{
+		Webhook: webhook.RegistrationV1{
+			Address: "http://original-requester.example.net",
+			Config: webhook.DeliveryConfig{
+				ContentType: "application/json",
+				ReceiverURL: "http://deliver-here-1.example.net",
+				Secret:      "doNotShare:e=mc^2",
+			},
+			Events: []string{"online"},
+			Matcher: webhook.MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
 
-				FailureURL: "http://contact-here-when-fails.example.net",
-				Duration:   20 * time.Second,
-				Until:      refTime.Add(20 * time.Second),
-			},
-			PartnerIDs: []string{},
+			FailureURL: "http://contact-here-when-fails.example.net",
+			Duration:   webhook.CustomDuration(20 * time.Second),
+			Until:      refTime.Add(20 * time.Second),
 		},
-	}
+		PartnerIDs: []string{},
+	})
+
+	return reg
 }
 
 func getRefTime() time.Time {

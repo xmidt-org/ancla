@@ -19,6 +19,7 @@ import (
 	"github.com/xmidt-org/argus/store"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/webhook-schema"
 )
 
 func TestErrorEncoder(t *testing.T) {
@@ -113,7 +114,7 @@ func TestGetOwner(t *testing.T) {
 func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 	type testCase struct {
 		Description           string
-		InputInternalWebhooks []InternalWebhook
+		InputInternalWebhooks []Register
 		ExpectedJSONResp      string
 		ExpectedErr           error
 	}
@@ -152,7 +153,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 		ExpectedErr            error
 		ExpectedDecodedRequest *addWebhookRequest
 		ReadBodyFail           bool
-		Validator              Validator
+		Validator              webhook.Validators
 		ExpectedStatusCode     int
 		Auth                   string
 		WrongContext           bool
@@ -164,14 +165,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:            "Normal happy path",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			Auth:                   "jwt",
 		},
 		{
 			Description:            "Normal happy path using Duration",
 			InputPayload:           addWebhookDecoderDurationInput(),
 			ExpectedDecodedRequest: addWebhookDecoderDurationOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			Auth:                   "jwt",
 		},
 		{
@@ -184,7 +185,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:            "Do not check PartnerIDs",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			Auth:                   "jwt",
 			DisablePartnerIDs:      true,
 		},
@@ -192,7 +193,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:            "Auth token not present failure",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			ExpectedErr:            errAuthNotPresent,
 			WrongContext:           true,
 		},
@@ -200,14 +201,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:            "Auth token is nil failure",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			ExpectedErr:            errAuthTokenIsNil,
 		},
 		{
 			Description:            "jwt auth token has no allowedPartners failure",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			Auth:                   "jwtnopartners",
 			ExpectedErr:            errPartnerIDsDoNotExist,
 		},
@@ -215,7 +216,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:            "jwt partners do not cast failure",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			Auth:                   "jwtpartnersdonotcast",
 			ExpectedErr:            errGettingPartnerIDs,
 		},
@@ -223,7 +224,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:            "auth is not jwt or basic failure",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			Auth:                   "authnotbasicorjwt",
 			ExpectedErr:            errAuthIsNotOfTypeBasicOrJWT,
 		},
@@ -231,14 +232,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:            "basic auth",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
+			Validator:              webhook.Validators{},
 			Auth:                   "basic",
 		},
 		{
 			Description:        "Failed to JSON Unmarshal",
 			InputPayload:       "{",
 			ExpectedErr:        errFailedWebhookUnmarshal,
-			Validator:          Validators{},
+			Validator:          webhook.Validators{},
 			ExpectedStatusCode: 400,
 			Auth:               "jwt",
 		},
@@ -246,7 +247,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:        "Failed to JSON Unmarshal Type Error",
 			InputPayload:       addWebhookDecoderUnmarshalingErrorInput(false),
 			ExpectedErr:        errFailedWebhookUnmarshal,
-			Validator:          Validators{},
+			Validator:          webhook.Validators{},
 			ExpectedStatusCode: 400,
 			Auth:               "jwt",
 		},
@@ -254,14 +255,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:        "Failed to JSON Unmarshal Invalid Duration Error",
 			InputPayload:       addWebhookDecoderUnmarshalingErrorInput(true),
 			ExpectedErr:        errFailedWebhookUnmarshal,
-			Validator:          Validators{},
+			Validator:          webhook.Validators{},
 			ExpectedStatusCode: 400,
 			Auth:               "jwt",
 		},
 		{
 			Description:  "Webhook validation Failure",
 			InputPayload: addWebhookDecoderInput(),
-			Validator:    Validators{mockValidator()},
+			Validator:    mockValidator(),
 			ExpectedErr:  errMockValidatorFail,
 			Auth:         "jwt",
 		},
@@ -269,7 +270,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Description:        "Request Body Read Failure",
 			ExpectedErr:        errReadBodyFail,
 			ReadBodyFail:       true,
-			Validator:          Validators{},
+			Validator:          webhook.Validators{},
 			ExpectedStatusCode: 0,
 			Auth:               "jwt",
 		},
@@ -362,6 +363,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 func addWebhookDecoderInput() string {
 	return `
 		{
+			"registered_from_address": "original-requester.example.net:443",
 			"config": {
 				"url": "http://deliver-here-0.example.net",
 				"content_type": "application/json",
@@ -372,7 +374,7 @@ func addWebhookDecoderInput() string {
 				"device_id": ["mac:aabbccddee.*"]
 			},
 			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
+			"duration": "0s",
 			"until": "2021-01-02T15:04:10Z"
 		}
 	`
@@ -380,6 +382,7 @@ func addWebhookDecoderInput() string {
 func addWebhookDecoderDurationInput() string {
 	return `
 		{
+			"registered_from_address": "original-requester.example.net:443",
 			"config": {
 				"url": "http://deliver-here-0.example.net",
 				"content_type": "application/json",
@@ -390,7 +393,7 @@ func addWebhookDecoderDurationInput() string {
 				"device_id": ["mac:aabbccddee.*"]
 			},
 			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 300
+			"duration": "300s"
 		}
 	`
 }
@@ -436,20 +439,20 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
 			owner: "owner-from-auth",
-			internalWebook: InternalWebhook{
-				Webhook: Webhook{
+			internalWebook: RegistryV1{
+				Webhook: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
-					Config: DeliveryConfig{
-						URL:         "http://deliver-here-0.example.net",
+					Config: webhook.DeliveryConfig{
+						ReceiverURL: "http://deliver-here-0.example.net",
 						ContentType: "application/json",
 						Secret:      "superSecretXYZ",
 					},
 					Events: []string{"online"},
-					Matcher: MetadataMatcherConfig{
+					Matcher: webhook.MetadataMatcherConfig{
 						DeviceID: []string{"mac:aabbccddee.*"},
 					},
 					FailureURL: "http://contact-here-when-fails.example.net",
-					Duration:   0,
+					Duration:   webhook.CustomDuration(0 * time.Second),
 					Until:      getRefTime().Add(10 * time.Second),
 				},
 				PartnerIDs: []string{"comcast"},
@@ -458,20 +461,20 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 	}
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
-		internalWebook: InternalWebhook{
-			Webhook: Webhook{
+		internalWebook: RegistryV1{
+			Webhook: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
-				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "http://deliver-here-0.example.net",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
 				Events: []string{"online"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
 				FailureURL: "http://contact-here-when-fails.example.net",
-				Duration:   0,
+				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(10 * time.Second),
 			},
 			PartnerIDs: []string{},
@@ -482,20 +485,20 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
 			owner: "owner-from-auth",
-			internalWebook: InternalWebhook{
-				Webhook: Webhook{
+			internalWebook: RegistryV1{
+				Webhook: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
-					Config: DeliveryConfig{
-						URL:         "http://deliver-here-0.example.net",
+					Config: webhook.DeliveryConfig{
+						ReceiverURL: "http://deliver-here-0.example.net",
 						ContentType: "application/json",
 						Secret:      "superSecretXYZ",
 					},
 					Events: []string{"online"},
-					Matcher: MetadataMatcherConfig{
+					Matcher: webhook.MetadataMatcherConfig{
 						DeviceID: []string{"mac:aabbccddee.*"},
 					},
 					FailureURL: "http://contact-here-when-fails.example.net",
-					Duration:   5 * time.Minute,
+					Duration:   webhook.CustomDuration(5 * time.Minute),
 					Until:      getRefTime().Add(5 * time.Minute),
 				},
 				PartnerIDs: []string{"comcast"},
@@ -504,20 +507,20 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	}
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
-		internalWebook: InternalWebhook{
-			Webhook: Webhook{
+		internalWebook: RegistryV1{
+			Webhook: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
-				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "http://deliver-here-0.example.net",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
 				Events: []string{"online"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
 				FailureURL: "http://contact-here-when-fails.example.net",
-				Duration:   5 * time.Minute,
+				Duration:   webhook.CustomDuration(5 * time.Minute),
 				Until:      getRefTime().Add(5 * time.Minute),
 			},
 			PartnerIDs: []string{},
@@ -525,13 +528,13 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	}
 }
 
-func encodeGetAllInput() []InternalWebhook {
-	return []InternalWebhook{
-		{
-			Webhook: Webhook{
+func encodeGetAllInput() []Register {
+	return []Register{
+		RegistryV1{
+			Webhook: webhook.RegistrationV1{
 				Address: "http://original-requester.example.net",
-				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "http://deliver-here-0.example.net",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
@@ -542,16 +545,17 @@ func encodeGetAllInput() []InternalWebhook {
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
 				FailureURL: "http://contact-here-when-fails.example.net",
+				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(10 * time.Second),
 			},
 			PartnerIDs: []string{"comcast"},
 		},
-		{
-			Webhook: Webhook{
+		RegistryV1{
+			Webhook: webhook.RegistrationV1{
 				Address: "http://original-requester.example.net",
-				Config: DeliveryConfig{
+				Config: webhook.DeliveryConfig{
 					ContentType: "application/json",
-					URL:         "http://deliver-here-1.example.net",
+					ReceiverURL: "http://deliver-here-1.example.net",
 					Secret:      "doNotShare:e=mc^2",
 				},
 				Events: []string{"online"},
@@ -561,11 +565,13 @@ func encodeGetAllInput() []InternalWebhook {
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
 				FailureURL: "http://contact-here-when-fails.example.net",
+				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(20 * time.Second),
 			},
 			PartnerIDs: []string{"comcast"},
 		},
 	}
+
 }
 
 // once we move to go1.16 we could just embed this from a JSON file
@@ -585,7 +591,7 @@ func encodeGetAllOutput() string {
 				"device_id": ["mac:aabbccddee.*"]
 			},
 			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
+			"duration": "0s",
 			"until": "2021-01-02T15:04:10Z"
 		},
 		{
@@ -600,7 +606,7 @@ func encodeGetAllOutput() string {
 				"device_id": ["mac:aabbccddee.*"]
 			},
 			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
+			"duration": "0s",
 			"until": "2021-01-02T15:04:20Z"
 		}
 	]
@@ -610,79 +616,79 @@ func encodeGetAllOutput() string {
 func TestSetWebhookDefaults(t *testing.T) {
 	tcs := []struct {
 		desc            string
-		webhook         Webhook
+		webhook         any
 		remoteAddr      string
-		expectedWebhook Webhook
+		expectedWebhook any
 	}{
 		{
 			desc: "No Until, Address, or DeviceID",
-			webhook: Webhook{
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			webhook: webhook.RegistrationV1{
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "https://deliver-here.example.net",
 				},
 				Events:   []string{"online", "offline"},
-				Matcher:  MetadataMatcherConfig{},
-				Duration: 5 * time.Minute,
+				Matcher:  webhook.MetadataMatcherConfig{},
+				Duration: webhook.CustomDuration(5 * time.Minute),
 			},
 			remoteAddr: "http://original-requester.example.net",
-			expectedWebhook: Webhook{
+			expectedWebhook: webhook.RegistrationV1{
 				Address: "http://original-requester.example.net",
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "https://deliver-here.example.net",
 				},
 				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"}},
-				Duration: 5 * time.Minute,
+				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
 		},
 		{
 			desc: "No Address or Request Address",
-			webhook: Webhook{
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			webhook: webhook.RegistrationV1{
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "https://deliver-here.example.net",
 				},
 				Events:   []string{"online", "offline"},
-				Matcher:  MetadataMatcherConfig{},
-				Duration: 5 * time.Minute,
+				Matcher:  webhook.MetadataMatcherConfig{},
+				Duration: webhook.CustomDuration(5 * time.Minute),
 			},
-			expectedWebhook: Webhook{
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			expectedWebhook: webhook.RegistrationV1{
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "https://deliver-here.example.net",
 				},
 				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"}},
-				Duration: 5 * time.Minute,
+				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
 		},
 		{
 			desc: "All values set",
-			webhook: Webhook{
+			webhook: webhook.RegistrationV1{
 				Address: "requester.example.net:443",
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "https://deliver-here.example.net",
 				},
 				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"},
 				},
-				Duration: 5 * time.Minute,
+				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
 			remoteAddr: "requester.example.net:443",
-			expectedWebhook: Webhook{
+			expectedWebhook: webhook.RegistrationV1{
 				Address: "requester.example.net:443",
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "https://deliver-here.example.net",
 				},
 				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"},
 				},
-				Duration: 5 * time.Minute,
+				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
 		},

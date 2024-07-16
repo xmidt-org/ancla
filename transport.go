@@ -230,7 +230,7 @@ func (wv webhookValidator) setWebhookDefaults(register any, requestOriginHost st
 		if requestOriginHost != "" {
 			r.Address = requestOriginHost
 		}
-	case webhook.RegistrationV2:
+	case *webhook.RegistrationV2:
 		//TODO: do we have any defaults for RegistrationV2 that need to be set?
 		//webhook-schema shows RetryHint, BatchHint, Webhook.SecretHash, and Payload only will have default values
 		//are we setting those values here?
