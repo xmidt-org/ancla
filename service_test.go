@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/ancla/model"
+	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )

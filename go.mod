@@ -5,13 +5,14 @@ go 1.21
 toolchain go1.21.1
 
 require (
+	github.com/aws/aws-sdk-go v1.54.19
 	github.com/go-kit/kit v0.13.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/client_model v0.6.1
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.9.0
-	github.com/xmidt-org/argus v0.9.13-0.20240711141248-1f7e75700ffb
+	github.com/xmidt-org/argus v0.9.12
 	github.com/xmidt-org/bascule v0.11.6
 	github.com/xmidt-org/httpaux v0.4.0
 	github.com/xmidt-org/sallust v0.2.2
@@ -19,7 +20,6 @@ require (
 	github.com/xmidt-org/urlegit v0.1.12
 	github.com/xmidt-org/webhook-schema v0.1.1-0.20240711140319-0ee06ff248b5
 	go.uber.org/fx v1.22.0
-	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
 )
 
@@ -85,6 +85,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/dig v1.17.1 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/net v0.23.0 // indirect
