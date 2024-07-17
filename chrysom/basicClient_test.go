@@ -18,8 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/argus/model"
-	"github.com/xmidt-org/argus/store"
+	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/sallust"
 )
 
@@ -148,7 +147,7 @@ func TestSendRequest(t *testing.T) {
 			require := require.New(t)
 
 			echoHandler := http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-				assert.Equal(tc.Owner, r.Header.Get(store.ItemOwnerHeaderKey))
+				assert.Equal(tc.Owner, r.Header.Get(ItemOwnerHeaderKey))
 				rw.WriteHeader(http.StatusOK)
 				bodyBytes, err := io.ReadAll(r.Body)
 				require.Nil(err)
@@ -249,7 +248,7 @@ func TestGetItems(t *testing.T) {
 
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 				assert.Equal(http.MethodGet, r.Method)
-				assert.Equal(owner, r.Header.Get(store.ItemOwnerHeaderKey))
+				assert.Equal(owner, r.Header.Get(ItemOwnerHeaderKey))
 				assert.Equal(fmt.Sprintf("%s/%s", storeAPIPath, bucket), r.URL.Path)
 
 				rw.WriteHeader(tc.ResponseCode)
@@ -378,7 +377,7 @@ func TestPushItem(t *testing.T) {
 
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 				assert.Equal(fmt.Sprintf("%s/%s/%s", storeAPIPath, bucket, id), r.URL.Path)
-				assert.Equal(tc.Owner, r.Header.Get(store.ItemOwnerHeaderKey))
+				assert.Equal(tc.Owner, r.Header.Get(ItemOwnerHeaderKey))
 				rw.WriteHeader(tc.ResponseCode)
 
 				if tc.ResponseCode == http.StatusCreated || tc.ResponseCode == http.StatusOK {

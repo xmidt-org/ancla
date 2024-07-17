@@ -11,8 +11,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/mock"
-	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/ancla/chrysom"
+	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/webhook-schema"
 )
 

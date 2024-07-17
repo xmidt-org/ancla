@@ -4,8 +4,8 @@
 package ancla
 
 import (
-	"github.com/ancla/chrysom"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
 	"go.uber.org/multierr"

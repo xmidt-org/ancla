@@ -6,7 +6,7 @@ package chrysom
 import (
 	"context"
 
-	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/ancla/model"
 )
 
 type PushReader interface {

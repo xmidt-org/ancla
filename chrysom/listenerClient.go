@@ -37,9 +37,7 @@ const (
 const (
 	defaultPullInterval = time.Second * 5
 
-	// Request and Response Headers.
-	ItemOwnerHeaderKey  = "X-Xmidt-Owner"
-	XmidtErrorHeaderKey = "X-Xmidt-Error"
+
 )
 
 // ListenerConfig contains config data for polling the Argus client.

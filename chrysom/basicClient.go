@@ -12,8 +12,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/xmidt-org/argus/model"
-	"github.com/xmidt-org/argus/store"
+	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/bascule/acquire"
 	"go.uber.org/zap"
 )
@@ -36,6 +35,12 @@ var (
 	errReadingBodyFailure = errors.New("failed while reading http response body")
 	errJSONUnmarshal      = errors.New("failed unmarshaling JSON response payload")
 	errJSONMarshal        = errors.New("failed marshaling item as JSON payload")
+)
+
+const (
+	// Request and Response Headers.
+	ItemOwnerHeaderKey  = "X-Xmidt-Owner"
+	XmidtErrorHeaderKey = "X-Xmidt-Error"
 )
 
 // BasicClientConfig contains config data for the client that will be used to
@@ -213,7 +218,7 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 		return response{}, fmt.Errorf(errWrappedFmt, ErrAuthAcquirerFailure, err.Error())
 	}
 	if len(owner) > 0 {
-		r.Header.Set(store.ItemOwnerHeaderKey, owner)
+		r.Header.Set(ItemOwnerHeaderKey, owner)
 	}
 	resp, err := c.client.Do(r)
 	if err != nil {
@@ -222,7 +227,7 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	defer resp.Body.Close()
 	var sqResp = response{
 		Code:             resp.StatusCode,
-		ArgusErrorHeader: resp.Header.Get(store.XmidtErrorHeaderKey),
+		ArgusErrorHeader: resp.Header.Get(XmidtErrorHeaderKey),
 	}
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
