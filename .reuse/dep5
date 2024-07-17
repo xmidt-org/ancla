@@ -39,3 +39,6 @@ Files: CHANGELOG.md
 Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
 License: Apache-2.0
 
+Files: chrysom/README.md
+Copyright: SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC
+License: Apache-2.0
