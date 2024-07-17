@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/ancla/chrysom"
+	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
 

@@ -36,8 +36,6 @@ const (
 
 const (
 	defaultPullInterval = time.Second * 5
-
-
 )
 
 // ListenerConfig contains config data for polling the Argus client.
