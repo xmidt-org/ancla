@@ -94,7 +94,6 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		var (
 			v1       *webhook.RegistrationV1
 			v2       *webhook.RegistrationV2
-			whreq    addWebhookRequest
 			errs     error
 			partners []string
 		)
@@ -104,7 +103,6 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
 
-		whreq.owner = getOwner(r.Context())
 		err = json.Unmarshal(requestPayload, &v1)
 		if err == nil {
 			if err = opts.Validate(&v1); err != nil {
@@ -115,9 +113,11 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				PartnerIDs: partners,
 				Webhook:    *v1,
 			}
-			whreq.internalWebook = reg
-			
-			return whreq, nil
+
+			return &addWebhookRequest{
+				owner:          getOwner(r.Context()),
+				internalWebook: reg,
+			}, nil
 		}
 
 		errs = errors.Join(errs, err)
@@ -131,9 +131,12 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				PartnerIds:   partners,
 				Registration: *v2,
 			}
-			whreq.internalWebook = reg
 
-			return whreq, nil
+			return &addWebhookRequest{
+				owner:          getOwner(r.Context()),
+				internalWebook: reg,
+			}, nil
+
 		}
 
 		errs = errors.Join(errs, err)
