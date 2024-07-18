@@ -17,7 +17,7 @@ require (
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.5
 	github.com/xmidt-org/urlegit v0.1.12
-	github.com/xmidt-org/webhook-schema v0.1.1-0.20240711140319-0ee06ff248b5
+	github.com/xmidt-org/webhook-schema v0.1.1-0.20240718124820-b8c1ba1f19a9
 	go.uber.org/fx v1.22.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
