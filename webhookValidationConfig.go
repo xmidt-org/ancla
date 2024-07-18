@@ -47,6 +47,7 @@ type OptionsConfig struct {
 	ProvideReceiverURLValidator    bool
 	ProvideFailureURLValidator     bool
 	ProvideAlternativeURLValidator bool
+	CheckUntil                     bool
 }
 
 // BuildURLChecker translates the configuration into url Checker to be run on the webhook.
@@ -96,6 +97,9 @@ func (config *ValidatorConfig) BuildOptions(checker *urlegit.Checker) []webhook.
 	}
 	if config.Opts.ProvideAlternativeURLValidator {
 		opts = append(opts, webhook.ProvideAlternativeURLValidator(checker))
+	}
+	if config.Opts.CheckUntil {
+		opts = append(opts, webhook.Until(config.TTL.Now, config.TTL.Jitter, config.TTL.Max))
 	}
 	return opts
 }
