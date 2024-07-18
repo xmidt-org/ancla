@@ -79,9 +79,10 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		config.basicPartnerIDsHeader = DefaultBasicPartnerIDsHeader
 	}
 
+	opts := config.v
 	// if no validators are given, we accept anything.
-	if config.v == nil {
-		config.v = append(config.v, webhook.AlwaysValid())
+	if opts == nil {
+		opts = append(opts, webhook.AlwaysValid())
 	}
 
 	return func(c context.Context, r *http.Request) (request interface{}, err error) {
@@ -104,12 +105,9 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		}
 
 		whreq.owner = getOwner(r.Context())
-		opts := config.v
-
 		err = json.Unmarshal(requestPayload, &v1)
 		if err == nil {
-			err = opts.Validate(&v1)
-			if err != nil {
+			if err = opts.Validate(&v1); err != nil {
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
 			wv.setV1Defaults(v1, r.RemoteAddr)
@@ -118,14 +116,14 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				Webhook:    *v1,
 			}
 			whreq.internalWebook = reg
+			
+			return whreq, nil
 		}
 
 		errs = errors.Join(errs, err)
-
 		err = json.Unmarshal(requestPayload, &v2)
 		if err == nil {
-			err = config.v.Validate(&v2)
-			if err != nil {
+			if err = opts.Validate(&v2); err != nil {
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
 
@@ -134,6 +132,8 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				Registration: *v2,
 			}
 			whreq.internalWebook = reg
+
+			return whreq, nil
 		}
 
 		errs = errors.Join(errs, err)

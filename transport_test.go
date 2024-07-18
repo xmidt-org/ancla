@@ -16,7 +16,6 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/argus/store"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/sallust"
 	"github.com/xmidt-org/webhook-schema"
@@ -40,7 +39,7 @@ func TestErrorEncoder(t *testing.T) {
 		},
 		{
 			Description:  "Coded request",
-			InputErr:     store.BadRequestErr{Message: "invalid param"},
+			InputErr:     BadRequestErr{Message: "invalid param"},
 			HConfig:      mockHandlerConfig,
 			ExpectedCode: 400,
 		},
@@ -703,4 +702,20 @@ func TestSetWebhookDefaults(t *testing.T) {
 			assert.Equal(tc.expectedWebhook, tc.webhook)
 		})
 	}
+}
+
+type BadRequestErr struct {
+	Message string
+}
+
+func (bre BadRequestErr) Error() string {
+	return bre.Message
+}
+
+func (bre BadRequestErr) SanitizedError() string {
+	return bre.Message
+}
+
+func (bre BadRequestErr) StatusCode() int {
+	return http.StatusBadRequest
 }
