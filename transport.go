@@ -94,7 +94,6 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		var (
 			v1       *webhook.RegistrationV1
 			v2       *webhook.RegistrationV2
-			whreq    addWebhookRequest
 			errs     error
 			partners []string
 		)
@@ -104,21 +103,21 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
 
-		whreq.owner = getOwner(r.Context())
 		err = json.Unmarshal(requestPayload, &v1)
 		if err == nil {
 			if err = opts.Validate(&v1); err != nil {
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
-
-			wv.setWebhookDefaults(v1, r.RemoteAddr)
+			wv.setV1Defaults(v1, r.RemoteAddr)
 			reg := RegistryV1{
 				PartnerIDs: partners,
 				Webhook:    *v1,
 			}
-			whreq.internalWebook = reg
-			
-			return whreq, nil
+
+			return &addWebhookRequest{
+				owner:          getOwner(r.Context()),
+				internalWebook: reg,
+			}, nil
 		}
 
 		errs = errors.Join(errs, err)
@@ -132,9 +131,12 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				PartnerIds:   partners,
 				Registration: *v2,
 			}
-			whreq.internalWebook = reg
 
-			return whreq, nil
+			return &addWebhookRequest{
+				owner:          getOwner(r.Context()),
+				internalWebook: reg,
+			}, nil
+
 		}
 
 		errs = errors.Join(errs, err)
@@ -218,24 +220,20 @@ type webhookValidator struct {
 	now func() time.Time
 }
 
-func (wv webhookValidator) setWebhookDefaults(register any, requestOriginHost string) {
-	switch r := register.(type) {
-	case webhook.RegistrationV1:
-		if len(r.Matcher.DeviceID) == 0 {
-			r.Matcher.DeviceID = []string{".*"} // match anything
-		}
-		if r.Until.IsZero() {
-			r.Until = wv.now().Add(time.Duration(r.Duration))
-		}
-		if requestOriginHost != "" {
-			r.Address = requestOriginHost
-		}
-	case *webhook.RegistrationV2:
-		//TODO: do we have any defaults for RegistrationV2 that need to be set?
-		//webhook-schema shows RetryHint, BatchHint, Webhook.SecretHash, and Payload only will have default values
-		//are we setting those values here?
+func (wv webhookValidator) setV1Defaults(r *webhook.RegistrationV1, requestOriginHost string) {
+	if len(r.Matcher.DeviceID) == 0 {
+		r.Matcher.DeviceID = []string{".*"} // match anything
 	}
+	if r.Until.IsZero() {
+		r.Until = wv.now().Add(time.Duration(r.Duration))
+	}
+	if requestOriginHost != "" {
+		r.Address = requestOriginHost
+	}
+}
 
+func (wv webhookValidator) setV2Defaults(r *webhook.RegistrationV2) {
+	//TODO: need to get registrationV2 defaults
 }
 
 func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
