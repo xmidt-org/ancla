@@ -66,36 +66,38 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			expectedFuncCount: 2,
 		},
 		{
-			desc: "InvalidSubnet Failure",
+			desc: "Forbidden Subnets",
 			config: ValidatorConfig{
 				IP: IPConfig{
 					Allow:            false,
-					ForbiddenSubnets: []string{"https://localhost:9000"},
-				},
-				Domain: DomainConfig{
-					AllowSpecialUseDomains: true,
-				},
-				URL: URLVConfig{
-					Schemes:       []string{"http", "https"},
-					AllowLoopback: true,
+					ForbiddenSubnets: []string{"10.0.0.0/8"},
 				},
 			},
-			expectedErr: fmt.Errorf("error"),
+			expectedFuncCount: 1,
 		},
-		// {
-		// 	desc: "Build None",
-		// 	config: ValidatorConfig{
-		// 		URL: buildNoneConfig.URL,
-		// 	},
-		// 	expectedFuncCount: 1,
-		// },
-		// {
-		// 	desc: "Build All",
-		// 	config: ValidatorConfig{
-		// 		URL: buildAllConfig.URL,
-		// 	},
-		// 	expectedFuncCount: 5,
-		// },
+		{
+			desc: "Forbidden Domains",
+			config: ValidatorConfig{
+				Domain: DomainConfig{
+					AllowSpecialUseDomains: true,
+					ForbiddenDomains:       []string{"foo.com."},
+				},
+			},
+		},
+		{
+			desc: "Build None",
+			config: ValidatorConfig{
+				URL: buildNoneConfig.URL,
+			},
+			expectedFuncCount: 1,
+		},
+		{
+			desc: "Build All",
+			config: ValidatorConfig{
+				URL: buildAllConfig.URL,
+			},
+			expectedFuncCount: 5,
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -113,55 +115,10 @@ func TestBuildValidURLFuncs(t *testing.T) {
 	}
 }
 
-// func TestBuildValidators(t *testing.T) {
-// 	tcs := []struct {
-// 		desc              string
-// 		config            ValidatorConfig
-// 		expectedErr       error
-// 		expectedFuncCount int
-// 	}{
-// 		{
-// 			desc: "BuildValidURLFuncs Failure",
-// 			config: ValidatorConfig{
-// 				URL: URLVConfig{
-// 					HTTPSOnly:            false,
-// 					AllowLoopback:        true,
-// 					AllowIP:              true,
-// 					AllowSpecialUseHosts: true,
-// 					AllowSpecialUseIPs:   false,
-// 					InvalidSubnets:       []string{"https://localhost:9000"},
-// 				},
-// 			},
-// 			expectedErr: fmt.Errorf("error"),
-// 		},
-// 		{
-// 			desc: "CheckDuration Failure",
-// 			config: ValidatorConfig{
-// 				TTL: TTLVConfig{
-// 					Max: -1 * time.Second,
-// 				},
-// 			},
-// 			expectedErr: fmt.Errorf("error"),
-// 		},
-// 		{
-// 			desc: "CheckUntil Failure",
-// 			config: ValidatorConfig{
-// 				TTL: TTLVConfig{
-// 					Jitter: -1 * time.Second,
-// 				},
-// 			},
-// 			expectedErr: fmt.Errorf("error"),
-// 		},
-// 		{
-// 			desc:              "All Validators Added",
-// 			expectedFuncCount: 8,
-// 		},
-// 	}
-// 	for _, tc := range tcs {
-// 		t.Run(tc.desc, func(t *testing.T) {
-// 			assert := assert.New(t)
-// 			opts := BuildOptions(tc.config, nil)
-// 			assert.NotNil(opts)
-// 		})
-// 	}
-// }
+func TestBuildOptions(t *testing.T) {
+	checker, err := buildAllConfig.BuildURLChecker()
+	assert.NoError(t, err)
+	opts := buildAllConfig.BuildOptions(checker)
+	assert.NotNil(t, opts)
+	assert.Len(t, opts, 8)
+}

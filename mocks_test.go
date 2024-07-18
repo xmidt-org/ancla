@@ -235,6 +235,16 @@ var (
 			Jitter: mockJitter,
 			Now:    mockNow,
 		},
+		Opts: OptionsConfig{
+			AtLeastOneEvent:                true,
+			EventRegexMustCompile:          true,
+			DeviceIDRegexMustCompile:       true,
+			ValidateRegistrationDuration:   true,
+			ProvideReceiverURLValidator:    true,
+			ProvideFailureURLValidator:     true,
+			ProvideAlternativeURLValidator: true,
+			CheckUntil:                     true,
+		},
 	}
 	buildNoneConfig = ValidatorConfig{
 		URL: URLVConfig{
