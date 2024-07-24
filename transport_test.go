@@ -438,7 +438,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
 			owner: "owner-from-auth",
-			internalWebook: RegistryV1{
+			internalWebook: &RegistryV1{
 				Webhook: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
 					Config: webhook.DeliveryConfig{
@@ -460,7 +460,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 	}
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
-		internalWebook: RegistryV1{
+		internalWebook: &RegistryV1{
 			Webhook: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
 				Config: webhook.DeliveryConfig{
@@ -484,7 +484,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
 			owner: "owner-from-auth",
-			internalWebook: RegistryV1{
+			internalWebook: &RegistryV1{
 				Webhook: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
 					Config: webhook.DeliveryConfig{
@@ -506,7 +506,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	}
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
-		internalWebook: RegistryV1{
+		internalWebook: &RegistryV1{
 			Webhook: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
 				Config: webhook.DeliveryConfig{
@@ -529,7 +529,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 
 func encodeGetAllInput() []Register {
 	return []Register{
-		RegistryV1{
+		&RegistryV1{
 			Webhook: webhook.RegistrationV1{
 				Address: "http://original-requester.example.net",
 				Config: webhook.DeliveryConfig{
@@ -549,7 +549,7 @@ func encodeGetAllInput() []Register {
 			},
 			PartnerIDs: []string{"comcast"},
 		},
-		RegistryV1{
+		&RegistryV1{
 			Webhook: webhook.RegistrationV1{
 				Address: "http://original-requester.example.net",
 				Config: webhook.DeliveryConfig{

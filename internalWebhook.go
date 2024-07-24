@@ -31,19 +31,19 @@ type RegistryV2 struct {
 	Registration webhook.RegistrationV2
 }
 
-func (v1 RegistryV1) GetId() string {
+func (v1 *RegistryV1) GetId() string {
 	return v1.Webhook.Config.ReceiverURL
 }
 
-func (v1 RegistryV1) GetUntil() time.Time {
+func (v1 *RegistryV1) GetUntil() time.Time {
 	return v1.Webhook.Until
 }
 
-func (v2 RegistryV2) GetId() string {
+func (v2 *RegistryV2) GetId() string {
 	return v2.Registration.CanonicalName
 }
 
-func (v2 RegistryV2) GetUntil() time.Time {
+func (v2 *RegistryV2) GetUntil() time.Time {
 	return v2.Registration.Expires
 }
 
@@ -73,8 +73,8 @@ func InternalWebhookToItem(now func() time.Time, iw Register) (model.Item, error
 
 func ItemToInternalWebhook(i model.Item) (Register, error) {
 	var (
-		v1   RegistryV1
-		v2   RegistryV2
+		v1   *RegistryV1
+		v2   *RegistryV2
 		errs error
 	)
 	encodedWebhook, err := json.Marshal(i.Data)
@@ -114,9 +114,9 @@ func InternalWebhooksToWebhooks(iws []Register) []any {
 	w := make([]any, 0, len(iws))
 	for _, iw := range iws {
 		switch r := iw.(type) {
-		case RegistryV1:
+		case *RegistryV1:
 			w = append(w, r.Webhook)
-		case RegistryV2:
+		case *RegistryV2:
 			w = append(w, r.Registration)
 		}
 	}

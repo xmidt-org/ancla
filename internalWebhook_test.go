@@ -113,7 +113,7 @@ func getExpiredItem() model.Item {
 }
 
 func getExpiredInternalWebhook() Register {
-	return RegistryV1{
+	return &RegistryV1{
 		Webhook: webhook.RegistrationV1{
 			Address: "http://original-requester.example.net",
 			Config: webhook.DeliveryConfig{
@@ -138,7 +138,7 @@ func getExpiredInternalWebhook() Register {
 func getTestInternalWebhooks() []Register {
 	var reg []Register
 	refTime := getRefTime()
-	reg = append(reg, RegistryV1{
+	reg = append(reg, &RegistryV1{
 		Webhook: webhook.RegistrationV1{
 			Address: "http://original-requester.example.net",
 			Config: webhook.DeliveryConfig{
@@ -156,7 +156,7 @@ func getTestInternalWebhooks() []Register {
 		},
 		PartnerIDs: []string{"comcast"},
 	})
-	reg = append(reg, RegistryV1{
+	reg = append(reg, &RegistryV1{
 		Webhook: webhook.RegistrationV1{
 			Address: "http://original-requester.example.net",
 			Config: webhook.DeliveryConfig{

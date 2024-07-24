@@ -109,7 +109,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
 			wv.setV1Defaults(v1, r.RemoteAddr)
-			reg := RegistryV1{
+			reg := &RegistryV1{
 				PartnerIDs: partners,
 				Webhook:    *v1,
 			}
@@ -127,7 +127,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
 			}
 
-			reg := RegistryV2{
+			reg := &RegistryV2{
 				PartnerIds:   partners,
 				Registration: *v2,
 			}
