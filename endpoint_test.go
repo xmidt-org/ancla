@@ -17,7 +17,7 @@ func TestNewAddWebhookEndpoint(t *testing.T) {
 	endpoint := newAddWebhookEndpoint(m)
 	input := &addWebhookRequest{
 		owner:          "owner-val",
-		internalWebook: RegistryV1{},
+		internalWebook: &RegistryV1{},
 	}
 
 	errFake := errors.New("failed")

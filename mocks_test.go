@@ -215,3 +215,52 @@ func (mockOption) Validate(mock any) error {
 func (mockOption) String() string {
 	return "mockOption"
 }
+
+var (
+	mockMax        = 5 * time.Minute
+	mockJitter     = 5 * time.Second
+	buildAllConfig = ValidatorConfig{
+		URL: URLVConfig{
+			Schemes:       []string{"https"},
+			AllowLoopback: false,
+		},
+		IP: IPConfig{
+			Allow: false,
+		},
+		Domain: DomainConfig{
+			AllowSpecialUseDomains: false,
+		},
+		TTL: TTLVConfig{
+			Max:    mockMax,
+			Jitter: mockJitter,
+			Now:    mockNow,
+		},
+		Opts: OptionsConfig{
+			AtLeastOneEvent:                true,
+			EventRegexMustCompile:          true,
+			DeviceIDRegexMustCompile:       true,
+			ValidateRegistrationDuration:   true,
+			ProvideReceiverURLValidator:    true,
+			ProvideFailureURLValidator:     true,
+			ProvideAlternativeURLValidator: true,
+			CheckUntil:                     true,
+		},
+	}
+	buildNoneConfig = ValidatorConfig{
+		URL: URLVConfig{
+			Schemes:       []string{"https", "http"},
+			AllowLoopback: true,
+		},
+		IP: IPConfig{
+			Allow: true,
+		},
+		Domain: DomainConfig{
+			AllowSpecialUseDomains: true,
+		},
+		TTL: TTLVConfig{
+			Max:    mockMax,
+			Jitter: mockJitter,
+			Now:    mockNow,
+		},
+	}
+)
