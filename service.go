@@ -7,10 +7,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/sallust"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -183,4 +185,44 @@ func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
 			watch.Update(iws)
 		}
 	})
+}
+
+type AnclaListenerIn struct {
+	fx.In
+	Measures Measures
+	Logger   *zap.Logger
+}
+type AnclaServiceIn struct {
+	fx.In
+	Config   Config
+	Listener ListenerConfig
+}
+
+func Provide() fx.Option {
+	return fx.Options(
+		fx.Provide(
+			func(in AnclaListenerIn) ListenerConfig {
+				listener := ListenerConfig{
+					Measures: in.Measures,
+					Logger:   in.Logger,
+				}
+				return listener
+			},
+			fx.Annotate(
+				func(in AnclaServiceIn) (*service, int) {
+					svc, err := NewService(in.Config, getLogger)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "Webhook service initialization error: %v\n", err)
+						return nil, 1
+					}
+					return svc, 0
+				},
+				fx.ResultTags("anclaService")),
+		),
+	)
+}
+
+func getLogger(ctx context.Context) *zap.Logger {
+	logger := sallust.Get(ctx).With(zap.Time("ts", time.Now().UTC()), zap.Any("caller", zap.WithCaller(true)))
+	return logger
 }
