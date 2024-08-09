@@ -11,6 +11,7 @@ import (
 
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/sallust"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -74,10 +75,10 @@ type ListenerConfig struct {
 
 	// Measures for instrumenting this package.
 	// Gets passed to Argus config before initializing the client.
-	Measures Measures
+	Measures *Measures
 }
 
-type service struct {
+type ClientService struct {
 	argus  chrysom.PushReader
 	logger *zap.Logger
 	config Config
@@ -85,7 +86,7 @@ type service struct {
 }
 
 // NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*service, error) {
+func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*ClientService, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = sallust.Default()
 	}
@@ -94,7 +95,7 @@ func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*servi
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 	}
-	svc := &service{
+	svc := &ClientService{
 		logger: cfg.Logger,
 		argus:  basic,
 		config: cfg,
@@ -106,7 +107,7 @@ func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*servi
 // StartListener builds the Argus listener client service from the given configuration.
 // It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, watches ...Watch) (func(), error) {
+func (s *ClientService) StartListener(cfg ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, watches ...Watch) (func(), error) {
 	if cfg.Logger == nil {
 		cfg.Logger = sallust.Default()
 	}
@@ -123,7 +124,7 @@ func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Conte
 	return func() { listener.Stop(context.Background()) }, nil
 }
 
-func (s *service) Add(ctx context.Context, owner string, iw Register) error {
+func (s *ClientService) Add(ctx context.Context, owner string, iw Register) error {
 	item, err := InternalWebhookToItem(s.now, iw)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
@@ -141,7 +142,7 @@ func (s *service) Add(ctx context.Context, owner string, iw Register) error {
 
 // GetAll returns all webhooks found on the configured webhooks partition
 // of Argus.
-func (s *service) GetAll(ctx context.Context) ([]Register, error) {
+func (s *ClientService) GetAll(ctx context.Context) ([]Register, error) {
 	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
@@ -183,4 +184,36 @@ func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
 			watch.Update(iws)
 		}
 	})
+}
+
+type ServiceIn struct {
+	fx.In
+	Config   Config
+	Listener ListenerConfig
+}
+
+func ProvideService(getLogger func(ctx context.Context) *zap.Logger) fx.Option {
+	return fx.Provide(
+		func(in ServiceIn) (*ClientService, error) {
+			return NewService(in.Config, getLogger)
+		},
+	)
+}
+
+type ListenerIn struct {
+	fx.In
+	Measures *Measures
+	Logger   *zap.Logger
+}
+
+func ProvideListener() fx.Option {
+	return fx.Provide(
+		func(in ListenerIn) ListenerConfig {
+			listener := ListenerConfig{
+				Measures: in.Measures,
+				Logger:   in.Logger,
+			}
+			return listener
+		},
+	)
 }

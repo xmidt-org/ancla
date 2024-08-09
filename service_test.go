@@ -63,7 +63,7 @@ func TestStartListener(t *testing.T) {
 		desc           string
 		serviceConfig  Config
 		listenerConfig ListenerConfig
-		svc            service
+		svc            ClientService
 		expectedErr    bool
 	}{
 		{
@@ -138,7 +138,7 @@ func TestAdd(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
-			svc := service{
+			svc := ClientService{
 				logger: sallust.Default(),
 				config: Config{},
 				argus:  m,
@@ -183,7 +183,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
 
-			svc := service{
+			svc := ClientService{
 				argus:  m,
 				logger: sallust.Default(),
 				config: Config{},
