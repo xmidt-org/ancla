@@ -439,7 +439,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 		return &addWebhookRequest{
 			owner: "owner-from-auth",
 			internalWebook: &RegistryV1{
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
 					Config: webhook.DeliveryConfig{
 						ReceiverURL: "http://deliver-here-0.example.net",
@@ -461,7 +461,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
 		internalWebook: &RegistryV1{
-			Webhook: webhook.RegistrationV1{
+			Registration: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "http://deliver-here-0.example.net",
@@ -485,7 +485,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 		return &addWebhookRequest{
 			owner: "owner-from-auth",
 			internalWebook: &RegistryV1{
-				Webhook: webhook.RegistrationV1{
+				Registration: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
 					Config: webhook.DeliveryConfig{
 						ReceiverURL: "http://deliver-here-0.example.net",
@@ -507,7 +507,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	return &addWebhookRequest{
 		owner: "owner-from-auth",
 		internalWebook: &RegistryV1{
-			Webhook: webhook.RegistrationV1{
+			Registration: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "http://deliver-here-0.example.net",
@@ -530,7 +530,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 func encodeGetAllInput() []Register {
 	return []Register{
 		&RegistryV1{
-			Webhook: webhook.RegistrationV1{
+			Registration: webhook.RegistrationV1{
 				Address: "http://original-requester.example.net",
 				Config: webhook.DeliveryConfig{
 					ReceiverURL: "http://deliver-here-0.example.net",
@@ -550,7 +550,7 @@ func encodeGetAllInput() []Register {
 			PartnerIDs: []string{"comcast"},
 		},
 		&RegistryV1{
-			Webhook: webhook.RegistrationV1{
+			Registration: webhook.RegistrationV1{
 				Address: "http://original-requester.example.net",
 				Config: webhook.DeliveryConfig{
 					ContentType: "application/json",
