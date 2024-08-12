@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/xmidt-org/ancla/chrysom"
@@ -190,12 +191,15 @@ type ServiceIn struct {
 	fx.In
 	Config   Config
 	Listener ListenerConfig
+	Client   *http.Client
 }
 
-func ProvideService(getLogger func(ctx context.Context) *zap.Logger) fx.Option {
+func ProvideService() fx.Option {
 	return fx.Provide(
 		func(in ServiceIn) (*ClientService, error) {
-			return NewService(in.Config, getLogger)
+			svc, err := NewService(in.Config, getLogger)
+			svc.config.BasicClientConfig.HTTPClient = in.Client
+			return svc, err
 		},
 	)
 }
@@ -216,4 +220,9 @@ func ProvideListener() fx.Option {
 			return listener
 		},
 	)
+}
+
+func getLogger(ctx context.Context) *zap.Logger {
+	logger := sallust.Get(ctx).With(zap.Time("ts", time.Now().UTC()), zap.Any("caller", zap.WithCaller(true)))
+	return logger
 }
