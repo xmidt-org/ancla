@@ -614,9 +614,9 @@ func encodeGetAllOutput() string {
 
 func TestSetWebhookDefaults(t *testing.T) {
 	tcs := []struct {
-		desc            string
+		desc                 string
 		registration         *webhook.RegistrationV1
-		remoteAddr      string
+		remoteAddr           string
 		expectedRegistration *webhook.RegistrationV1
 	}{
 		{
