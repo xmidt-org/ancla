@@ -110,8 +110,8 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 			wv.setV1Defaults(&v1, r.RemoteAddr)
 			reg := &RegistryV1{
-				PartnerIDs:   partners,
-				Registration: v1,
+				PartnerIDs: partners,
+				Webhook:    v1,
 			}
 
 			return &addWebhookRequest{
@@ -128,8 +128,8 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 
 			reg := &RegistryV2{
-				PartnerIds:   partners,
-				Registration: v2,
+				PartnerIds: partners,
+				Webhook:    v2,
 			}
 
 			return &addWebhookRequest{

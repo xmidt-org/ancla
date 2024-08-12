@@ -22,29 +22,29 @@ type Register interface {
 }
 
 type RegistryV1 struct {
-	PartnerIDs []string
-	Registration    webhook.RegistrationV1
+	PartnerIDs   []string
+	Webhook webhook.RegistrationV1
 }
 
 type RegistryV2 struct {
 	PartnerIds   []string
-	Registration webhook.RegistrationV2
+	Webhook webhook.RegistrationV2
 }
 
 func (v1 *RegistryV1) GetId() string {
-	return v1.Registration.Config.ReceiverURL
+	return v1.Webhook.Config.ReceiverURL
 }
 
 func (v1 *RegistryV1) GetUntil() time.Time {
-	return v1.Registration.Until
+	return v1.Webhook.Until
 }
 
 func (v2 *RegistryV2) GetId() string {
-	return v2.Registration.CanonicalName
+	return v2.Webhook.CanonicalName
 }
 
 func (v2 *RegistryV2) GetUntil() time.Time {
-	return v2.Registration.Expires
+	return v2.Webhook.Expires
 }
 
 func InternalWebhookToItem(now func() time.Time, iw Register) (model.Item, error) {
@@ -115,9 +115,9 @@ func InternalWebhooksToWebhooks(iws []Register) []any {
 	for _, iw := range iws {
 		switch r := iw.(type) {
 		case *RegistryV1:
-			w = append(w, r.Registration)
+			w = append(w, r.Webhook)
 		case *RegistryV2:
-			w = append(w, r.Registration)
+			w = append(w, r.Webhook)
 		}
 	}
 	return w
