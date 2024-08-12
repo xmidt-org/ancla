@@ -76,7 +76,7 @@ type ListenerConfig struct {
 
 	// Measures for instrumenting this package.
 	// Gets passed to Argus config before initializing the client.
-	Measures *Measures
+	Measures Measures
 }
 
 type ClientService struct {
@@ -214,7 +214,7 @@ func ProvideListener() fx.Option {
 	return fx.Provide(
 		func(in ListenerIn) ListenerConfig {
 			listener := ListenerConfig{
-				Measures: in.Measures,
+				Measures: *in.Measures,
 				Logger:   in.Logger,
 			}
 			return listener
