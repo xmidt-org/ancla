@@ -237,7 +237,7 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
 			Data: map[string]interface{}{
-				"webhook": map[string]interface{}{
+				"Webhook": map[string]interface{}{
 					"registered_from_address": "http://original-requester.example.net",
 					"config": map[string]interface{}{
 						"url":          "http://deliver-here-1.example.net",

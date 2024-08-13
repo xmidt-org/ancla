@@ -22,8 +22,8 @@ type Register interface {
 }
 
 type RegistryV1 struct {
-	PartnerIDs []string
-	Registration    webhook.RegistrationV1
+	PartnerIDs   []string
+	Registration webhook.RegistrationV1 `json:"Webhook"`
 }
 
 type RegistryV2 struct {
