@@ -82,18 +82,19 @@ func ItemToInternalWebhook(i model.Item) (Register, error) {
 		return nil, err
 	}
 
+	err = json.Unmarshal(encodedWebhook, &v2)
+	if err == nil && v2.Registration.CanonicalName != "" {
+		return v2, nil
+	} else if err != nil {
+		errs = errors.Join(errs, fmt.Errorf("RegistryV2 unmarshal error: %s", err))
+	}
+
 	err = json.Unmarshal(encodedWebhook, &v1)
 	if err == nil {
 		return v1, nil
 	}
 
 	errs = errors.Join(errs, fmt.Errorf("RegistryV1 unmarshal error: %s", err))
-	err = json.Unmarshal(encodedWebhook, &v2)
-	if err == nil {
-		return v2, nil
-	}
-
-	errs = errors.Join(errs, fmt.Errorf("RegistryV2 unmarshal error: %s", err))
 
 	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2: %s", errs)
 }
