@@ -25,7 +25,7 @@ var (
 		time.Sleep(time.Millisecond * 100)
 	}))
 	mockMeasures = &Measures{
-		Polls: prometheus.NewCounterVec(
+		PollsTotalCounter: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "testPollsCounter",
 				Help: "testPollsCounter",
