@@ -140,7 +140,7 @@ func (c *ListenerClient) Start(ctx context.Context) error {
 					outcome = FailureOutcome
 					c.logger.Error("Failed to get items for listeners", zap.Error(err))
 				}
-				c.observer.measures.Polls.With(prometheus.Labels{
+				c.observer.measures.PollsTotalCounter.With(prometheus.Labels{
 					OutcomeLabel: outcome}).Add(1)
 			}
 		}
