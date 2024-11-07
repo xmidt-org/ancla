@@ -37,12 +37,14 @@ type Measures struct {
 // MeasuresIn is an uber/fx parameter with the webhook registration counter.
 type MeasuresIn struct {
 	fx.In
-	Measures
+
+	WebhookListSizeGauge prometheus.Gauge       `name:"webhook_list_size"`
+	PollsTotalCounter    *prometheus.CounterVec `name:"chrysom_polls_total"`
 }
 
 // NewMeasures realizes desired metrics.
-func NewMeasures(in MeasuresIn) *Measures {
-	return &Measures{
+func NewMeasures(in MeasuresIn) Measures {
+	return Measures{
 		WebhookListSizeGauge: in.WebhookListSizeGauge,
 		PollsTotalCounter:    in.PollsTotalCounter,
 	}

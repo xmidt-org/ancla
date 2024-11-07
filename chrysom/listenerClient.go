@@ -66,7 +66,7 @@ type observerConfig struct {
 	listener     Listener
 	ticker       *time.Ticker
 	pullInterval time.Duration
-	measures     *Measures
+	measures     Measures
 	shutdown     chan struct{}
 	state        int32
 }
@@ -75,15 +75,13 @@ type observerConfig struct {
 // for updates.
 func NewListenerClient(config ListenerClientConfig,
 	setLogger func(context.Context, *zap.Logger) context.Context,
-	measures *Measures, r Reader,
+	measures Measures, r Reader,
 ) (*ListenerClient, error) {
 	err := validateListenerConfig(&config)
 	if err != nil {
 		return nil, err
 	}
-	if measures == nil {
-		return nil, ErrNilMeasures
-	}
+
 	if setLogger == nil {
 		setLogger = func(ctx context.Context, _ *zap.Logger) context.Context {
 			return ctx
