@@ -48,18 +48,12 @@ type ListenerConfig struct {
 	// PullInterval is how often listeners should get updates.
 	// (Optional). Defaults to 5 seconds.
 	PullInterval time.Duration
-
-	// Logger to be used by the client.
-	// (Optional). By default a no op logger will be used.
-	Logger *zap.Logger
 }
 
 // ListenerClient is the client used to poll Argus for updates.
 type ListenerClient struct {
-	observer  *observerConfig
-	logger    *zap.Logger
-	setLogger func(context.Context, *zap.Logger) context.Context
-	reader    Reader
+	observer *observerConfig
+	reader   Reader
 }
 
 type observerConfig struct {
@@ -73,15 +67,9 @@ type observerConfig struct {
 
 // NewListenerClient creates a new ListenerClient to be used to poll Argus
 // for updates.
-func NewListenerClient(config ListenerConfig,
-	setLogger func(context.Context, *zap.Logger) context.Context,
-	measures Measures, r Reader,
-) (*ListenerClient, error) {
+func NewListenerClient(config ListenerConfig, measures Measures, r Reader) (*ListenerClient, error) {
 	if config.Listener == nil {
 		return nil, ErrNoListenerProvided
-	}
-	if config.Logger == nil {
-		config.Logger = sallust.Default()
 	}
 	if config.PullInterval == 0 {
 		config.PullInterval = defaultPullInterval
@@ -97,9 +85,7 @@ func NewListenerClient(config ListenerConfig,
 			measures:     measures,
 			shutdown:     make(chan struct{}),
 		},
-		logger:    config.Logger,
-		setLogger: setLogger,
-		reader:    r,
+		reader: r,
 	}, nil
 }
 
@@ -107,17 +93,18 @@ func NewListenerClient(config ListenerConfig,
 // is setup correctly. If a listener process is already in progress, calling Start()
 // is a NoOp. If you want to restart the current listener process, call Stop() first.
 func (c *ListenerClient) Start(ctx context.Context) error {
+	logger := sallust.Get(ctx)
 	if c.observer == nil || c.observer.listener == nil {
-		c.logger.Warn("No listener was setup to receive updates.")
+		logger.Warn("No listener was setup to receive updates.")
 		return nil
 	}
 	if c.observer.ticker == nil {
-		c.logger.Error("Observer ticker is nil", zap.Error(ErrUndefinedIntervalTicker))
+		logger.Error("Observer ticker is nil", zap.Error(ErrUndefinedIntervalTicker))
 		return ErrUndefinedIntervalTicker
 	}
 
 	if !atomic.CompareAndSwapInt32(&c.observer.state, stopped, transitioning) {
-		c.logger.Error("Start called when a listener was not in stopped state", zap.Error(ErrListenerNotStopped))
+		logger.Error("Start called when a listener was not in stopped state", zap.Error(ErrListenerNotStopped))
 		return ErrListenerNotStopped
 	}
 
@@ -129,13 +116,12 @@ func (c *ListenerClient) Start(ctx context.Context) error {
 				return
 			case <-c.observer.ticker.C:
 				outcome := SuccessOutcome
-				ctx := c.setLogger(context.Background(), c.logger)
 				items, err := c.reader.GetItems(ctx, "")
 				if err == nil {
 					c.observer.listener.Update(items)
 				} else {
 					outcome = FailureOutcome
-					c.logger.Error("Failed to get items for listeners", zap.Error(err))
+					logger.Error("Failed to get items for listeners", zap.Error(err))
 				}
 				c.observer.measures.PollsTotalCounter.With(prometheus.Labels{
 					OutcomeLabel: outcome}).Add(1)
@@ -155,9 +141,10 @@ func (c *ListenerClient) Stop(ctx context.Context) error {
 		return nil
 	}
 
+	logger := sallust.Get(ctx)
 	if !atomic.CompareAndSwapInt32(&c.observer.state, running, transitioning) {
-		c.logger.Error("Stop called when a listener was not in running state", zap.Error(ErrListenerNotStopped))
-		return ErrListenerNotRunning
+		logger.Error("Stop called when a listener was not in running state", zap.Error(ErrListenerNotStopped))
+		return errors.Join(ErrListenerNotStopped, ErrListenerNotRunning)
 	}
 
 	c.observer.ticker.Stop()
