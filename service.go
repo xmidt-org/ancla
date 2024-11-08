@@ -11,7 +11,9 @@ import (
 	"time"
 
 	"github.com/xmidt-org/ancla/chrysom"
+	"github.com/xmidt-org/sallust"
 	"go.uber.org/fx"
+	"go.uber.org/zap"
 )
 
 const errFmt = "%w: %v"
@@ -143,9 +145,11 @@ func prepArgusBasicClientConfig(cfg *Config) error {
 
 func prepArgusListenerConfig(cfg *chrysom.ListenerConfig, metrics chrysom.Measures, watches ...Watch) {
 	watches = append(watches, webhookListSizeWatch(metrics.WebhookListSizeGauge))
-	cfg.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
+	cfg.Listener = chrysom.ListenerFunc(func(ctx context.Context, items chrysom.Items) {
+		logger := sallust.Get(ctx)
 		iws, err := ItemsToInternalWebhooks(items)
 		if err != nil {
+			logger.Error("Failed to convert items to webhooks", zap.Error(err))
 			return
 		}
 		for _, watch := range watches {

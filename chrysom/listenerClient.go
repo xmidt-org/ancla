@@ -118,7 +118,7 @@ func (c *ListenerClient) Start(ctx context.Context) error {
 				outcome := SuccessOutcome
 				items, err := c.reader.GetItems(ctx, "")
 				if err == nil {
-					c.observer.listener.Update(items)
+					c.observer.listener.Update(ctx, items)
 				} else {
 					outcome = FailureOutcome
 					logger.Error("Failed to get items for listeners", zap.Error(err))
