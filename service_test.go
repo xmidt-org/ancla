@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/sallust"
 )
 
 func TestNewService(t *testing.T) {
@@ -77,7 +76,7 @@ func TestStartListener(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			_, err := tc.svc.StartListener(tc.listenerConfig, sallust.With, chrysom.Measures{})
+			_, err := tc.svc.StartListener(tc.listenerConfig, chrysom.Measures{})
 			if tc.expectedErr {
 				assert.NotNil(err)
 				return
@@ -135,7 +134,6 @@ func TestAdd(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
 			svc := ClientService{
-				logger: sallust.Default(),
 				config: Config{},
 				argus:  m,
 				now:    time.Now,
@@ -181,7 +179,6 @@ func TestAllInternalWebhooks(t *testing.T) {
 
 			svc := ClientService{
 				argus:  m,
-				logger: sallust.Default(),
 				config: Config{},
 			}
 			// nolint:typecheck

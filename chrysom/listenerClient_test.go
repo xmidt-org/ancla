@@ -16,7 +16,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/sallust"
 )
 
 var (
@@ -35,7 +34,6 @@ var (
 	happyListenerConfig = ListenerConfig{
 		Listener:     mockListener,
 		PullInterval: time.Second,
-		Logger:       sallust.Default(),
 	}
 )
 
@@ -59,7 +57,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 				time.Sleep(time.Millisecond * 400)
 				errStop := client.Stop(context.Background())
 				if errStop != nil {
-					assert.Equal(ErrListenerNotRunning, errStop)
+					assert.ErrorIs(errStop, ErrListenerNotRunning)
 				}
 				fmt.Printf("%d: Done\n", testNumber)
 			})
@@ -111,12 +109,11 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 
 	config := ListenerConfig{
 		PullInterval: time.Millisecond * 200,
-		Logger:       sallust.Default(),
 	}
 	if includeListener {
 		config.Listener = mockListener
 	}
-	client, err := NewListenerClient(config, sallust.With, mockMeasures, &BasicClient{})
+	client, err := NewListenerClient(config, mockMeasures, &BasicClient{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -153,7 +150,7 @@ func TestNewListenerClient(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			_, err := NewListenerClient(tc.config, sallust.With, tc.measures, tc.reader)
+			_, err := NewListenerClient(tc.config, tc.measures, tc.reader)
 			assert.True(errors.Is(err, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					err, tc.expectedErr),
