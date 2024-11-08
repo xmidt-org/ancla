@@ -62,16 +62,14 @@ func TestStartListener(t *testing.T) {
 	tcs := []struct {
 		desc           string
 		serviceConfig  Config
-		listenerConfig ListenerConfig
+		listenerConfig chrysom.ListenerConfig
 		svc            ClientService
 		expectedErr    bool
 	}{
 		{
-			desc: "Success Case",
-			svc:  *mockService,
-			listenerConfig: ListenerConfig{
-				Config: chrysom.ListenerClientConfig{},
-			},
+			desc:           "Success Case",
+			svc:            *mockService,
+			listenerConfig: chrysom.ListenerConfig{},
 		},
 		{
 			desc:        "Chrysom Listener Client Creation Failure",
@@ -81,7 +79,7 @@ func TestStartListener(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			_, err := tc.svc.StartListener(tc.listenerConfig, nil)
+			_, err := tc.svc.StartListener(tc.listenerConfig, nil, chrysom.Measures{})
 			if tc.expectedErr {
 				assert.NotNil(err)
 				return

@@ -32,7 +32,7 @@ var (
 			},
 			[]string{OutcomeLabel},
 		)}
-	happyListenerClientConfig = ListenerClientConfig{
+	happyListenerConfig = ListenerConfig{
 		Listener:     mockListener,
 		PullInterval: time.Second,
 		Logger:       sallust.Default(),
@@ -109,7 +109,7 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 		rw.Write(getItemsValidPayload())
 	}))
 
-	config := ListenerClientConfig{
+	config := ListenerConfig{
 		PullInterval: time.Millisecond * 200,
 		Logger:       sallust.Default(),
 	}
@@ -124,68 +124,33 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 	return client, server.Close, nil
 }
 
-func TestValidateListenerConfig(t *testing.T) {
-	tcs := []struct {
-		desc        string
-		expectedErr error
-		config      ListenerClientConfig
-	}{
-		{
-			desc:   "Happy case Success",
-			config: happyListenerClientConfig,
-		},
-		{
-			desc:        "No listener Failure",
-			config:      ListenerClientConfig{},
-			expectedErr: ErrNoListenerProvided,
-		},
-		{
-			desc: "No logger and no pull interval Success",
-			config: ListenerClientConfig{
-				Listener: mockListener,
-			},
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			c := tc.config
-			err := validateListenerConfig(&c)
-			assert.True(errors.Is(err, tc.expectedErr),
-				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					err, tc.expectedErr),
-			)
-		})
-	}
-}
-
 func TestNewListenerClient(t *testing.T) {
 	tcs := []struct {
 		desc        string
-		config      ListenerClientConfig
+		config      ListenerConfig
 		expectedErr error
 		measures    *Measures
 		reader      Reader
 	}{
 		{
 			desc:        "Listener Config Failure",
-			config:      ListenerClientConfig{},
+			config:      ListenerConfig{},
 			expectedErr: ErrNoListenerProvided,
 		},
 		{
 			desc:        "No measures Failure",
-			config:      happyListenerClientConfig,
+			config:      happyListenerConfig,
 			expectedErr: ErrNilMeasures,
 		},
 		{
 			desc:        "No reader Failure",
-			config:      happyListenerClientConfig,
+			config:      happyListenerConfig,
 			measures:    mockMeasures,
 			expectedErr: ErrNoReaderProvided,
 		},
 		{
 			desc:     "Happy case Success",
-			config:   happyListenerClientConfig,
+			config:   happyListenerConfig,
 			measures: mockMeasures,
 			reader:   &BasicClient{},
 		},

@@ -66,20 +66,6 @@ type Config struct {
 	Validation ValidatorConfig
 }
 
-// ListenerConfig contains information needed to initialize the Listener Client service.
-type ListenerConfig struct {
-	Config chrysom.ListenerClientConfig
-
-	// Logger for this package.
-	// Gets passed to Argus config before initializing the client.
-	// (Optional). Defaults to a no op logger.
-	Logger *zap.Logger
-
-	// Measures for instrumenting this package.
-	// Gets passed to Argus config before initializing the client.
-	Measures chrysom.Measures
-}
-
 type ClientService struct {
 	argus  chrysom.PushReader
 	logger *zap.Logger
@@ -109,12 +95,12 @@ func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*Clien
 // StartListener builds the Argus listener client service from the given configuration.
 // It allows adding watchers for the internal subscription state. Call the returned
 // function when you are done watching for updates.
-func (s *ClientService) StartListener(cfg ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, watches ...Watch) (func(), error) {
+func (s *ClientService) StartListener(cfg chrysom.ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, metrics chrysom.Measures, watches ...Watch) (func(), error) {
 	if cfg.Logger == nil {
 		cfg.Logger = sallust.Default()
 	}
-	prepArgusListenerClientConfig(&cfg, watches...)
-	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, &cfg.Measures, s.argus)
+	cfg = prepArgusListenerConfig(cfg, metrics, watches...)
+	listener, err := chrysom.NewListenerClient(cfg, setLogger, metrics, s.argus)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
 	}
@@ -170,10 +156,10 @@ func prepArgusBasicClientConfig(cfg *Config) error {
 	return nil
 }
 
-func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
+func prepArgusListenerConfig(cfg chrysom.ListenerConfig, metrics chrysom.Measures, watches ...Watch) chrysom.ListenerConfig {
 	logger := cfg.Logger
-	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGauge))
-	cfg.Config.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
+	watches = append(watches, webhookListSizeWatch(metrics.WebhookListSizeGauge))
+	cfg.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
 		iws, err := ItemsToInternalWebhooks(items)
 		if err != nil {
 			logger.Error("Failed to convert items to webhooks", zap.Error(err))
@@ -183,6 +169,8 @@ func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
 			watch.Update(iws)
 		}
 	})
+
+	return cfg
 }
 
 type ServiceIn struct {
@@ -208,29 +196,25 @@ func ProvideService() fx.Option {
 type ListenerIn struct {
 	fx.In
 
-	Measures chrysom.Measures
-	Logger   *zap.Logger
-	Svc      *ClientService
-	Watcher  Watch
-	LC       fx.Lifecycle
+	Measures       chrysom.Measures
+	Logger         *zap.Logger
+	Svc            *ClientService
+	listenerConfig chrysom.ListenerConfig
+	Watcher        Watch
+	LC             fx.Lifecycle
 }
 
 func ProvideListener() fx.Option {
 	return fx.Options(
 		fx.Provide(
-			func(in ListenerIn) (listener ListenerConfig, err error) {
-				listener = ListenerConfig{
-					Measures: in.Measures,
-					Logger:   in.Logger,
-				}
-
-				stopWatches, err := in.Svc.StartListener(listener, setLoggerInContext(), in.Watcher)
+			func(in ListenerIn) (err error) {
+				stopWatches, err := in.Svc.StartListener(in.listenerConfig, setLoggerInContext(), in.Measures, in.Watcher)
 				if err != nil {
-					return listener, fmt.Errorf("webhook service start listener error: %v", err)
+					return fmt.Errorf("webhook service start listener error: %v", err)
 				}
 				in.LC.Append(fx.StopHook(stopWatches))
 
-				return listener, nil
+				return nil
 			},
 		),
 	)
