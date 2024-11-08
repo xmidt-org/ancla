@@ -24,7 +24,7 @@ var (
 		fmt.Println("Doing amazing work for 100ms")
 		time.Sleep(time.Millisecond * 100)
 	}))
-	mockMeasures = &Measures{
+	mockMeasures = Measures{
 		PollsTotalCounter: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "testPollsCounter",
@@ -164,18 +164,13 @@ func TestNewListenerClient(t *testing.T) {
 		desc        string
 		config      ListenerClientConfig
 		expectedErr error
-		measures    *Measures
+		measures    Measures
 		reader      Reader
 	}{
 		{
 			desc:        "Listener Config Failure",
 			config:      ListenerClientConfig{},
 			expectedErr: ErrNoListenerProvided,
-		},
-		{
-			desc:        "No measures Failure",
-			config:      happyListenerClientConfig,
-			expectedErr: ErrNilMeasures,
 		},
 		{
 			desc:        "No reader Failure",

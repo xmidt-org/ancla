@@ -114,7 +114,7 @@ func (s *ClientService) StartListener(cfg ListenerConfig, setLogger func(context
 		cfg.Logger = sallust.Default()
 	}
 	prepArgusListenerClientConfig(&cfg, watches...)
-	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, &cfg.Measures, s.argus)
+	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, cfg.Measures, s.argus)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
 	}
