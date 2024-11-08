@@ -99,7 +99,7 @@ func (s *ClientService) StartListener(cfg chrysom.ListenerConfig, setLogger func
 	if cfg.Logger == nil {
 		cfg.Logger = sallust.Default()
 	}
-	cfg = prepArgusListenerConfig(cfg, metrics, watches...)
+	prepArgusListenerConfig(&cfg, metrics, watches...)
 	listener, err := chrysom.NewListenerClient(cfg, setLogger, metrics, s.argus)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
@@ -156,7 +156,7 @@ func prepArgusBasicClientConfig(cfg *Config) error {
 	return nil
 }
 
-func prepArgusListenerConfig(cfg chrysom.ListenerConfig, metrics chrysom.Measures, watches ...Watch) chrysom.ListenerConfig {
+func prepArgusListenerConfig(cfg *chrysom.ListenerConfig, metrics chrysom.Measures, watches ...Watch) chrysom.ListenerConfig {
 	logger := cfg.Logger
 	watches = append(watches, webhookListSizeWatch(metrics.WebhookListSizeGauge))
 	cfg.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
@@ -169,8 +169,6 @@ func prepArgusListenerConfig(cfg chrysom.ListenerConfig, metrics chrysom.Measure
 			watch.Update(iws)
 		}
 	})
-
-	return cfg
 }
 
 type ServiceIn struct {
