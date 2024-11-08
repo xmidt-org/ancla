@@ -39,7 +39,7 @@ const (
 )
 
 // ListenerConfig contains config data for polling the Argus client.
-type ListenerClientConfig struct {
+type ListenerConfig struct {
 	// Listener provides a mechanism to fetch a copy of all items within a bucket on
 	// an interval.
 	// (Optional). If not provided, listening won't be enabled for this client.
@@ -73,19 +73,18 @@ type observerConfig struct {
 
 // NewListenerClient creates a new ListenerClient to be used to poll Argus
 // for updates.
-func NewListenerClient(config ListenerClientConfig,
+func NewListenerClient(config ListenerConfig,
 	setLogger func(context.Context, *zap.Logger) context.Context,
 	measures Measures, r Reader,
 ) (*ListenerClient, error) {
-	err := validateListenerConfig(&config)
-	if err != nil {
-		return nil, err
+	if config.Listener == nil {
+		return nil, ErrNoListenerProvided
 	}
-
-	if setLogger == nil {
-		setLogger = func(ctx context.Context, _ *zap.Logger) context.Context {
-			return ctx
-		}
+	if config.Logger == nil {
+		config.Logger = sallust.Default()
+	}
+	if config.PullInterval == 0 {
+		config.PullInterval = defaultPullInterval
 	}
 	if r == nil {
 		return nil, ErrNoReaderProvided
@@ -164,18 +163,5 @@ func (c *ListenerClient) Stop(ctx context.Context) error {
 	c.observer.ticker.Stop()
 	c.observer.shutdown <- struct{}{}
 	atomic.SwapInt32(&c.observer.state, stopped)
-	return nil
-}
-
-func validateListenerConfig(config *ListenerClientConfig) error {
-	if config.Listener == nil {
-		return ErrNoListenerProvided
-	}
-	if config.Logger == nil {
-		config.Logger = sallust.Default()
-	}
-	if config.PullInterval == 0 {
-		config.PullInterval = defaultPullInterval
-	}
 	return nil
 }
