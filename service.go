@@ -74,12 +74,12 @@ type ClientService struct {
 }
 
 // NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*ClientService, error) {
+func NewService(cfg Config) (*ClientService, error) {
 	if cfg.Logger == nil {
 		cfg.Logger = sallust.Default()
 	}
 	prepArgusBasicClientConfig(&cfg)
-	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
+	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 	}
@@ -180,7 +180,7 @@ type ServiceIn struct {
 func ProvideService() fx.Option {
 	return fx.Provide(
 		func(in ServiceIn) (*ClientService, error) {
-			svc, err := NewService(in.Config, getLogger)
+			svc, err := NewService(in.Config)
 			if err != nil {
 				return nil, errors.Join(errFailedConfig, err)
 			}
@@ -206,7 +206,7 @@ func ProvideListener() fx.Option {
 	return fx.Options(
 		fx.Provide(
 			func(in ListenerIn) (err error) {
-				stopWatches, err := in.Svc.StartListener(in.listenerConfig, setLoggerInContext(), in.Measures, in.Watcher)
+				stopWatches, err := in.Svc.StartListener(in.listenerConfig, sallust.With, in.Measures, in.Watcher)
 				if err != nil {
 					return fmt.Errorf("webhook service start listener error: %v", err)
 				}
@@ -216,15 +216,4 @@ func ProvideListener() fx.Option {
 			},
 		),
 	)
-}
-
-func setLoggerInContext() func(context.Context, *zap.Logger) context.Context {
-	return func(parent context.Context, logger *zap.Logger) context.Context {
-		return sallust.With(parent, logger)
-	}
-}
-
-func getLogger(ctx context.Context) *zap.Logger {
-	logger := sallust.Get(ctx).With(zap.Time("ts", time.Now().UTC()), zap.Any("caller", zap.WithCaller(true)))
-	return logger
 }

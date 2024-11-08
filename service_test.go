@@ -14,14 +14,12 @@ import (
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/sallust"
-	"go.uber.org/zap"
 )
 
 func TestNewService(t *testing.T) {
 	tcs := []struct {
 		desc        string
 		config      Config
-		getLogger   func(context.Context) *zap.Logger
 		expectedErr bool
 	}{
 		{
@@ -41,7 +39,7 @@ func TestNewService(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			_, err := NewService(tc.config, tc.getLogger)
+			_, err := NewService(tc.config)
 			if tc.expectedErr {
 				assert.NotNil(err)
 				return
@@ -58,7 +56,7 @@ func TestStartListener(t *testing.T) {
 			Bucket:  "test",
 		},
 	}
-	mockService, _ := NewService(mockServiceConfig, nil)
+	mockService, _ := NewService(mockServiceConfig)
 	tcs := []struct {
 		desc           string
 		serviceConfig  Config

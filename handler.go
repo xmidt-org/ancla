@@ -4,13 +4,11 @@
 package ancla
 
 import (
-	"context"
 	"net/http"
 	"time"
 
 	kithttp "github.com/go-kit/kit/transport/http"
 	webhook "github.com/xmidt-org/webhook-schema"
-	"go.uber.org/zap"
 )
 
 // NewAddWebhookHandler returns an HTTP handler for adding
@@ -20,7 +18,7 @@ func NewAddWebhookHandler(s Service, config HandlerConfig) http.Handler {
 		newAddWebhookEndpoint(s),
 		addWebhookRequestDecoder(newTransportConfig(config)),
 		encodeAddWebhookResponse,
-		kithttp.ServerErrorEncoder(errorEncoder(config.GetLogger)),
+		kithttp.ServerErrorEncoder(errorEncoder()),
 	)
 }
 
@@ -31,7 +29,7 @@ func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 		newGetAllWebhooksEndpoint(s),
 		kithttp.NopRequestDecoder,
 		encodeGetAllWebhooksResponse,
-		kithttp.ServerErrorEncoder(errorEncoder(config.GetLogger)),
+		kithttp.ServerErrorEncoder(errorEncoder()),
 	)
 }
 
@@ -40,7 +38,6 @@ func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 type HandlerConfig struct {
 	V                 webhook.Validators
 	DisablePartnerIDs bool
-	GetLogger         func(context.Context) *zap.Logger
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {
