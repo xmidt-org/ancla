@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/xmidt-org/bascule/basculechecks"
 	"github.com/xmidt-org/httpaux/erraux"
+	"github.com/xmidt-org/sallust"
 	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
 
@@ -236,7 +237,7 @@ func (wv webhookValidator) setV2Defaults(r *webhook.RegistrationV2) {
 	//TODO: need to get registrationV2 defaults
 }
 
-func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
+func errorEncoder() kithttp.ErrorEncoder {
 	return func(ctx context.Context, err error, w http.ResponseWriter) {
 		w.Header().Set(contentTypeHeader, jsonContentType)
 		code := http.StatusInternalServerError
@@ -245,7 +246,7 @@ func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEnco
 			code = sc.StatusCode()
 		}
 
-		logger := getLogger(ctx)
+		logger := sallust.Get(ctx)
 		if logger != nil && code != http.StatusNotFound {
 			logger.Error("sending non-200, non-404 response", zap.Int("code", code), zap.Error(err))
 		}
