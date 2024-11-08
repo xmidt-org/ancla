@@ -156,7 +156,7 @@ func prepArgusBasicClientConfig(cfg *Config) error {
 	return nil
 }
 
-func prepArgusListenerConfig(cfg *chrysom.ListenerConfig, metrics chrysom.Measures, watches ...Watch) chrysom.ListenerConfig {
+func prepArgusListenerConfig(cfg *chrysom.ListenerConfig, metrics chrysom.Measures, watches ...Watch) {
 	logger := cfg.Logger
 	watches = append(watches, webhookListSizeWatch(metrics.WebhookListSizeGauge))
 	cfg.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
