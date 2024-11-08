@@ -79,7 +79,7 @@ func TestStartListener(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			_, err := tc.svc.StartListener(tc.listenerConfig, nil, chrysom.Measures{})
+			_, err := tc.svc.StartListener(tc.listenerConfig, sallust.With, chrysom.Measures{})
 			if tc.expectedErr {
 				assert.NotNil(err)
 				return
