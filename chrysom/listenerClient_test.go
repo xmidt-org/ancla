@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	mockListener = ListenerFunc((func(_ Items) {
+	mockListener = ListenerFunc((func(context.Context, Items) {
 		fmt.Println("Doing amazing work for 100ms")
 		time.Sleep(time.Millisecond * 100)
 	}))

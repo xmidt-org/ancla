@@ -27,13 +27,13 @@ type Listener interface {
 	// additions, or updates.
 	//
 	// The list of hooks must contain only the current items.
-	Update(items Items)
+	Update(ctx context.Context, items Items)
 }
 
-type ListenerFunc func(items Items)
+type ListenerFunc func(ctx context.Context, items Items)
 
-func (l ListenerFunc) Update(items Items) {
-	l(items)
+func (l ListenerFunc) Update(ctx context.Context, items Items) {
+	l(ctx, items)
 }
 
 type Reader interface {
