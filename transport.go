@@ -4,7 +4,9 @@
 package ancla
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,14 +15,13 @@ import (
 	"strings"
 	"time"
 
-	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/lestrrat-go/jwx/jwt"
 	"github.com/spf13/cast"
-	"github.com/xmidt-org/bascule/basculechecks"
+
+	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/xmidt-org/httpaux/erraux"
 	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
-
-	"github.com/xmidt-org/bascule"
 )
 
 var (
@@ -29,10 +30,12 @@ var (
 	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
 	errAuthNotPresent            = errors.New("auth not present")
 	errAuthTokenIsNil            = errors.New("auth token is nil")
+	errParsingToken              = errors.New("unable to  parse token")
 	errPartnerIDsDoNotExist      = errors.New("partnerIDs do not exist")
 	DefaultBasicPartnerIDsHeader = "X-Xmidt-Partner-Ids"
 	jwtstr                       = "jwt"
 	basicstr                     = "basic"
+	partnerKeys                  = []string{"allowedResources", "allowedPartners"}
 )
 
 const (
@@ -98,7 +101,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			partners []string
 		)
 
-		partners, err = extractPartnerIDs(config, c, r)
+		partners, err = extractPartnerIDs(config, r)
 		if err != nil && !config.disablePartnerIDs {
 			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
 		}
@@ -115,7 +118,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 
 			return &addWebhookRequest{
-				owner:          getOwner(r.Context()),
+				owner:          getOwner(r),
 				internalWebook: reg,
 			}, nil
 		}
@@ -133,7 +136,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 			}
 
 			return &addWebhookRequest{
-				owner:          getOwner(r.Context()),
+				owner:          getOwner(r),
 				internalWebook: reg,
 			}, nil
 
@@ -145,21 +148,18 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 	}
 }
 
-func extractPartnerIDs(config transportConfig, c context.Context, r *http.Request) ([]string, error) {
-	auth, present := bascule.FromContext(c)
-	if !present {
-		return nil, errAuthNotPresent
-	}
-	if auth.Token == nil {
-		return nil, errAuthTokenIsNil
-	}
-
+func extractPartnerIDs(config transportConfig, r *http.Request) ([]string, error) {
 	var partners []string
 
-	switch auth.Token.Type() {
-	case basicstr:
-		authHeader := r.Header[config.basicPartnerIDsHeader]
-		for _, value := range authHeader {
+	authHeader := r.Header.Get("Authorization")
+
+	if authHeader == "" {
+		return nil, errAuthNotPresent
+	}
+
+	if strings.HasPrefix(authHeader, "Basic ") {
+		partnerIdsHeader := r.Header[config.basicPartnerIDsHeader]
+		for _, value := range partnerIdsHeader {
 			fields := strings.Split(value, ",")
 			for i := 0; i < len(fields); i++ {
 				fields[i] = strings.TrimSpace(fields[i])
@@ -167,20 +167,30 @@ func extractPartnerIDs(config transportConfig, c context.Context, r *http.Reques
 			partners = append(partners, fields...)
 		}
 		return partners, nil
-	case jwtstr:
-		authToken := auth.Token
-		partnersInterface, attrExist := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
-		if !attrExist {
-			return nil, errPartnerIDsDoNotExist
-		}
-		vals, err := cast.ToStringSliceE(partnersInterface)
+	} else if strings.HasPrefix(authHeader, "Bearer ") {
+		tok, err := jwt.ParseHeader(r.Header, "Authorization")
 		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errGettingPartnerIDs, err)
+			return nil, fmt.Errorf("%w, %v", errParsingToken, err)
 		}
-		partners = vals
-		return partners, nil
+		claimsMap := tok.PrivateClaims()
+		if keysI, ok := claimsMap[partnerKeys[0]]; ok {
+			keysMap, ok := keysI.(map[string]interface{})
+			if !ok {
+				return nil, errPartnerIDsDoNotExist
+			}
+			if i, ok := keysMap[partnerKeys[1]]; ok {
+				partnerIds, err := cast.ToStringSliceE(i)
+				if err != nil {
+					return nil, fmt.Errorf("%w: %v", errGettingPartnerIDs, err)
+
+				}
+				partners = partnerIds
+			}
+		}
+	} else {
+		return partners, errAuthIsNotOfTypeBasicOrJWT
 	}
-	return nil, errAuthIsNotOfTypeBasicOrJWT
+	return partners, nil
 }
 
 func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ interface{}) error {
@@ -189,16 +199,43 @@ func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ int
 	return nil
 }
 
-func getOwner(ctx context.Context) string {
-	auth, ok := bascule.FromContext(ctx)
-	if !ok {
-		return ""
+type authenticationKey struct{}
+
+func getOwner(r *http.Request) (owner string) {
+	auth := r.Header.Get("Authorization")
+	if auth == "" {
+		return
 	}
-	switch auth.Token.Type() {
-	case jwtstr, basicstr:
-		return auth.Token.Principal()
+
+	if strings.HasPrefix(auth, "Bearer ") {
+		tok, _ := jwt.ParseHeader(r.Header, "Authorization")
+		val, ok := tok.Get("sub")
+		if !ok {
+			return
+		}
+		owner, ok = val.(string)
+		if !ok {
+			return ""
+		} else {
+			return owner
+		}
+	} else if strings.HasPrefix(auth, "Basic ") {
+		i := strings.Index(auth, " ")
+		if i < 1 {
+			return
+		}
+		decoded, err := base64.StdEncoding.DecodeString(auth[i+len(" "):])
+		if err != nil {
+			return
+		}
+		j := bytes.IndexByte(decoded, ':')
+		if i <= 0 {
+			return
+		}
+		owner = string(decoded[:j])
+		return
+
 	}
-	return ""
 }
 
 func obfuscateSecrets(webhooks []any) {
