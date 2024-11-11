@@ -13,15 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/sallust"
-	"go.uber.org/zap"
 )
 
 func TestNewService(t *testing.T) {
 	tcs := []struct {
 		desc        string
 		config      Config
-		getLogger   func(context.Context) *zap.Logger
 		expectedErr bool
 	}{
 		{
@@ -41,7 +38,7 @@ func TestNewService(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			_, err := NewService(tc.config, tc.getLogger)
+			_, err := NewService(tc.config)
 			if tc.expectedErr {
 				assert.NotNil(err)
 				return
@@ -58,20 +55,18 @@ func TestStartListener(t *testing.T) {
 			Bucket:  "test",
 		},
 	}
-	mockService, _ := NewService(mockServiceConfig, nil)
+	mockService, _ := NewService(mockServiceConfig)
 	tcs := []struct {
 		desc           string
 		serviceConfig  Config
-		listenerConfig ListenerConfig
+		listenerConfig chrysom.ListenerConfig
 		svc            ClientService
 		expectedErr    bool
 	}{
 		{
-			desc: "Success Case",
-			svc:  *mockService,
-			listenerConfig: ListenerConfig{
-				Config: chrysom.ListenerClientConfig{},
-			},
+			desc:           "Success Case",
+			svc:            *mockService,
+			listenerConfig: chrysom.ListenerConfig{},
 		},
 		{
 			desc:        "Chrysom Listener Client Creation Failure",
@@ -81,7 +76,7 @@ func TestStartListener(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			_, err := tc.svc.StartListener(tc.listenerConfig, nil)
+			_, err := tc.svc.StartListener(tc.listenerConfig, chrysom.Measures{})
 			if tc.expectedErr {
 				assert.NotNil(err)
 				return
@@ -139,7 +134,6 @@ func TestAdd(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
 			svc := ClientService{
-				logger: sallust.Default(),
 				config: Config{},
 				argus:  m,
 				now:    time.Now,
@@ -185,7 +179,6 @@ func TestAllInternalWebhooks(t *testing.T) {
 
 			svc := ClientService{
 				argus:  m,
-				logger: sallust.Default(),
 				config: Config{},
 			}
 			// nolint:typecheck

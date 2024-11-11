@@ -42,8 +42,8 @@ type MeasuresIn struct {
 }
 
 // NewMeasures realizes desired metrics.
-func NewMeasures(in MeasuresIn) *Measures {
-	return &Measures{
+func NewMeasures(in MeasuresIn) Measures {
+	return Measures{
 		WebhookListSizeGauge: in.WebhookListSizeGauge,
 		PollsTotalCounter:    in.PollsTotalCounter,
 	}
