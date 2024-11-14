@@ -89,7 +89,8 @@ func TestGetOwner(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		assert := assert.New(t)
 		if tc.Auth != "" {
-			AddAuth(tc.Auth, req, true, true)
+			err := AddAuth(tc.Auth, req, true, true)
+			require.Nil(t, err)
 		}
 		// nolint:typecheck
 		owner := getOwner(req)
@@ -284,15 +285,20 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 
 			switch tc.Auth {
 			case "basic":
-				AddAuth("basic", r, false, false)
+				err = AddAuth("basic", r, false, false)
+				require.Nil(err)
 			case "jwt":
-				AddAuth("jwt", r, true, true)
+				err = AddAuth("jwt", r, true, true)
+				require.Nil(err)
 			case "jwtnopartners":
-				AddAuth("jwt", r, false, false)
+				err = AddAuth("jwt", r, false, false)
+				require.Nil(err)
 			case "jwtpartnersdonotcast":
-				AddAuth("jwt", r, true, false)
+				err = AddAuth("jwt", r, true, false)
+				require.Nil(err)
 			case "authnotbasicorjwt":
-				AddAuth("notbasicofjwt", r, false, false)
+				err = AddAuth("notbasicofjwt", r, false, false)
+				require.Nil(err)
 			}
 
 			if tc.Auth == "basic" {
@@ -734,8 +740,10 @@ func AddAuth(auth string, req *http.Request, hasResources, hasPartners bool) err
 		req.Header.Add("Authorization", "Bearer "+string(signed))
 	} else if auth == "basic" {
 		req.SetBasicAuth("test-subject", "test-password")
+	} else {
+		req.Header.Add("Authorization", auth)
 	}
-	return errAuthIsNotOfTypeBasicOrJWT
+	return nil
 }
 
 func initializeKey() jwk.Key {
