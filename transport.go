@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lestrrat-go/jwx/jwt"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/spf13/cast"
 
 	kithttp "github.com/go-kit/kit/transport/http"
@@ -169,7 +169,7 @@ func extractPartnerIDs(config transportConfig, r *http.Request) ([]string, error
 		}
 		return partners, nil
 	} else if strings.HasPrefix(authHeader, "Bearer ") {
-		tok, err := jwt.ParseHeader(r.Header, "Authorization")
+		tok, err := jwt.ParseHeader(r.Header, "Authorization", jwt.WithVerify(false))
 		if err != nil {
 			return nil, fmt.Errorf("%w, %v", errParsingToken, err)
 		}
@@ -179,7 +179,7 @@ func extractPartnerIDs(config transportConfig, r *http.Request) ([]string, error
 			if !ok {
 				return nil, errPartnerIDsDoNotExist
 			}
-			if i, ok := keysMap[partnerKeys[1]]; ok {
+			if i, ok := keysMap[partnerKeys[0]]; ok {
 				partnerIds, err := cast.ToStringSliceE(i)
 				if err != nil {
 					return nil, fmt.Errorf("%w: %v", errGettingPartnerIDs, err)
@@ -200,8 +200,6 @@ func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ int
 	return nil
 }
 
-type authenticationKey struct{}
-
 func getOwner(r *http.Request) (owner string) {
 	auth := r.Header.Get("Authorization")
 	if auth == "" {
@@ -209,7 +207,7 @@ func getOwner(r *http.Request) (owner string) {
 	}
 
 	if strings.HasPrefix(auth, "Bearer ") {
-		tok, _ := jwt.ParseHeader(r.Header, "Authorization")
+		tok, _ := jwt.ParseHeader(r.Header, "Authorization", jwt.WithVerify(false))
 		val, ok := tok.Get("sub")
 		if !ok {
 			return

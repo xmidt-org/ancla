@@ -14,9 +14,11 @@ import (
 	"time"
 
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/webhook-schema"
 )
 
@@ -67,45 +69,30 @@ func TestEncodeWebhookResponse(t *testing.T) {
 func TestGetOwner(t *testing.T) {
 	type testCase struct {
 		Description   string
-		Token         bascule.Token
+		Auth          string
 		ExpectedOwner string
 	}
 
 	tcs := []testCase{
 		{
-			Description:   "No auth token",
-			Token:         nil,
-			ExpectedOwner: "",
-		},
-		{
 			Description:   "jwt token",
-			Token:         bascule.NewToken("jwt", "sub-value-001", nil),
-			ExpectedOwner: "sub-value-001",
+			Auth:          "jwt",
+			ExpectedOwner: "test-subject",
 		},
 		{
 			Description:   "basic token",
-			Token:         bascule.NewToken("basic", "user-001", nil),
-			ExpectedOwner: "user-001",
-		},
-
-		{
-			Description:   "unsupported",
-			Token:         bascule.NewToken("badType", "principalVal", nil),
-			ExpectedOwner: "",
+			Auth:          "basic",
+			ExpectedOwner: "test-username",
 		},
 	}
 	for _, tc := range tcs {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		assert := assert.New(t)
-		var ctx = context.Background()
-		// nolint:typecheck
-		if tc.Token != nil {
-			auth := bascule.Authentication{
-				Token: tc.Token,
-			}
-			ctx = bascule.WithAuthentication(ctx, auth)
+		if tc.Auth != "" {
+			AddAuth(tc.Auth, req, true, true)
 		}
-		// owner := getOwner(ctx)
-		owner := ""
+		// nolint:typecheck
+		owner := getOwner(req)
 		assert.Equal(tc.ExpectedOwner, owner)
 	}
 }
@@ -288,41 +275,24 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				disablePartnerIDs: tc.DisablePartnerIDs,
 			}
 			decode := addWebhookRequestDecoder(config)
-			var auth bascule.Authentication
-
-			switch tc.Auth {
-			case "basic":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("basic", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			case "jwt":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{"allowedResources": map[string]interface{}{"allowedPartners": "comcast"}})),
-				}
-			case "jwtnopartners":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			case "jwtpartnersdonotcast":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{"allowedResources": map[string]interface{}{"allowedPartners": nil}})),
-				}
-			case "authnotbasicorjwt":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("spongebob", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			}
-
-			r, err := http.NewRequestWithContext(bascule.WithAuthentication(context.Background(), auth),
-				http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
+			var err error
+			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
 			require.Nil(err)
 			if tc.ReadBodyFail {
 				r.Body = errReader{}
+			}
+
+			switch tc.Auth {
+			case "basic":
+				AddAuth("basic", r, false, false)
+			case "jwt":
+				AddAuth("jwt", r, true, true)
+			case "jwtnopartners":
+				AddAuth("jwt", r, false, false)
+			case "jwtpartnersdonotcast":
+				AddAuth("jwt", r, true, false)
+			case "authnotbasicorjwt":
+				AddAuth("notbasicofjwt", r, false, false)
 			}
 
 			if tc.Auth == "basic" {
@@ -718,4 +688,70 @@ func (bre BadRequestErr) SanitizedError() string {
 
 func (bre BadRequestErr) StatusCode() int {
 	return http.StatusBadRequest
+}
+
+func createJWT(hasResources, hasPartners bool) ([]byte, error) {
+	allowedResources := make(map[string]any)
+	if hasResources && hasPartners {
+		allowedResources["allowedResources"] = map[string]interface{}{"allowedPartners": "comcast"}
+	} else if hasResources {
+		allowedResources["allowedResources"] = map[string]interface{}{"allowedPartners": nil}
+	}
+	audience := []string{"test-audience"}
+	capabilities := []string{
+		"x1:webpa:api:.*:all",
+		"x1:webpa:api:device/.*/config\\b:all",
+	}
+	issuedAt := time.Now().Add(-time.Second).Round(time.Second).UTC()
+
+	testToken, err := jwt.NewBuilder().
+		Audience(audience).
+		Subject("test-subject").
+		IssuedAt(issuedAt).
+		Expiration(issuedAt.Add(time.Hour)).
+		NotBefore(issuedAt.Add(-time.Hour)).
+		JwtID("test-jwt").
+		Issuer("test-issuer").
+		Claim("capabilities", capabilities).
+		Claim("allowedResources", allowedResources).
+		Claim("version", "2.0").
+		Build()
+
+	if err != nil {
+		return nil, err
+	}
+	signed, err := jwt.Sign(testToken, jwt.WithKey(jwa.RS256, initializeKey()))
+
+	return signed, err
+}
+
+func AddAuth(auth string, req *http.Request, hasResources, hasPartners bool) error {
+	if auth == "jwt" {
+		signed, err := createJWT(hasResources, hasPartners)
+		if err != nil {
+			return err
+		}
+		req.Header.Add("Authorization", "Bearer "+string(signed))
+	} else if auth == "basic" {
+		req.SetBasicAuth("test-username", "test-password")
+	}
+	return nil
+}
+
+func initializeKey() jwk.Key {
+	key, _ := jwk.ParseKey([]byte(`{
+    "p": "7HMYtb-1dKyDp1OkdKc9WDdVMw3vtiiKDyuyRwnnwMOoYLPYxqE0CUMzw8_zXuzq7WJAmGiFd5q7oVzkbHzrtQ",
+    "kty": "RSA",
+    "q": "5253lCAgBLr8SR_VzzDtk_3XTHVmVIgniajMl7XM-ttrUONV86DoIm9VBx6ywEKpj5Xv3USBRNlpf8OXqWVhPw",
+    "d": "G7RLbBiCkiZuepbu46G0P8J7vn5l8G6U78gcMRdEhEsaXGZz_ZnbqjW6u8KI_3akrBT__GDPf8Hx8HBNKX5T9jNQW0WtJg1XnwHOK_OJefZl2fnx-85h3tfPD4zI3m54fydce_2kDVvqTOx_XXdNJD7v5TIAgvCymQv7qvzQ0VE",
+    "e": "AQAB",
+    "use": "sig",
+    "kid": "test",
+    "qi": "a_6YlMdA9b6piRodA0MR7DwjbALlMan19wj_VkgZ8Xoilq68sGaV2CQDoAdsTW9Mjt5PpCxvJawz0AMr6LIk9w",
+    "dp": "s55HgiGs_YHjzSOsBXXaEv6NuWf31l_7aMTf_DkZFYVMjpFwtotVFUg4taJuFYlSeZwux9h2s0IXEOCZIZTQFQ",
+    "alg": "RS256",
+    "dq": "M79xoX9laWleDAPATSnFlbfGsmP106T2IkPKK4oNIXJ6loWerHEoNrrqKkNk-LRvMZn3HmS4-uoaOuVDPi9bBQ",
+    "n": "1cHjMu7H10hKxnoq3-PJT9R25bkgVX1b39faqfecC82RMcD2DkgCiKGxkCmdUzuebpmXCZuxp-rVVbjrnrI5phAdjshZlkHwV0tyJOcerXsPgu4uk_VIJgtLdvgUAtVEd8-ZF4Y9YNOAKtf2AHAoRdP0ZVH7iVWbE6qU-IN2los"
+}`))
+	return key
 }
