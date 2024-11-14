@@ -30,13 +30,9 @@ var (
 	errAuthIsNotOfTypeBasicOrJWT = errors.New("auth is not of type Basic of JWT")
 	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
 	errAuthNotPresent            = errors.New("auth not present")
-	errAuthTokenIsNil            = errors.New("auth token is nil")
 	errParsingToken              = errors.New("unable to  parse token")
 	errPartnerIDsDoNotExist      = errors.New("partnerIDs do not exist")
 	DefaultBasicPartnerIDsHeader = "X-Xmidt-Partner-Ids"
-	jwtstr                       = "jwt"
-	basicstr                     = "basic"
-	partnerKeys                  = []string{"allowedResources", "allowedPartners"}
 )
 
 const (
@@ -174,18 +170,20 @@ func extractPartnerIDs(config transportConfig, r *http.Request) ([]string, error
 			return nil, fmt.Errorf("%w, %v", errParsingToken, err)
 		}
 		claimsMap := tok.PrivateClaims()
-		if keysI, ok := claimsMap[partnerKeys[0]]; ok {
+		if keysI, ok := claimsMap["allowedResources"]; ok {
 			keysMap, ok := keysI.(map[string]interface{})
 			if !ok {
 				return nil, errPartnerIDsDoNotExist
 			}
-			if i, ok := keysMap[partnerKeys[0]]; ok {
+			if i, ok := keysMap["allowedPartners"]; ok {
 				partnerIds, err := cast.ToStringSliceE(i)
-				if err != nil {
+				if err != nil || len(partnerIds) == 0 {
 					return nil, fmt.Errorf("%w: %v", errGettingPartnerIDs, err)
 
 				}
 				partners = partnerIds
+			} else {
+				return nil, errPartnerIDsDoNotExist
 			}
 		}
 	} else {

@@ -82,7 +82,7 @@ func TestGetOwner(t *testing.T) {
 		{
 			Description:   "basic token",
 			Auth:          "basic",
-			ExpectedOwner: "test-username",
+			ExpectedOwner: "test-subject",
 		},
 	}
 	for _, tc := range tcs {
@@ -184,37 +184,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			WrongContext:           true,
 		},
 		{
-			Description:            "Auth token is nil failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              webhook.Validators{},
-			ExpectedErr:            errAuthTokenIsNil,
-		},
-		{
-			Description:            "jwt auth token has no allowedPartners failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              webhook.Validators{},
-			Auth:                   "jwtnopartners",
-			ExpectedErr:            errPartnerIDsDoNotExist,
-		},
-		{
-			Description:            "jwt partners do not cast failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              webhook.Validators{},
-			Auth:                   "jwtpartnersdonotcast",
-			ExpectedErr:            errGettingPartnerIDs,
-		},
-		{
-			Description:            "auth is not jwt or basic failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              webhook.Validators{},
-			Auth:                   "authnotbasicorjwt",
-			ExpectedErr:            errAuthIsNotOfTypeBasicOrJWT,
-		},
-		{
 			Description:            "basic auth",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
@@ -259,6 +228,37 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			Validator:          webhook.Validators{},
 			ExpectedStatusCode: 0,
 			Auth:               "jwt",
+		},
+		{
+			Description:            "Auth token is not present",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			ExpectedErr:            errAuthNotPresent,
+		},
+		{
+			Description:            "jwt auth token has no allowedPartners failure",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			Auth:                   "jwtnopartners",
+			ExpectedErr:            errPartnerIDsDoNotExist,
+		},
+		{
+			Description:            "jwt partners do not cast failure",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			Auth:                   "jwtpartnersdonotcast",
+			ExpectedErr:            errGettingPartnerIDs,
+		},
+		{
+			Description:            "auth is not jwt or basic failure",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			Auth:                   "authnotbasicorjwt",
+			ExpectedErr:            errAuthIsNotOfTypeBasicOrJWT,
 		},
 	}
 
@@ -407,7 +407,7 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
-			owner: "owner-from-auth",
+			owner: "test-subject",
 			internalWebook: &RegistryV1{
 				Registration: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
@@ -429,7 +429,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 		}
 	}
 	return &addWebhookRequest{
-		owner: "owner-from-auth",
+		owner: "test-subject",
 		internalWebook: &RegistryV1{
 			Registration: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
@@ -453,7 +453,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
-			owner: "owner-from-auth",
+			owner: "test-subject",
 			internalWebook: &RegistryV1{
 				Registration: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
@@ -475,7 +475,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 		}
 	}
 	return &addWebhookRequest{
-		owner: "owner-from-auth",
+		owner: "test-subject",
 		internalWebook: &RegistryV1{
 			Registration: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
@@ -693,9 +693,9 @@ func (bre BadRequestErr) StatusCode() int {
 func createJWT(hasResources, hasPartners bool) ([]byte, error) {
 	allowedResources := make(map[string]any)
 	if hasResources && hasPartners {
-		allowedResources["allowedResources"] = map[string]interface{}{"allowedPartners": "comcast"}
+		allowedResources["allowedPartners"] = []string{"comcast"}
 	} else if hasResources {
-		allowedResources["allowedResources"] = map[string]interface{}{"allowedPartners": nil}
+		allowedResources["allowedPartners"] = []string{}
 	}
 	audience := []string{"test-audience"}
 	capabilities := []string{
@@ -733,9 +733,9 @@ func AddAuth(auth string, req *http.Request, hasResources, hasPartners bool) err
 		}
 		req.Header.Add("Authorization", "Bearer "+string(signed))
 	} else if auth == "basic" {
-		req.SetBasicAuth("test-username", "test-password")
+		req.SetBasicAuth("test-subject", "test-password")
 	}
-	return nil
+	return errAuthIsNotOfTypeBasicOrJWT
 }
 
 func initializeKey() jwk.Key {
