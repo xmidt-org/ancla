@@ -22,6 +22,21 @@ import (
 	"github.com/xmidt-org/webhook-schema"
 )
 
+const testKey = `{
+    "p": "7HMYtb-1dKyDp1OkdKc9WDdVMw3vtiiKDyuyRwnnwMOoYLPYxqE0CUMzw8_zXuzq7WJAmGiFd5q7oVzkbHzrtQ",
+    "kty": "RSA",
+    "q": "5253lCAgBLr8SR_VzzDtk_3XTHVmVIgniajMl7XM-ttrUONV86DoIm9VBx6ywEKpj5Xv3USBRNlpf8OXqWVhPw",
+    "d": "G7RLbBiCkiZuepbu46G0P8J7vn5l8G6U78gcMRdEhEsaXGZz_ZnbqjW6u8KI_3akrBT__GDPf8Hx8HBNKX5T9jNQW0WtJg1XnwHOK_OJefZl2fnx-85h3tfPD4zI3m54fydce_2kDVvqTOx_XXdNJD7v5TIAgvCymQv7qvzQ0VE",
+    "e": "AQAB",
+    "use": "sig",
+    "kid": "test",
+    "qi": "a_6YlMdA9b6piRodA0MR7DwjbALlMan19wj_VkgZ8Xoilq68sGaV2CQDoAdsTW9Mjt5PpCxvJawz0AMr6LIk9w",
+    "dp": "s55HgiGs_YHjzSOsBXXaEv6NuWf31l_7aMTf_DkZFYVMjpFwtotVFUg4taJuFYlSeZwux9h2s0IXEOCZIZTQFQ",
+    "alg": "RS256",
+    "dq": "M79xoX9laWleDAPATSnFlbfGsmP106T2IkPKK4oNIXJ6loWerHEoNrrqKkNk-LRvMZn3HmS4-uoaOuVDPi9bBQ",
+    "n": "1cHjMu7H10hKxnoq3-PJT9R25bkgVX1b39faqfecC82RMcD2DkgCiKGxkCmdUzuebpmXCZuxp-rVVbjrnrI5phAdjshZlkHwV0tyJOcerXsPgu4uk_VIJgtLdvgUAtVEd8-ZF4Y9YNOAKtf2AHAoRdP0ZVH7iVWbE6qU-IN2los"
+}`
+
 func TestErrorEncoder(t *testing.T) {
 	mockHandlerConfig := HandlerConfig{}
 
@@ -88,8 +103,10 @@ func TestGetOwner(t *testing.T) {
 	for _, tc := range tcs {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		assert := assert.New(t)
+		key, err := jwk.ParseKey([]byte(testKey))
+		require.Nil(t, err)
 		if tc.Auth != "" {
-			err := AddAuth(tc.Auth, req, true, true)
+			err := AddAuth(tc.Auth, req, key, true, true)
 			require.Nil(t, err)
 		}
 		// nolint:typecheck
@@ -282,22 +299,23 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			if tc.ReadBodyFail {
 				r.Body = errReader{}
 			}
-
+			jwkKey, err := jwk.ParseKey([]byte(testKey))
+			require.Nil(err)
 			switch tc.Auth {
 			case "basic":
-				err = AddAuth("basic", r, false, false)
+				err = AddAuth("basic", r, jwkKey, false, false)
 				require.Nil(err)
 			case "jwt":
-				err = AddAuth("jwt", r, true, true)
+				err = AddAuth("jwt", r, jwkKey, true, true)
 				require.Nil(err)
 			case "jwtnopartners":
-				err = AddAuth("jwt", r, false, false)
+				err = AddAuth("jwt", r, jwkKey, false, false)
 				require.Nil(err)
 			case "jwtpartnersdonotcast":
-				err = AddAuth("jwt", r, true, false)
+				err = AddAuth("jwt", r, jwkKey, true, false)
 				require.Nil(err)
 			case "authnotbasicorjwt":
-				err = AddAuth("notbasicofjwt", r, false, false)
+				err = AddAuth("notbasicofjwt", r, jwkKey, false, false)
 				require.Nil(err)
 			}
 
@@ -696,7 +714,7 @@ func (bre BadRequestErr) StatusCode() int {
 	return http.StatusBadRequest
 }
 
-func createJWT(hasResources, hasPartners bool) ([]byte, error) {
+func createJWT(hasResources, hasPartners bool, key jwk.Key) ([]byte, error) {
 	allowedResources := make(map[string]any)
 	if hasResources && hasPartners {
 		allowedResources["allowedPartners"] = []string{"comcast"}
@@ -726,14 +744,14 @@ func createJWT(hasResources, hasPartners bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	signed, err := jwt.Sign(testToken, jwt.WithKey(jwa.RS256, initializeKey()))
+	signed, err := jwt.Sign(testToken, jwt.WithKey(jwa.RS256, key))
 
 	return signed, err
 }
 
-func AddAuth(auth string, req *http.Request, hasResources, hasPartners bool) error {
+func AddAuth(auth string, req *http.Request, key jwk.Key, hasResources, hasPartners bool) error {
 	if auth == "jwt" {
-		signed, err := createJWT(hasResources, hasPartners)
+		signed, err := createJWT(hasResources, hasPartners, key)
 		if err != nil {
 			return err
 		}
@@ -744,22 +762,4 @@ func AddAuth(auth string, req *http.Request, hasResources, hasPartners bool) err
 		req.Header.Add("Authorization", auth)
 	}
 	return nil
-}
-
-func initializeKey() jwk.Key {
-	key, _ := jwk.ParseKey([]byte(`{
-    "p": "7HMYtb-1dKyDp1OkdKc9WDdVMw3vtiiKDyuyRwnnwMOoYLPYxqE0CUMzw8_zXuzq7WJAmGiFd5q7oVzkbHzrtQ",
-    "kty": "RSA",
-    "q": "5253lCAgBLr8SR_VzzDtk_3XTHVmVIgniajMl7XM-ttrUONV86DoIm9VBx6ywEKpj5Xv3USBRNlpf8OXqWVhPw",
-    "d": "G7RLbBiCkiZuepbu46G0P8J7vn5l8G6U78gcMRdEhEsaXGZz_ZnbqjW6u8KI_3akrBT__GDPf8Hx8HBNKX5T9jNQW0WtJg1XnwHOK_OJefZl2fnx-85h3tfPD4zI3m54fydce_2kDVvqTOx_XXdNJD7v5TIAgvCymQv7qvzQ0VE",
-    "e": "AQAB",
-    "use": "sig",
-    "kid": "test",
-    "qi": "a_6YlMdA9b6piRodA0MR7DwjbALlMan19wj_VkgZ8Xoilq68sGaV2CQDoAdsTW9Mjt5PpCxvJawz0AMr6LIk9w",
-    "dp": "s55HgiGs_YHjzSOsBXXaEv6NuWf31l_7aMTf_DkZFYVMjpFwtotVFUg4taJuFYlSeZwux9h2s0IXEOCZIZTQFQ",
-    "alg": "RS256",
-    "dq": "M79xoX9laWleDAPATSnFlbfGsmP106T2IkPKK4oNIXJ6loWerHEoNrrqKkNk-LRvMZn3HmS4-uoaOuVDPi9bBQ",
-    "n": "1cHjMu7H10hKxnoq3-PJT9R25bkgVX1b39faqfecC82RMcD2DkgCiKGxkCmdUzuebpmXCZuxp-rVVbjrnrI5phAdjshZlkHwV0tyJOcerXsPgu4uk_VIJgtLdvgUAtVEd8-ZF4Y9YNOAKtf2AHAoRdP0ZVH7iVWbE6qU-IN2los"
-}`))
-	return key
 }
