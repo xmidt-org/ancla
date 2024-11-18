@@ -14,11 +14,28 @@ import (
 	"time"
 
 	kithttp "github.com/go-kit/kit/transport/http"
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v2/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/webhook-schema"
 )
+
+const testKey = `{
+    "p": "7HMYtb-1dKyDp1OkdKc9WDdVMw3vtiiKDyuyRwnnwMOoYLPYxqE0CUMzw8_zXuzq7WJAmGiFd5q7oVzkbHzrtQ",
+    "kty": "RSA",
+    "q": "5253lCAgBLr8SR_VzzDtk_3XTHVmVIgniajMl7XM-ttrUONV86DoIm9VBx6ywEKpj5Xv3USBRNlpf8OXqWVhPw",
+    "d": "G7RLbBiCkiZuepbu46G0P8J7vn5l8G6U78gcMRdEhEsaXGZz_ZnbqjW6u8KI_3akrBT__GDPf8Hx8HBNKX5T9jNQW0WtJg1XnwHOK_OJefZl2fnx-85h3tfPD4zI3m54fydce_2kDVvqTOx_XXdNJD7v5TIAgvCymQv7qvzQ0VE",
+    "e": "AQAB",
+    "use": "sig",
+    "kid": "test",
+    "qi": "a_6YlMdA9b6piRodA0MR7DwjbALlMan19wj_VkgZ8Xoilq68sGaV2CQDoAdsTW9Mjt5PpCxvJawz0AMr6LIk9w",
+    "dp": "s55HgiGs_YHjzSOsBXXaEv6NuWf31l_7aMTf_DkZFYVMjpFwtotVFUg4taJuFYlSeZwux9h2s0IXEOCZIZTQFQ",
+    "alg": "RS256",
+    "dq": "M79xoX9laWleDAPATSnFlbfGsmP106T2IkPKK4oNIXJ6loWerHEoNrrqKkNk-LRvMZn3HmS4-uoaOuVDPi9bBQ",
+    "n": "1cHjMu7H10hKxnoq3-PJT9R25bkgVX1b39faqfecC82RMcD2DkgCiKGxkCmdUzuebpmXCZuxp-rVVbjrnrI5phAdjshZlkHwV0tyJOcerXsPgu4uk_VIJgtLdvgUAtVEd8-ZF4Y9YNOAKtf2AHAoRdP0ZVH7iVWbE6qU-IN2los"
+}`
 
 func TestErrorEncoder(t *testing.T) {
 	mockHandlerConfig := HandlerConfig{}
@@ -67,44 +84,33 @@ func TestEncodeWebhookResponse(t *testing.T) {
 func TestGetOwner(t *testing.T) {
 	type testCase struct {
 		Description   string
-		Token         bascule.Token
+		Auth          string
 		ExpectedOwner string
 	}
 
 	tcs := []testCase{
 		{
-			Description:   "No auth token",
-			Token:         nil,
-			ExpectedOwner: "",
-		},
-		{
 			Description:   "jwt token",
-			Token:         bascule.NewToken("jwt", "sub-value-001", nil),
-			ExpectedOwner: "sub-value-001",
+			Auth:          "jwt",
+			ExpectedOwner: "test-subject",
 		},
 		{
 			Description:   "basic token",
-			Token:         bascule.NewToken("basic", "user-001", nil),
-			ExpectedOwner: "user-001",
-		},
-
-		{
-			Description:   "unsupported",
-			Token:         bascule.NewToken("badType", "principalVal", nil),
-			ExpectedOwner: "",
+			Auth:          "basic",
+			ExpectedOwner: "test-subject",
 		},
 	}
 	for _, tc := range tcs {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		assert := assert.New(t)
-		var ctx = context.Background()
-		// nolint:typecheck
-		if tc.Token != nil {
-			auth := bascule.Authentication{
-				Token: tc.Token,
-			}
-			ctx = bascule.WithAuthentication(ctx, auth)
+		key, err := jwk.ParseKey([]byte(testKey))
+		require.Nil(t, err)
+		if tc.Auth != "" {
+			err := AddAuth(tc.Auth, req, key, true, true)
+			require.Nil(t, err)
 		}
-		owner := getOwner(ctx)
+		// nolint:typecheck
+		owner := getOwner(req)
 		assert.Equal(tc.ExpectedOwner, owner)
 	}
 }
@@ -196,37 +202,6 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			WrongContext:           true,
 		},
 		{
-			Description:            "Auth token is nil failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              webhook.Validators{},
-			ExpectedErr:            errAuthTokenIsNil,
-		},
-		{
-			Description:            "jwt auth token has no allowedPartners failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              webhook.Validators{},
-			Auth:                   "jwtnopartners",
-			ExpectedErr:            errPartnerIDsDoNotExist,
-		},
-		{
-			Description:            "jwt partners do not cast failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              webhook.Validators{},
-			Auth:                   "jwtpartnersdonotcast",
-			ExpectedErr:            errGettingPartnerIDs,
-		},
-		{
-			Description:            "auth is not jwt or basic failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              webhook.Validators{},
-			Auth:                   "authnotbasicorjwt",
-			ExpectedErr:            errAuthIsNotOfTypeBasicOrJWT,
-		},
-		{
 			Description:            "basic auth",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
@@ -272,6 +247,37 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			ExpectedStatusCode: 0,
 			Auth:               "jwt",
 		},
+		{
+			Description:            "Auth token is not present",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			ExpectedErr:            errAuthNotPresent,
+		},
+		{
+			Description:            "jwt auth token has no allowedPartners failure",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			Auth:                   "jwtnopartners",
+			ExpectedErr:            errPartnerIDsDoNotExist,
+		},
+		{
+			Description:            "jwt partners do not cast failure",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			Auth:                   "jwtpartnersdonotcast",
+			ExpectedErr:            errGettingPartnerIDs,
+		},
+		{
+			Description:            "auth is not jwt or basic failure",
+			InputPayload:           addWebhookDecoderInput(),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			Auth:                   "authnotbasicorjwt",
+			ExpectedErr:            errAuthIsNotOfTypeBasicOrJWT,
+		},
 	}
 
 	for _, tc := range tcs {
@@ -287,41 +293,30 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				disablePartnerIDs: tc.DisablePartnerIDs,
 			}
 			decode := addWebhookRequestDecoder(config)
-			var auth bascule.Authentication
-
-			switch tc.Auth {
-			case "basic":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("basic", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			case "jwt":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{"allowedResources": map[string]interface{}{"allowedPartners": "comcast"}})),
-				}
-			case "jwtnopartners":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			case "jwtpartnersdonotcast":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{"allowedResources": map[string]interface{}{"allowedPartners": nil}})),
-				}
-			case "authnotbasicorjwt":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("spongebob", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			}
-
-			r, err := http.NewRequestWithContext(bascule.WithAuthentication(context.Background(), auth),
-				http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
+			var err error
+			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
 			require.Nil(err)
 			if tc.ReadBodyFail {
 				r.Body = errReader{}
+			}
+			jwkKey, err := jwk.ParseKey([]byte(testKey))
+			require.Nil(err)
+			switch tc.Auth {
+			case "basic":
+				err = AddAuth("basic", r, jwkKey, false, false)
+				require.Nil(err)
+			case "jwt":
+				err = AddAuth("jwt", r, jwkKey, true, true)
+				require.Nil(err)
+			case "jwtnopartners":
+				err = AddAuth("jwt", r, jwkKey, false, false)
+				require.Nil(err)
+			case "jwtpartnersdonotcast":
+				err = AddAuth("jwt", r, jwkKey, true, false)
+				require.Nil(err)
+			case "authnotbasicorjwt":
+				err = AddAuth("notbasicofjwt", r, jwkKey, false, false)
+				require.Nil(err)
 			}
 
 			if tc.Auth == "basic" {
@@ -436,7 +431,7 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
-			owner: "owner-from-auth",
+			owner: "test-subject",
 			internalWebook: &RegistryV1{
 				Registration: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
@@ -458,7 +453,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 		}
 	}
 	return &addWebhookRequest{
-		owner: "owner-from-auth",
+		owner: "test-subject",
 		internalWebook: &RegistryV1{
 			Registration: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
@@ -482,7 +477,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
-			owner: "owner-from-auth",
+			owner: "test-subject",
 			internalWebook: &RegistryV1{
 				Registration: webhook.RegistrationV1{
 					Address: "original-requester.example.net:443",
@@ -504,7 +499,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 		}
 	}
 	return &addWebhookRequest{
-		owner: "owner-from-auth",
+		owner: "test-subject",
 		internalWebook: &RegistryV1{
 			Registration: webhook.RegistrationV1{
 				Address: "original-requester.example.net:443",
@@ -717,4 +712,54 @@ func (bre BadRequestErr) SanitizedError() string {
 
 func (bre BadRequestErr) StatusCode() int {
 	return http.StatusBadRequest
+}
+
+func createJWT(hasResources, hasPartners bool, key jwk.Key) ([]byte, error) {
+	allowedResources := make(map[string]any)
+	if hasResources && hasPartners {
+		allowedResources["allowedPartners"] = []string{"comcast"}
+	} else if hasResources {
+		allowedResources["allowedPartners"] = []string{}
+	}
+	audience := []string{"test-audience"}
+	capabilities := []string{
+		"x1:webpa:api:.*:all",
+		"x1:webpa:api:device/.*/config\\b:all",
+	}
+	issuedAt := time.Now().Add(-time.Second).Round(time.Second).UTC()
+
+	testToken, err := jwt.NewBuilder().
+		Audience(audience).
+		Subject("test-subject").
+		IssuedAt(issuedAt).
+		Expiration(issuedAt.Add(time.Hour)).
+		NotBefore(issuedAt.Add(-time.Hour)).
+		JwtID("test-jwt").
+		Issuer("test-issuer").
+		Claim("capabilities", capabilities).
+		Claim("allowedResources", allowedResources).
+		Claim("version", "2.0").
+		Build()
+
+	if err != nil {
+		return nil, err
+	}
+	signed, err := jwt.Sign(testToken, jwt.WithKey(jwa.RS256, key))
+
+	return signed, err
+}
+
+func AddAuth(auth string, req *http.Request, key jwk.Key, hasResources, hasPartners bool) error {
+	if auth == "jwt" {
+		signed, err := createJWT(hasResources, hasPartners, key)
+		if err != nil {
+			return err
+		}
+		req.Header.Add("Authorization", "Bearer "+string(signed))
+	} else if auth == "basic" {
+		req.SetBasicAuth("test-subject", "test-password")
+	} else {
+		req.Header.Add("Authorization", auth)
+	}
+	return nil
 }
