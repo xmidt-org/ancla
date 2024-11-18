@@ -12,8 +12,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/xmidt-org/ancla/acquire"
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
@@ -55,10 +55,6 @@ type BasicClientConfig struct {
 	// HTTPClient refers to the client that will be used to send requests.
 	// (Optional) Defaults to http.DefaultClient.
 	HTTPClient *http.Client
-
-	// Auth provides the mechanism to add auth headers to outgoing requests.
-	// (Optional) If not provided, no auth headers are added.
-	Auth Auth
 }
 
 // BasicClient is the client used to make requests to Argus.
@@ -67,12 +63,6 @@ type BasicClient struct {
 	auth         acquire.Acquirer
 	storeBaseURL string
 	bucket       string
-}
-
-// Auth contains authorization data for requests to Argus.
-type Auth struct {
-	JWT   acquire.RemoteBearerTokenAcquirerOptions
-	Basic string
 }
 
 type response struct {

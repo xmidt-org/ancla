@@ -45,7 +45,6 @@ func TestValidateBasicConfig(t *testing.T) {
 	allDefinedCaseConfig := &BasicClientConfig{
 		HTTPClient: myAmazingClient,
 		Address:    "http://legit-argus-hostname.io",
-		Auth:       Auth{},
 		Bucket:     "amazing-bucket",
 	}
 
