@@ -83,19 +83,18 @@ type Items []model.Item
 
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.
-func NewBasicClient(config BasicClientConfig) (*BasicClient, error) {
+func NewBasicClient(config BasicClientConfig, auth acquire.Acquirer) (*BasicClient, error) {
 	err := validateBasicConfig(&config)
 	if err != nil {
 		return nil, err
 	}
 
-	tokenAcquirer, err := buildTokenAcquirer(config.Auth)
 	if err != nil {
 		return nil, err
 	}
 	clientStore := &BasicClient{
 		client:       config.HTTPClient,
-		auth:         tokenAcquirer,
+		auth:         auth,
 		bucket:       config.Bucket,
 		storeBaseURL: config.Address + storeAPIPath,
 	}
@@ -200,7 +199,7 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	if err != nil {
 		return response{}, fmt.Errorf(errWrappedFmt, errNewRequestFailure, err.Error())
 	}
-	err = acquire.AddAuth(r, c.auth)
+	err = c.auth.AddAuth(r)
 	if err != nil {
 		return response{}, fmt.Errorf(errWrappedFmt, ErrAuthAcquirerFailure, err.Error())
 	}
@@ -224,10 +223,6 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	return sqResp, nil
 }
 
-func isEmpty(options acquire.RemoteBearerTokenAcquirerOptions) bool {
-	return len(options.AuthURL) < 1 || options.Buffer == 0 || options.Timeout == 0
-}
-
 // translateNonSuccessStatusCode returns as specific error
 // for known Argus status codes.
 func translateNonSuccessStatusCode(code int) error {
@@ -239,15 +234,6 @@ func translateNonSuccessStatusCode(code int) error {
 	default:
 		return errNonSuccessResponse
 	}
-}
-
-func buildTokenAcquirer(auth Auth) (acquire.Acquirer, error) {
-	if !isEmpty(auth.JWT) {
-		return acquire.NewRemoteBearerTokenAcquirer(auth.JWT)
-	} else if len(auth.Basic) > 0 {
-		return acquire.NewFixedAuthAcquirer(auth.Basic)
-	}
-	return &acquire.DefaultAcquirer{}, nil
 }
 
 func validateBasicConfig(config *BasicClientConfig) error {

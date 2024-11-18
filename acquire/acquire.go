@@ -9,7 +9,7 @@ import (
 )
 
 type Acquirer interface {
-	AddAuth(*http.Request)
+	AddAuth(*http.Request) error
 	Acquire() (string, error)
 	ParseToken([]byte) (string, error)
 	ParseExpiration([]byte) (time.Time, error)
