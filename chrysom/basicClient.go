@@ -12,7 +12,6 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/xmidt-org/ancla/acquire"
 	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
@@ -55,12 +54,16 @@ type BasicClientConfig struct {
 	// HTTPClient refers to the client that will be used to send requests.
 	// (Optional) Defaults to http.DefaultClient.
 	HTTPClient *http.Client
+
+	// Auth provides the mechanism to add auth headers to outgoing requests.
+	// (Optional) If not provided, no auth headers are added.
+	Auth Acquirer
 }
 
 // BasicClient is the client used to make requests to Argus.
 type BasicClient struct {
 	client       *http.Client
-	auth         acquire.Acquirer
+	auth         Acquirer
 	storeBaseURL string
 	bucket       string
 }
@@ -83,7 +86,7 @@ type Items []model.Item
 
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.
-func NewBasicClient(config BasicClientConfig, auth acquire.Acquirer) (*BasicClient, error) {
+func NewBasicClient(config BasicClientConfig) (*BasicClient, error) {
 	err := validateBasicConfig(&config)
 	if err != nil {
 		return nil, err
@@ -94,7 +97,7 @@ func NewBasicClient(config BasicClientConfig, auth acquire.Acquirer) (*BasicClie
 	}
 	clientStore := &BasicClient{
 		client:       config.HTTPClient,
-		auth:         auth,
+		auth:         config.Auth,
 		bucket:       config.Bucket,
 		storeBaseURL: config.Address + storeAPIPath,
 	}

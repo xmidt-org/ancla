@@ -1,16 +1,13 @@
 // SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package acquire
+package chrysom
 
 import (
 	"net/http"
-	"time"
 )
 
+// Acquirer adds an authorization header and value to a given http request.
 type Acquirer interface {
 	AddAuth(*http.Request) error
-	Acquire() (string, error)
-	ParseToken([]byte) (string, error)
-	ParseExpiration([]byte) (time.Time, error)
 }

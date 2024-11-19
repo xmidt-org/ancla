@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/xmidt-org/ancla/acquire"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/sallust"
 	"go.uber.org/fx"
@@ -43,13 +42,6 @@ type Service interface {
 type Config struct {
 	BasicClientConfig chrysom.BasicClientConfig
 
-	// JWTParserType establishes which parser type will be used by the JWT token
-	// acquirer used by Argus. Options include 'simple' and 'raw'.
-	// Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
-	// Raw: parser assumes all of the token payload == JWT token
-	// (Optional). Defaults to 'simple'
-	JWTParserType string
-
 	// DisablePartnerIDs, if true, will allow webhooks to register without
 	// checking the validity of the partnerIDs in the request
 	DisablePartnerIDs bool
@@ -69,8 +61,8 @@ type ClientService struct {
 }
 
 // NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config, auth acquire.Acquirer) (*ClientService, error) {
-	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, auth)
+func NewService(cfg Config) (*ClientService, error) {
+	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
 	}
@@ -153,13 +145,13 @@ type ServiceIn struct {
 
 	Config Config
 	Client *http.Client
-	Auth   acquire.Acquirer
+	Auth   chrysom.Acquirer
 }
 
 func ProvideService() fx.Option {
 	return fx.Provide(
 		func(in ServiceIn) (*ClientService, error) {
-			svc, err := NewService(in.Config, in.Auth)
+			svc, err := NewService(in.Config)
 			if err != nil {
 				return nil, errors.Join(errFailedConfig, err)
 			}
