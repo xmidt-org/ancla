@@ -92,9 +92,6 @@ func NewBasicClient(config BasicClientConfig) (*BasicClient, error) {
 		return nil, err
 	}
 
-	if err != nil {
-		return nil, err
-	}
 	clientStore := &BasicClient{
 		client:       config.HTTPClient,
 		auth:         config.Auth,
