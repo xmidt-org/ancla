@@ -63,7 +63,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 			})
 		}
 	})
-	
+
 	require.Equal(stopped, client.observer.state)
 }
 
