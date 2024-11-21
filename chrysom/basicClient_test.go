@@ -30,16 +30,6 @@ var (
 	errFails        = errors.New("fails")
 )
 
-type MockAquirer struct {
-	mock.Mock
-}
-
-func (m *MockAquirer) AddAuth(req *http.Request) error {
-	args := m.Called(req)
-
-	return args.Error(0)
-}
-
 func TestValidateBasicConfig(t *testing.T) {
 	type testCase struct {
 		Description    string
