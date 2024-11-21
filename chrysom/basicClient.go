@@ -13,7 +13,6 @@ import (
 	"net/http"
 
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/bascule/acquire"
 	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
@@ -25,6 +24,7 @@ var (
 	ErrItemDataEmpty           = errors.New("data field in item is required")
 	ErrUndefinedIntervalTicker = errors.New("interval ticker is nil. Can't listen for updates")
 	ErrAuthAcquirerFailure     = errors.New("failed acquiring auth token")
+	ErrAuthAcquirerNil         = errors.New("auth aquirer is nil")
 	ErrBadRequest              = errors.New("argus rejected the request as invalid")
 )
 
@@ -58,21 +58,15 @@ type BasicClientConfig struct {
 
 	// Auth provides the mechanism to add auth headers to outgoing requests.
 	// (Optional) If not provided, no auth headers are added.
-	Auth Auth
+	Auth Acquirer
 }
 
 // BasicClient is the client used to make requests to Argus.
 type BasicClient struct {
 	client       *http.Client
-	auth         acquire.Acquirer
+	auth         Acquirer
 	storeBaseURL string
 	bucket       string
-}
-
-// Auth contains authorization data for requests to Argus.
-type Auth struct {
-	JWT   acquire.RemoteBearerTokenAcquirerOptions
-	Basic string
 }
 
 type response struct {
@@ -99,13 +93,9 @@ func NewBasicClient(config BasicClientConfig) (*BasicClient, error) {
 		return nil, err
 	}
 
-	tokenAcquirer, err := buildTokenAcquirer(config.Auth)
-	if err != nil {
-		return nil, err
-	}
 	clientStore := &BasicClient{
 		client:       config.HTTPClient,
-		auth:         tokenAcquirer,
+		auth:         config.Auth,
 		bucket:       config.Bucket,
 		storeBaseURL: config.Address + storeAPIPath,
 	}
@@ -210,7 +200,10 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	if err != nil {
 		return response{}, fmt.Errorf(errWrappedFmt, errNewRequestFailure, err.Error())
 	}
-	err = acquire.AddAuth(r, c.auth)
+	if c.auth == nil {
+		return response{}, ErrAuthAcquirerNil
+	}
+	err = c.auth.AddAuth(r)
 	if err != nil {
 		return response{}, fmt.Errorf(errWrappedFmt, ErrAuthAcquirerFailure, err.Error())
 	}
@@ -234,10 +227,6 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	return sqResp, nil
 }
 
-func isEmpty(options acquire.RemoteBearerTokenAcquirerOptions) bool {
-	return len(options.AuthURL) < 1 || options.Buffer == 0 || options.Timeout == 0
-}
-
 // translateNonSuccessStatusCode returns as specific error
 // for known Argus status codes.
 func translateNonSuccessStatusCode(code int) error {
@@ -249,15 +238,6 @@ func translateNonSuccessStatusCode(code int) error {
 	default:
 		return errNonSuccessResponse
 	}
-}
-
-func buildTokenAcquirer(auth Auth) (acquire.Acquirer, error) {
-	if !isEmpty(auth.JWT) {
-		return acquire.NewRemoteBearerTokenAcquirer(auth.JWT)
-	} else if len(auth.Basic) > 0 {
-		return acquire.NewFixedAuthAcquirer(auth.Basic)
-	}
-	return &acquire.DefaultAcquirer{}, nil
 }
 
 func validateBasicConfig(config *BasicClientConfig) error {
