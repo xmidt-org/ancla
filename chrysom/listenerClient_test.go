@@ -15,7 +15,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -43,7 +42,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 	client, close, err := newStartStopClient(true)
 	assert.Nil(t, err)
 	defer close()
-
+	t.Run("ParallelGroup", func(t *testing.T) {
 		for i := 0; i < 20; i++ {
 			testNumber := i
 			t.Run(strconv.Itoa(testNumber), func(t *testing.T) {
@@ -62,7 +61,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 				fmt.Printf("%d: Done\n", testNumber)
 			})
 		}
-
+	})
 	require.Equal(stopped, client.observer.state)
 }
 
@@ -105,15 +104,14 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		rw.Write(getItemsValidPayload())
 	}))
-	acquirer := new(MockAquirer)
-	acquirer.On("AddAuth", mock.Anything).Return(nil)
+
 	config := ListenerConfig{
 		PullInterval: time.Millisecond * 200,
 	}
 	if includeListener {
 		config.Listener = mockListener
 	}
-	client, err := NewListenerClient(config, mockMeasures, &BasicClient{auth: acquirer})
+	client, err := NewListenerClient(config, mockMeasures, &BasicClient{})
 	if err != nil {
 		return nil, nil, err
 	}

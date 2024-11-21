@@ -24,6 +24,7 @@ var (
 	ErrItemDataEmpty           = errors.New("data field in item is required")
 	ErrUndefinedIntervalTicker = errors.New("interval ticker is nil. Can't listen for updates")
 	ErrAuthAcquirerFailure     = errors.New("failed acquiring auth token")
+	ErrAuthAcquirerNil         = errors.New("auth aquirer is nil")
 	ErrBadRequest              = errors.New("argus rejected the request as invalid")
 )
 
@@ -198,6 +199,9 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	r, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return response{}, fmt.Errorf(errWrappedFmt, errNewRequestFailure, err.Error())
+	}
+	if c.auth == nil {
+		return response{}, ErrAuthAcquirerNil
 	}
 	err = c.auth.AddAuth(r)
 	if err != nil {
