@@ -42,6 +42,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 	client, close, err := newStartStopClient(true)
 	assert.Nil(t, err)
 	defer close()
+
 	t.Run("ParallelGroup", func(t *testing.T) {
 		for i := 0; i < 20; i++ {
 			testNumber := i
@@ -62,6 +63,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 			})
 		}
 	})
+	
 	require.Equal(stopped, client.observer.state)
 }
 
