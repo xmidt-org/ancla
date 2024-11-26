@@ -203,7 +203,7 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	if c.auth == nil {
 		return response{}, ErrAuthAcquirerNil
 	}
-	auth, err := c.auth.GetAuth()
+	auth, err := c.auth.Acquire()
 	if err != nil {
 		return response{}, fmt.Errorf(errWrappedFmt, ErrAuthAcquirerFailure, err.Error())
 	}
@@ -211,7 +211,7 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	if auth != "" {
 		r.Header.Set("Authorization", auth)
 	}
-	
+
 	if len(owner) > 0 {
 		r.Header.Set(ItemOwnerHeaderKey, owner)
 	}

@@ -10,7 +10,7 @@ type MockAquirer struct {
 	mock.Mock
 }
 
-func (m *MockAquirer) GetAuth() (string, error) {
+func (m *MockAquirer) Acquire() (string, error) {
 	args := m.Called()
 
 	return args.String(0), args.Error(1)

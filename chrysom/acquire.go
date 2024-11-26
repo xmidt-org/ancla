@@ -5,5 +5,5 @@ package chrysom
 
 // Acquirer adds an authorization header and value to a given http request.
 type Acquirer interface {
-	GetAuth() (string, error)
+	Acquire() (string, error)
 }

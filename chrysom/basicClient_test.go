@@ -171,7 +171,7 @@ func TestSendRequest(t *testing.T) {
 				Bucket:     "bucket-name",
 			})
 
-			acquirer.On("GetAuth").Return(tc.MockAuth, tc.MockError)
+			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			var URL = server.URL
@@ -285,7 +285,7 @@ func TestGetItems(t *testing.T) {
 
 			require.Nil(err)
 
-			acquirer.On("GetAuth").Return(tc.MockAuth, tc.MockError)
+			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			if tc.ShouldDoRequestFail {
@@ -439,7 +439,7 @@ func TestPushItem(t *testing.T) {
 				Bucket:     bucket,
 			})
 
-			acquirer.On("GetAuth").Return(tc.MockAuth, tc.MockError)
+			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			if tc.ShouldDoRequestFail {
@@ -552,7 +552,7 @@ func TestRemoveItem(t *testing.T) {
 				Bucket:     bucket,
 			})
 
-			acquirer.On("GetAuth").Return(tc.MockAuth, tc.MockError)
+			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			if tc.ShouldDoRequestFail {
