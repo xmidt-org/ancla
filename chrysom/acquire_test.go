@@ -3,8 +3,6 @@
 package chrysom
 
 import (
-	"net/http"
-
 	"github.com/stretchr/testify/mock"
 )
 
@@ -12,8 +10,8 @@ type MockAquirer struct {
 	mock.Mock
 }
 
-func (m *MockAquirer) AddAuth(req *http.Request) error {
-	args := m.Called(req)
+func (m *MockAquirer) Acquire() (string, error) {
+	args := m.Called()
 
-	return args.Error(0)
+	return args.String(0), args.Error(1)
 }
