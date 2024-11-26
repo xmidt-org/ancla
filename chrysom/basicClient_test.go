@@ -17,7 +17,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/model"
 )
@@ -107,6 +106,7 @@ func TestSendRequest(t *testing.T) {
 		ExpectedResponse response
 		ExpectedErr      error
 		MockError        error
+		MockAuth         string
 	}
 
 	tcs := []testCase{
@@ -115,6 +115,7 @@ func TestSendRequest(t *testing.T) {
 			Method:      "what method?",
 			URL:         "http://argus-hostname.io",
 			ExpectedErr: errNewRequestFailure,
+			MockAuth:    "",
 			MockError:   nil,
 		},
 		{
@@ -122,6 +123,7 @@ func TestSendRequest(t *testing.T) {
 			Method:      http.MethodGet,
 			URL:         "http://argus-hostname.io",
 			MockError:   errFails,
+			MockAuth:    "",
 			ExpectedErr: ErrAuthAcquirerFailure,
 		},
 		{
@@ -130,6 +132,7 @@ func TestSendRequest(t *testing.T) {
 			ClientDoFails: true,
 			ExpectedErr:   errDoRequestFailure,
 			MockError:     nil,
+			MockAuth:      "",
 		},
 		{
 			Description: "Happy path",
@@ -142,6 +145,7 @@ func TestSendRequest(t *testing.T) {
 				Body: []byte("testing"),
 			},
 			MockError: nil,
+			MockAuth:  "basic xyz",
 		},
 	}
 	for _, tc := range tcs {
@@ -167,7 +171,7 @@ func TestSendRequest(t *testing.T) {
 				Bucket:     "bucket-name",
 			})
 
-			acquirer.On("AddAuth", mock.Anything).Return(tc.MockError)
+			acquirer.On("GetAuth").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			var URL = server.URL
@@ -197,6 +201,7 @@ func TestGetItems(t *testing.T) {
 		ExpectedErr         error
 		ExpectedOutput      Items
 		MockError           error
+		MockAuth            string
 	}
 
 	tcs := []testCase{
@@ -205,30 +210,35 @@ func TestGetItems(t *testing.T) {
 			Description: "Make request fails",
 			ExpectedErr: ErrAuthAcquirerFailure,
 			MockError:   errFails,
+			MockAuth:    "",
 		},
 		{
 			Description:         "Do request fails",
 			ShouldDoRequestFail: true,
 			ExpectedErr:         errDoRequestFailure,
 			MockError:           nil,
+			MockAuth:            "",
 		},
 		{
 			Description:  "Unauthorized",
 			ResponseCode: http.StatusForbidden,
 			ExpectedErr:  ErrFailedAuthentication,
 			MockError:    nil,
+			MockAuth:     "",
 		},
 		{
 			Description:  "Bad request",
 			ResponseCode: http.StatusBadRequest,
 			ExpectedErr:  ErrBadRequest,
 			MockError:    nil,
+			MockAuth:     "",
 		},
 		{
 			Description:  "Other non-success",
 			ResponseCode: http.StatusInternalServerError,
 			ExpectedErr:  errNonSuccessResponse,
 			MockError:    nil,
+			MockAuth:     "",
 		},
 		{
 			Description:     "Payload unmarshal error",
@@ -236,6 +246,7 @@ func TestGetItems(t *testing.T) {
 			ResponsePayload: []byte("[{}"),
 			ExpectedErr:     errJSONUnmarshal,
 			MockError:       nil,
+			MockAuth:        "",
 		},
 		{
 			Description:     "Happy path",
@@ -243,6 +254,7 @@ func TestGetItems(t *testing.T) {
 			ResponsePayload: getItemsValidPayload(),
 			ExpectedOutput:  getItemsHappyOutput(),
 			MockError:       nil,
+			MockAuth:        "basic xyz",
 		},
 	}
 
@@ -273,7 +285,7 @@ func TestGetItems(t *testing.T) {
 
 			require.Nil(err)
 
-			acquirer.On("AddAuth", mock.Anything).Return(tc.MockError)
+			acquirer.On("GetAuth").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			if tc.ShouldDoRequestFail {
@@ -302,6 +314,7 @@ func TestPushItem(t *testing.T) {
 		ExpectedErr          error
 		ExpectedOutput       PushResult
 		MockError            error
+		MockAuth             string
 	}
 
 	validItem := model.Item{
@@ -319,18 +332,21 @@ func TestPushItem(t *testing.T) {
 			Item:        model.Item{Data: map[string]interface{}{}},
 			ExpectedErr: ErrItemIDEmpty,
 			MockError:   nil,
+			MockAuth:    "",
 		},
 		{
 			Description: "Item Data missing",
 			Item:        model.Item{ID: validItem.ID},
 			ExpectedErr: ErrItemDataEmpty,
 			MockError:   nil,
+			MockAuth:    "",
 		},
 		{
 			Description: "Make request fails",
 			Item:        validItem,
 			ExpectedErr: ErrAuthAcquirerFailure,
 			MockError:   errFails,
+			MockAuth:    "",
 		},
 		{
 			Description:         "Do request fails",
@@ -338,6 +354,7 @@ func TestPushItem(t *testing.T) {
 			ShouldDoRequestFail: true,
 			ExpectedErr:         errDoRequestFailure,
 			MockError:           nil,
+			MockAuth:            "",
 		},
 		{
 			Description:  "Unauthorized",
@@ -345,13 +362,16 @@ func TestPushItem(t *testing.T) {
 			ResponseCode: http.StatusForbidden,
 			ExpectedErr:  ErrFailedAuthentication,
 			MockError:    nil,
+			MockAuth:     "",
 		},
+
 		{
 			Description:  "Bad request",
 			Item:         validItem,
 			ResponseCode: http.StatusBadRequest,
 			ExpectedErr:  ErrBadRequest,
 			MockError:    nil,
+			MockAuth:     "",
 		},
 		{
 			Description:  "Other non-success",
@@ -359,6 +379,7 @@ func TestPushItem(t *testing.T) {
 			ResponseCode: http.StatusInternalServerError,
 			ExpectedErr:  errNonSuccessResponse,
 			MockError:    nil,
+			MockAuth:     "",
 		},
 		{
 			Description:    "Create success",
@@ -366,6 +387,7 @@ func TestPushItem(t *testing.T) {
 			ResponseCode:   http.StatusCreated,
 			ExpectedOutput: CreatedPushResult,
 			MockError:      nil,
+			MockAuth:       "basic xyz",
 		},
 		{
 			Description:    "Update success",
@@ -373,6 +395,7 @@ func TestPushItem(t *testing.T) {
 			ResponseCode:   http.StatusOK,
 			ExpectedOutput: UpdatedPushResult,
 			MockError:      nil,
+			MockAuth:       "basic xyz",
 		},
 		{
 			Description:    "Update success with owner",
@@ -381,6 +404,7 @@ func TestPushItem(t *testing.T) {
 			Owner:          "owner-name",
 			ExpectedOutput: UpdatedPushResult,
 			MockError:      nil,
+			MockAuth:       "basic xyz",
 		},
 	}
 
@@ -415,7 +439,7 @@ func TestPushItem(t *testing.T) {
 				Bucket:     bucket,
 			})
 
-			acquirer.On("AddAuth", mock.Anything).Return(tc.MockError)
+			acquirer.On("GetAuth").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			if tc.ShouldDoRequestFail {
@@ -449,6 +473,7 @@ func TestRemoveItem(t *testing.T) {
 		ExpectedErr          error
 		ExpectedOutput       model.Item
 		MockError            error
+		MockAuth             string
 	}
 
 	tcs := []testCase{
@@ -456,30 +481,35 @@ func TestRemoveItem(t *testing.T) {
 			Description: "Make request fails",
 			ExpectedErr: ErrAuthAcquirerFailure,
 			MockError:   errFails,
+			MockAuth:    "",
 		},
 		{
 			Description:         "Do request fails",
 			ShouldDoRequestFail: true,
 			ExpectedErr:         errDoRequestFailure,
 			MockError:           nil,
+			MockAuth:            "",
 		},
 		{
 			Description:  "Unauthorized",
 			ResponseCode: http.StatusForbidden,
 			ExpectedErr:  ErrFailedAuthentication,
 			MockError:    nil,
+			MockAuth:     "",
 		},
 		{
 			Description:  "Bad request",
 			ResponseCode: http.StatusBadRequest,
 			ExpectedErr:  ErrBadRequest,
 			MockError:    nil,
+			MockAuth:     "",
 		},
 		{
 			Description:  "Other non-success",
 			ResponseCode: http.StatusInternalServerError,
 			ExpectedErr:  errNonSuccessResponse,
 			MockError:    nil,
+			MockAuth:     "",
 		},
 		{
 			Description:     "Unmarshal failure",
@@ -487,6 +517,7 @@ func TestRemoveItem(t *testing.T) {
 			ResponsePayload: []byte("{{}"),
 			ExpectedErr:     errJSONUnmarshal,
 			MockError:       nil,
+			MockAuth:        "",
 		},
 		{
 			Description:     "Succcess",
@@ -494,6 +525,7 @@ func TestRemoveItem(t *testing.T) {
 			ResponsePayload: getRemoveItemValidPayload(),
 			ExpectedOutput:  getRemoveItemHappyOutput(),
 			MockError:       nil,
+			MockAuth:        "basic xyz",
 		},
 	}
 
@@ -520,7 +552,7 @@ func TestRemoveItem(t *testing.T) {
 				Bucket:     bucket,
 			})
 
-			acquirer.On("AddAuth", mock.Anything).Return(tc.MockError)
+			acquirer.On("GetAuth").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			if tc.ShouldDoRequestFail {
