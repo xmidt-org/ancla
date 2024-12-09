@@ -24,19 +24,13 @@ var (
 		fmt.Println("Doing amazing work for 100ms")
 		time.Sleep(time.Millisecond * 100)
 	}))
-	mockMeasures = &Measures{
-		Polls: prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Name: "testPollsCounter",
-				Help: "testPollsCounter",
-			},
-			[]string{OutcomeLabel},
-		)}
-	happyListenerClientConfig = ListenerClientConfig{
-		Listener:     mockListener,
-		PullInterval: time.Second,
-		Logger:       zap.NewNop(),
-	}
+	pollsTotalCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "testPollsCounter",
+			Help: "testPollsCounter",
+		},
+		[]string{OutcomeLabel},
+	)
 )
 
 func TestListenerStartStopPairsParallel(t *testing.T) {
@@ -56,6 +50,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 				if errStart != nil {
 					assert.Equal(ErrListenerNotStopped, errStart)
 				}
+				client.observer.listener.Update(Items{})
 				time.Sleep(time.Millisecond * 400)
 				errStop := client.Stop(context.Background())
 				if errStop != nil {
@@ -109,14 +104,14 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 		rw.Write(getItemsValidPayload())
 	}))
 
-	config := ListenerClientConfig{
-		PullInterval: time.Millisecond * 200,
-		Logger:       zap.NewNop(),
-	}
+	var listener Listener
 	if includeListener {
-		config.Listener = mockListener
+		listener = mockListener
 	}
-	client, err := NewListenerClient(config, nil, mockMeasures, &BasicClient{client: http.DefaultClient})
+	client, err := NewListenerClient(listener,
+		func(context.Context) *zap.Logger { return zap.NewNop() },
+		func(context.Context, *zap.Logger) context.Context { return context.Background() },
+		time.Millisecond*200, pollsTotalCounter, &BasicClient{client: http.DefaultClient})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -126,74 +121,39 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 
 func TestValidateListenerConfig(t *testing.T) {
 	tcs := []struct {
-		desc        string
-		expectedErr error
-		config      ListenerClientConfig
-	}{
-		{
-			desc:   "Happy case Success",
-			config: happyListenerClientConfig,
-		},
-		{
-			desc:        "No listener Failure",
-			config:      ListenerClientConfig{},
-			expectedErr: ErrNoListenerProvided,
-		},
-		{
-			desc: "No logger and no pull interval Success",
-			config: ListenerClientConfig{
-				Listener: mockListener,
-			},
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			c := tc.config
-			err := validateListenerConfig(&c)
-			assert.True(errors.Is(err, tc.expectedErr),
-				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					err, tc.expectedErr),
-			)
-		})
-	}
-}
-
-func TestNewListenerClient(t *testing.T) {
-	tcs := []struct {
-		desc        string
-		config      ListenerClientConfig
-		expectedErr error
-		measures    *Measures
-		reader      Reader
+		desc              string
+		listener          Listener
+		pullInterval      time.Duration
+		expectedErr       error
+		pollsTotalCounter *prometheus.CounterVec
+		reader            Reader
 	}{
 		{
 			desc:        "Listener Config Failure",
-			config:      ListenerClientConfig{},
 			expectedErr: ErrNoListenerProvided,
 		},
 		{
-			desc:        "No measures Failure",
-			config:      happyListenerClientConfig,
-			expectedErr: ErrNilMeasures,
+			desc:              "No reader Failure",
+			listener:          mockListener,
+			pullInterval:      time.Second,
+			pollsTotalCounter: pollsTotalCounter,
+			expectedErr:       ErrNoReaderProvided,
 		},
 		{
-			desc:        "No reader Failure",
-			config:      happyListenerClientConfig,
-			measures:    mockMeasures,
-			expectedErr: ErrNoReaderProvided,
-		},
-		{
-			desc:     "Happy case Success",
-			config:   happyListenerClientConfig,
-			measures: mockMeasures,
-			reader:   &BasicClient{},
+			desc:              "Happy case Success",
+			listener:          mockListener,
+			pullInterval:      time.Second,
+			pollsTotalCounter: pollsTotalCounter,
+			reader:            &BasicClient{},
 		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			_, err := NewListenerClient(tc.config, nil, tc.measures, tc.reader)
+			_, err := NewListenerClient(tc.listener,
+				func(context.Context) *zap.Logger { return zap.NewNop() },
+				func(context.Context, *zap.Logger) context.Context { return context.Background() },
+				tc.pullInterval, tc.pollsTotalCounter, tc.reader)
 			assert.True(errors.Is(err, tc.expectedErr),
 				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 					err, tc.expectedErr),

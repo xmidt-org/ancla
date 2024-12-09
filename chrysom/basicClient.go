@@ -11,9 +11,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/model"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -41,6 +43,7 @@ var (
 	errReadingBodyFailure = errors.New("failed while reading http response body")
 	errJSONUnmarshal      = errors.New("failed unmarshaling JSON response payload")
 	errJSONMarshal        = errors.New("failed marshaling item as JSON payload")
+	errFailedConfig       = errors.New("ancla configuration error")
 )
 
 // BasicClientConfig contains config data for the client that will be used to
@@ -59,6 +62,10 @@ type BasicClientConfig struct {
 	// Auth provides the mechanism to add auth headers to outgoing requests.
 	// (Optional) If not provided, no auth headers are added.
 	Auth auth.Decorator
+
+	// PullInterval is how often listeners should get updates.
+	// (Optional). Defaults to 5 seconds.
+	PullInterval time.Duration
 }
 
 // BasicClient is the client used to make requests to Argus.
@@ -85,6 +92,31 @@ const (
 
 // Items is a slice of model.Item(s) .
 type Items []model.Item
+
+// GetLogger returns a logger from the given context.
+type GetLogger func(context.Context) *zap.Logger
+
+// SetLogger embeds the `Listener.logger` in outgoing request contexts for `Listener.Update` calls.
+type SetLogger func(context.Context, *zap.Logger) context.Context
+
+type BasicClientIn struct {
+	fx.In
+
+	// Ancla Client config.
+	Config BasicClientConfig
+	// GetLogger returns a logger from the given context.
+	GetLogger GetLogger
+}
+
+// ProvideBasicClient provides a new BasicClient.
+func ProvideBasicClient(in BasicClientIn) (*BasicClient, error) {
+	client, err := NewBasicClient(in.Config, in.GetLogger)
+	if err != nil {
+		return nil, errors.Join(errFailedConfig, err)
+	}
+
+	return client, nil
+}
 
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.

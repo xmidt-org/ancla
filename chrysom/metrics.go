@@ -11,7 +11,10 @@ import (
 
 // Names
 const (
-	PollCounter = "chrysom_polls_total"
+	WebhookListSizeGaugeName = "webhook_list_size"
+	WebhookListSizeGaugeHelp = "Size of the current list of webhooks."
+	PollsTotalCounterName    = "chrysom_polls_total"
+	PollsTotalCounterHelp    = "Counter for the number of polls (and their success/failure outcomes) to fetch new items."
 )
 
 // Labels
@@ -25,20 +28,19 @@ const (
 	FailureOutcome = "failure"
 )
 
-// Metrics returns the Metrics relevant to this package
 func ProvideMetrics() fx.Option {
 	return fx.Options(
+		touchstone.Gauge(
+			prometheus.GaugeOpts{
+				Name: WebhookListSizeGaugeName,
+				Help: WebhookListSizeGaugeHelp,
+			}),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{
-				Name: PollCounter,
-				Help: "Counter for the number of polls (and their success/failure outcomes) to fetch new items.",
+				Name: PollsTotalCounterName,
+				Help: PollsTotalCounterHelp,
 			},
 			OutcomeLabel,
 		),
 	)
-}
-
-type Measures struct {
-	fx.In
-	Polls *prometheus.CounterVec `name:"chrysom_polls_total"`
 }

@@ -284,7 +284,7 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 		return `
 		{
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "superSecretXYZ"
 			},
@@ -292,7 +292,7 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
+			"failure_url": "example.com",
 			"duration": "hehe",
 			"until": "2021-01-02T15:04:10Z"
 		}
@@ -301,7 +301,7 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 	return `
 		{
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": 5,
 				"secret": "superSecretXYZ"
 			},
@@ -309,7 +309,7 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
+			"failure_url": "example.com",
 			"duration": 0,
 			"until": "2021-01-02T15:04:10Z"
 		}

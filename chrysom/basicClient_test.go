@@ -121,7 +121,7 @@ func TestSendRequest(t *testing.T) {
 			ExpectedErr: errNewRequestFailure,
 		},
 		{
-			Description: "Auth acquirer fails",
+			Description: "Auth decorator fails",
 			Method:      http.MethodGet,
 			URL:         "example.com",
 			MockError:   errFails,
@@ -188,8 +188,9 @@ func TestSendRequest(t *testing.T) {
 			defer server.Close()
 
 			client, err := NewBasicClient(BasicClientConfig{
-				Address: "example.com",
-				Bucket:  "bucket-name",
+				HTTPClient: http.DefaultClient,
+				Address:    "example.com",
+				Bucket:     "bucket-name",
 			},
 				func(context.Context) *zap.Logger {
 					return zap.NewNop()
@@ -299,8 +300,9 @@ func TestGetItems(t *testing.T) {
 			}))
 
 			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
+				HTTPClient: http.DefaultClient,
+				Address:    server.URL,
+				Bucket:     bucket,
 			},
 				func(context.Context) *zap.Logger {
 					return zap.NewNop()
@@ -444,8 +446,9 @@ func TestPushItem(t *testing.T) {
 			}))
 
 			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
+				HTTPClient: http.DefaultClient,
+				Address:    server.URL,
+				Bucket:     bucket,
 			},
 				func(context.Context) *zap.Logger {
 					return zap.NewNop()
@@ -551,8 +554,9 @@ func TestRemoveItem(t *testing.T) {
 			}))
 
 			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
+				HTTPClient: http.DefaultClient,
+				Address:    server.URL,
+				Bucket:     bucket,
 			}, func(context.Context) *zap.Logger {
 				return zap.NewNop()
 			})

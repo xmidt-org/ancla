@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -38,70 +39,88 @@ const (
 )
 
 // ListenerConfig contains config data for polling the Argus client.
-type ListenerClientConfig struct {
-	// Listener provides a mechanism to fetch a copy of all items within a bucket on
-	// an interval.
+type ListenerClientIn struct {
+	fx.In
+
+	// Listener fetches a copy of all items within a bucket on
+	// an interval based on `BasicClientConfig.PullInterval`.
 	// (Optional). If not provided, listening won't be enabled for this client.
 	Listener Listener
-
-	// PullInterval is how often listeners should get updates.
-	// (Optional). Defaults to 5 seconds.
-	PullInterval time.Duration
-
-	// Logger to be used by the client.
-	// (Optional). By default a no op logger will be used.
-	Logger *zap.Logger
+	// Config configures the ancla client and its listeners.
+	Config BasicClientConfig
+	// PollsTotalCounter measures the number of polls (and their success/failure outcomes) to fetch new items.
+	PollsTotalCounter *prometheus.CounterVec `name:"chrysom_polls_total"`
+	// Reader is the DB interface used to fetch new items using `GeItems`.
+	Reader Reader
+	// GetLogger returns a logger from the given context.
+	GetLogger GetLogger
+	// SetLogger embeds the `Listener.logger` in outgoing request contexts for `Listener.Update` calls.
+	SetLogger SetLogger
 }
 
 // ListenerClient is the client used to poll Argus for updates.
 type ListenerClient struct {
 	observer  *observerConfig
-	logger    *zap.Logger
+	getLogger func(context.Context) *zap.Logger
 	setLogger func(context.Context, *zap.Logger) context.Context
 	reader    Reader
 }
 
 type observerConfig struct {
-	listener     Listener
-	ticker       *time.Ticker
-	pullInterval time.Duration
-	measures     *Measures
-	shutdown     chan struct{}
-	state        int32
+	listener          Listener
+	ticker            *time.Ticker
+	pullInterval      time.Duration
+	pollsTotalCounter *prometheus.CounterVec
+
+	shutdown chan struct{}
+	state    int32
+}
+
+// ProvideListenerClient provides a new ListenerClient.
+func ProvideListenerClient(in ListenerClientIn) (*ListenerClient, error) {
+	client, err := NewListenerClient(in.Listener, in.GetLogger, in.SetLogger, in.Config.PullInterval, in.PollsTotalCounter, in.Reader)
+	if err != nil {
+		return nil, errors.Join(err, errFailedConfig)
+	}
+
+	return client, nil
+}
+
+func ProvideDefaultListenerReader(client *BasicClient) Reader {
+	return client
 }
 
 // NewListenerClient creates a new ListenerClient to be used to poll Argus
 // for updates.
-func NewListenerClient(config ListenerClientConfig,
+func NewListenerClient(listener Listener,
+	getLogger func(context.Context) *zap.Logger,
 	setLogger func(context.Context, *zap.Logger) context.Context,
-	measures *Measures, r Reader,
-) (*ListenerClient, error) {
-	err := validateListenerConfig(&config)
-	if err != nil {
-		return nil, err
+	pullInterval time.Duration, pollsTotalCounter *prometheus.CounterVec, reader Reader) (*ListenerClient, error) {
+	if listener == nil {
+		return nil, ErrNoListenerProvided
 	}
-	if measures == nil {
-		return nil, ErrNilMeasures
+	if pullInterval == 0 {
+		pullInterval = defaultPullInterval
 	}
 	if setLogger == nil {
 		setLogger = func(ctx context.Context, _ *zap.Logger) context.Context {
 			return ctx
 		}
 	}
-	if r == nil {
+	if reader == nil {
 		return nil, ErrNoReaderProvided
 	}
 	return &ListenerClient{
 		observer: &observerConfig{
-			listener:     config.Listener,
-			ticker:       time.NewTicker(config.PullInterval),
-			pullInterval: config.PullInterval,
-			measures:     measures,
-			shutdown:     make(chan struct{}),
+			listener:          listener,
+			ticker:            time.NewTicker(pullInterval),
+			pullInterval:      pullInterval,
+			pollsTotalCounter: pollsTotalCounter,
+			shutdown:          make(chan struct{}),
 		},
-		logger:    config.Logger,
+		getLogger: getLogger,
 		setLogger: setLogger,
-		reader:    r,
+		reader:    reader,
 	}, nil
 }
 
@@ -109,17 +128,18 @@ func NewListenerClient(config ListenerClientConfig,
 // is setup correctly. If a listener process is already in progress, calling Start()
 // is a NoOp. If you want to restart the current listener process, call Stop() first.
 func (c *ListenerClient) Start(ctx context.Context) error {
+	logger := c.getLogger(ctx)
 	if c.observer == nil || c.observer.listener == nil {
-		c.logger.Warn("No listener was setup to receive updates.")
+		logger.Warn("No listener was setup to receive updates.")
 		return nil
 	}
 	if c.observer.ticker == nil {
-		c.logger.Error("Observer ticker is nil", zap.Error(ErrUndefinedIntervalTicker))
+		logger.Error("Observer ticker is nil", zap.Error(ErrUndefinedIntervalTicker))
 		return ErrUndefinedIntervalTicker
 	}
 
 	if !atomic.CompareAndSwapInt32(&c.observer.state, stopped, transitioning) {
-		c.logger.Error("Start called when a listener was not in stopped state", zap.Error(ErrListenerNotStopped))
+		logger.Error("Start called when a listener was not in stopped state", zap.Error(ErrListenerNotStopped))
 		return ErrListenerNotStopped
 	}
 
@@ -131,15 +151,15 @@ func (c *ListenerClient) Start(ctx context.Context) error {
 				return
 			case <-c.observer.ticker.C:
 				outcome := SuccessOutcome
-				ctx := c.setLogger(context.Background(), c.logger)
+				ctx := c.setLogger(context.Background(), logger)
 				items, err := c.reader.GetItems(ctx, "")
 				if err == nil {
 					c.observer.listener.Update(items)
 				} else {
 					outcome = FailureOutcome
-					c.logger.Error("Failed to get items for listeners", zap.Error(err))
+					logger.Error("Failed to get items for listeners", zap.Error(err))
 				}
-				c.observer.measures.Polls.With(prometheus.Labels{
+				c.observer.pollsTotalCounter.With(prometheus.Labels{
 					OutcomeLabel: outcome}).Add(1)
 			}
 		}
@@ -157,8 +177,9 @@ func (c *ListenerClient) Stop(ctx context.Context) error {
 		return nil
 	}
 
+	logger := c.getLogger(ctx)
 	if !atomic.CompareAndSwapInt32(&c.observer.state, running, transitioning) {
-		c.logger.Error("Stop called when a listener was not in running state", zap.Error(ErrListenerNotStopped))
+		logger.Error("Stop called when a listener was not in running state", zap.Error(ErrListenerNotStopped))
 		return ErrListenerNotRunning
 	}
 
@@ -168,15 +189,17 @@ func (c *ListenerClient) Stop(ctx context.Context) error {
 	return nil
 }
 
-func validateListenerConfig(config *ListenerClientConfig) error {
-	if config.Listener == nil {
-		return ErrNoListenerProvided
-	}
-	if config.Logger == nil {
-		config.Logger = zap.NewNop()
-	}
-	if config.PullInterval == 0 {
-		config.PullInterval = defaultPullInterval
-	}
+type StartListenerIn struct {
+	fx.In
+
+	Listener *ListenerClient
+	LC       fx.Lifecycle
+}
+
+// ProvideStartListenerClient starts the Argus listener client service.
+func ProvideStartListenerClient(in StartListenerIn) error {
+	in.Listener.Start(context.Background())
+	in.LC.Append(fx.StopHook(in.Listener.Stop))
+
 	return nil
 }
