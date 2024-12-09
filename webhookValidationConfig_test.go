@@ -80,7 +80,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			config: ValidatorConfig{
 				Domain: DomainConfig{
 					AllowSpecialUseDomains: true,
-					ForbiddenDomains:       []string{"foo.com."},
+					ForbiddenDomains:       []string{"example.com."},
 				},
 			},
 		},

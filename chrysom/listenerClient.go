@@ -11,6 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/sallust"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -39,15 +40,19 @@ const (
 )
 
 // ListenerConfig contains config data for polling the Argus client.
-type ListenerConfig struct {
-	// Listener provides a mechanism to fetch a copy of all items within a bucket on
-	// an interval.
+type ListenerClientIn struct {
+	fx.In
+
+	// Listener fetches a copy of all items within a bucket on
+	// an interval based on `BasicClientConfig.PullInterval`.
 	// (Optional). If not provided, listening won't be enabled for this client.
 	Listener Listener
-
-	// PullInterval is how often listeners should get updates.
-	// (Optional). Defaults to 5 seconds.
-	PullInterval time.Duration
+	// Config configures the ancla client and its listeners.
+	Config BasicClientConfig
+	// PollsTotalCounter measures the number of polls (and their success/failure outcomes) to fetch new items.
+	PollsTotalCounter *prometheus.CounterVec `name:"chrysom_polls_total"`
+	// Reader is the DB interface used to fetch new items using `GeItems`.
+	Reader Reader
 }
 
 // ListenerClient is the client used to poll Argus for updates.
@@ -57,35 +62,51 @@ type ListenerClient struct {
 }
 
 type observerConfig struct {
-	listener     Listener
-	ticker       *time.Ticker
-	pullInterval time.Duration
-	measures     Measures
-	shutdown     chan struct{}
-	state        int32
+	listener          Listener
+	ticker            *time.Ticker
+	pullInterval      time.Duration
+	pollsTotalCounter *prometheus.CounterVec
+
+	shutdown chan struct{}
+	state    int32
 }
 
-// NewListenerClient creates a new ListenerClient to be used to poll Argus
-// for updates.
-func NewListenerClient(config ListenerConfig, measures Measures, r Reader) (*ListenerClient, error) {
-	if config.Listener == nil {
+// ProvideListenerClient provides a new ListenerClient.
+func ProvideListenerClient(in ListenerClientIn) (*ListenerClient, error) {
+	client, err := NewListenerClient(in.Listener, in.Config.PullInterval, in.PollsTotalCounter, in.Reader)
+	if err != nil {
+		return nil, errors.Join(err, errFailedConfig)
+	}
+
+	return client, nil
+}
+
+func ProvideDefaultListenerReader(client *BasicClient) Reader {
+	return client
+}
+
+// ProvideListenerClient builds the Argus listener client service from the given configuration.
+// It allows adding watchers for the internal subscription state. Call the returned
+// function when you are done watching for updates.
+func NewListenerClient(listener Listener, pullInterval time.Duration, pollsTotalCounter *prometheus.CounterVec, reader Reader) (*ListenerClient, error) {
+	if listener == nil {
 		return nil, ErrNoListenerProvided
 	}
-	if config.PullInterval == 0 {
-		config.PullInterval = defaultPullInterval
+	if pullInterval == 0 {
+		pullInterval = defaultPullInterval
 	}
-	if r == nil {
+	if reader == nil {
 		return nil, ErrNoReaderProvided
 	}
 	return &ListenerClient{
 		observer: &observerConfig{
-			listener:     config.Listener,
-			ticker:       time.NewTicker(config.PullInterval),
-			pullInterval: config.PullInterval,
-			measures:     measures,
-			shutdown:     make(chan struct{}),
+			listener:          listener,
+			ticker:            time.NewTicker(pullInterval),
+			pullInterval:      pullInterval,
+			pollsTotalCounter: pollsTotalCounter,
+			shutdown:          make(chan struct{}),
 		},
-		reader: r,
+		reader: reader,
 	}, nil
 }
 
@@ -123,7 +144,7 @@ func (c *ListenerClient) Start(ctx context.Context) error {
 					outcome = FailureOutcome
 					logger.Error("Failed to get items for listeners", zap.Error(err))
 				}
-				c.observer.measures.PollsTotalCounter.With(prometheus.Labels{
+				c.observer.pollsTotalCounter.With(prometheus.Labels{
 					OutcomeLabel: outcome}).Add(1)
 			}
 		}
@@ -150,5 +171,20 @@ func (c *ListenerClient) Stop(ctx context.Context) error {
 	c.observer.ticker.Stop()
 	c.observer.shutdown <- struct{}{}
 	atomic.SwapInt32(&c.observer.state, stopped)
+	return nil
+}
+
+type StartListenerIn struct {
+	fx.In
+
+	Listener *ListenerClient
+	LC       fx.Lifecycle
+}
+
+// ProvideStartListenerClient starts the Argus listener client service.
+func ProvideStartListenerClient(in StartListenerIn) error {
+	in.Listener.Start(context.Background())
+	in.LC.Append(fx.StopHook(in.Listener.Stop))
+
 	return nil
 }

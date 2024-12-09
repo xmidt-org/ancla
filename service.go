@@ -7,9 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/sallust"
 	"go.uber.org/fx"
@@ -24,7 +24,6 @@ var (
 	errFailedWebhookConversion = errors.New("failed to convert webhook to argus item")
 	errFailedItemConversion    = errors.New("failed to convert argus item to webhook")
 	errFailedWebhooksFetch     = errors.New("failed to fetch webhooks")
-	errFailedConfig            = errors.New("ancla configuration error")
 )
 
 // Service describes the core operations around webhook subscriptions.
@@ -55,37 +54,8 @@ type Config struct {
 }
 
 type ClientService struct {
-	argus  chrysom.PushReader
-	config Config
-	now    func() time.Time
-}
-
-// NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config) (*ClientService, error) {
-	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
-	}
-	svc := &ClientService{
-		argus:  basic,
-		config: cfg,
-		now:    time.Now,
-	}
-	return svc, nil
-}
-
-// StartListener builds the Argus listener client service from the given configuration.
-// It allows adding watchers for the internal subscription state. Call the returned
-// function when you are done watching for updates.
-func (s *ClientService) StartListener(cfg chrysom.ListenerConfig, metrics chrysom.Measures, watches ...Watch) (func(), error) {
-	prepArgusListenerConfig(&cfg, metrics, watches...)
-	listener, err := chrysom.NewListenerClient(cfg, metrics, s.argus)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
-	}
-
-	listener.Start(context.Background())
-	return func() { listener.Stop(context.Background()) }, nil
+	argus chrysom.PushReader
+	now   func() time.Time
 }
 
 func (s *ClientService) Add(ctx context.Context, owner string, iw Register) error {
@@ -125,65 +95,68 @@ func (s *ClientService) GetAll(ctx context.Context) ([]Register, error) {
 	return iws, nil
 }
 
-func prepArgusListenerConfig(cfg *chrysom.ListenerConfig, metrics chrysom.Measures, watches ...Watch) {
-	watches = append(watches, webhookListSizeWatch(metrics.WebhookListSizeGauge))
-	cfg.Listener = chrysom.ListenerFunc(func(ctx context.Context, items chrysom.Items) {
-		logger := sallust.Get(ctx)
-		iws, err := ItemsToInternalWebhooks(items)
-		if err != nil {
-			logger.Error("Failed to convert items to webhooks", zap.Error(err))
-			return
-		}
-		for _, watch := range watches {
-			watch.Update(iws)
-		}
-	})
+func NewService(client *chrysom.BasicClient) *ClientService {
+	return &ClientService{
+		argus: client,
+		now:   time.Now,
+	}
 }
 
-type ServiceIn struct {
+type ClientServiceIn struct {
 	fx.In
 
-	Config Config
-	Client *http.Client
-	Auth   chrysom.Acquirer
+	BasicClient *chrysom.BasicClient
 }
 
-func ProvideService() fx.Option {
-	return fx.Provide(
-		func(in ServiceIn) (*ClientService, error) {
-			svc, err := NewService(in.Config)
-			if err != nil {
-				return nil, errors.Join(errFailedConfig, err)
-			}
+// ProvideService builds the Argus client service from the given configuration.
+func ProvideService(in ClientServiceIn) *ClientService {
+	return NewService(in.BasicClient)
+}
 
-			svc.config.BasicClientConfig.HTTPClient = in.Client
-			return svc, err
-		},
-	)
+// TODO: Refactor and move Watch and Listener related code to chrysom.
+type DefaultListenersIn struct {
+	fx.In
+
+	WebhookListSizeGauge prometheus.Gauge `name:"webhook_list_size"`
+}
+
+type DefaultListenerOut struct {
+	fx.Out
+
+	Watchers []Watch `group:"watchers,flatten"`
+}
+
+func ProvideDefaultListeners(in DefaultListenersIn) DefaultListenerOut {
+	var watchers []Watch
+
+	watchers = append(watchers, webhookListSizeWatch(in.WebhookListSizeGauge))
+
+	return DefaultListenerOut{
+		Watchers: watchers,
+	}
 }
 
 type ListenerIn struct {
 	fx.In
 
-	Measures       chrysom.Measures
-	Svc            *ClientService
-	listenerConfig chrysom.ListenerConfig
-	Watcher        Watch
-	LC             fx.Lifecycle
+	Shutdowner fx.Shutdowner
+	Watchers   []Watch `group:"watchers"`
 }
 
-func ProvideListener() fx.Option {
-	return fx.Options(
-		fx.Provide(
-			func(in ListenerIn) (err error) {
-				stopWatches, err := in.Svc.StartListener(in.listenerConfig, in.Measures, in.Watcher)
-				if err != nil {
-					return fmt.Errorf("webhook service start listener error: %v", err)
-				}
-				in.LC.Append(fx.StopHook(stopWatches))
+func ProvideListener(in ListenerIn) chrysom.Listener {
+	return chrysom.ListenerFunc(func(ctx context.Context, items chrysom.Items) {
+		logger := sallust.Get(ctx)
+		iws, err := ItemsToInternalWebhooks(items)
+		if err != nil {
+			logger.Error("failed to convert items to webhooks", zap.Error(err))
+			in.Shutdowner.Shutdown(fx.ExitCode(1))
 
-				return nil
-			},
-		),
-	)
+			return
+		}
+
+		for _, watch := range in.Watchers {
+			watch.Update(iws)
+		}
+	})
+
 }
