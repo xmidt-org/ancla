@@ -10,81 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
 )
-
-func TestNewService(t *testing.T) {
-	tcs := []struct {
-		desc        string
-		config      Config
-		expectedErr bool
-	}{
-		{
-			desc: "Success Case",
-			config: Config{
-				BasicClientConfig: chrysom.BasicClientConfig{
-					Address: "test",
-					Bucket:  "test",
-				},
-			},
-		},
-		{
-			desc:        "Chrysom Basic Client Creation Failure",
-			expectedErr: true,
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			_, err := NewService(tc.config)
-			if tc.expectedErr {
-				assert.NotNil(err)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
-}
-
-func TestStartListener(t *testing.T) {
-	mockServiceConfig := Config{
-		BasicClientConfig: chrysom.BasicClientConfig{
-			Address: "test",
-			Bucket:  "test",
-		},
-	}
-	mockService, _ := NewService(mockServiceConfig)
-	tcs := []struct {
-		desc           string
-		serviceConfig  Config
-		listenerConfig chrysom.ListenerConfig
-		svc            ClientService
-		expectedErr    bool
-	}{
-		{
-			desc:           "Success Case",
-			svc:            *mockService,
-			listenerConfig: chrysom.ListenerConfig{},
-		},
-		{
-			desc:        "Chrysom Listener Client Creation Failure",
-			expectedErr: true,
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			_, err := tc.svc.StartListener(tc.listenerConfig, chrysom.Measures{})
-			if tc.expectedErr {
-				assert.NotNil(err)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
-}
 
 func TestAdd(t *testing.T) {
 	type pushItemResults struct {
@@ -134,9 +62,8 @@ func TestAdd(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
 			svc := ClientService{
-				config: Config{},
-				argus:  m,
-				now:    time.Now,
+				argus: m,
+				now:   time.Now,
 			}
 			// nolint:typecheck
 			m.On("PushItem", context.TODO(), tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
@@ -178,8 +105,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 			m := new(mockPushReader)
 
 			svc := ClientService{
-				argus:  m,
-				config: Config{},
+				argus: m,
 			}
 			// nolint:typecheck
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)

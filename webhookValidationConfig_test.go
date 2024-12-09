@@ -102,7 +102,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			vals, err := tc.config.BuildURLChecker()
+			vals, err := BuildURLChecker(tc.config)
 			if tc.expectedErr != nil {
 				assert.True(errors.Is(err, tc.expectedErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
@@ -116,7 +116,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 }
 
 func TestBuildOptions(t *testing.T) {
-	checker, err := buildAllConfig.BuildURLChecker()
+	checker, err := BuildURLChecker(buildAllConfig)
 	assert.NoError(t, err)
 	opts := buildAllConfig.BuildOptions(checker)
 	assert.NotNil(t, opts)

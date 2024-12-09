@@ -51,7 +51,7 @@ type OptionsConfig struct {
 }
 
 // BuildURLChecker translates the configuration into url Checker to be run on the webhook.
-func (config *ValidatorConfig) BuildURLChecker() (*urlegit.Checker, error) {
+func BuildURLChecker(config ValidatorConfig) (*urlegit.Checker, error) {
 	var o []urlegit.Option
 	if len(config.URL.Schemes) > 0 {
 		o = append(o, urlegit.OnlyAllowSchemes(config.URL.Schemes...))

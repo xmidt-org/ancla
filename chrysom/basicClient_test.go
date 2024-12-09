@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
@@ -33,20 +32,18 @@ func TestValidateBasicConfig(t *testing.T) {
 	type testCase struct {
 		Description    string
 		Input          *BasicClientConfig
+		Client         HTTPClient
 		ExpectedErr    error
 		ExpectedConfig *BasicClientConfig
 	}
 
 	allDefaultsCaseConfig := &BasicClientConfig{
-		HTTPClient: http.DefaultClient,
-		Address:    "http://awesome-argus-hostname.io",
-		Bucket:     "bucket-name",
+		Address: "http://awesome-argus-hostname.io",
+		Bucket:  "bucket-name",
 	}
-	myAmazingClient := &http.Client{Timeout: time.Hour}
 	allDefinedCaseConfig := &BasicClientConfig{
-		HTTPClient: myAmazingClient,
-		Address:    "http://legit-argus-hostname.io",
-		Bucket:     "amazing-bucket",
+		Address: "http://legit-argus-hostname.io",
+		Bucket:  "amazing-bucket",
 	}
 
 	tcs := []testCase{
@@ -75,9 +72,8 @@ func TestValidateBasicConfig(t *testing.T) {
 		{
 			Description: "All defined",
 			Input: &BasicClientConfig{
-				Address:    "http://legit-argus-hostname.io",
-				Bucket:     "amazing-bucket",
-				HTTPClient: myAmazingClient,
+				Address: "http://legit-argus-hostname.io",
+				Bucket:  "amazing-bucket",
 			},
 			ExpectedConfig: allDefinedCaseConfig,
 		},
@@ -103,6 +99,7 @@ func TestSendRequest(t *testing.T) {
 		URL              string
 		Body             []byte
 		ClientDoFails    bool
+		NilHTTPClient    bool
 		ExpectedResponse response
 		ExpectedErr      error
 		MockError        error
@@ -147,6 +144,20 @@ func TestSendRequest(t *testing.T) {
 			MockError: nil,
 			MockAuth:  "basic xyz",
 		},
+		{
+			Description: "Happy path with default http client",
+			Method:      http.MethodPut,
+			URL:         "http://argus-hostname.io",
+			Body:        []byte("testing"),
+			Owner:       "HappyCaseOwner",
+			ExpectedResponse: response{
+				Code: http.StatusOK,
+				Body: []byte("testing"),
+			},
+			MockError:     nil,
+			MockAuth:      "basic xyz",
+			NilHTTPClient: true,
+		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
@@ -165,11 +176,15 @@ func TestSendRequest(t *testing.T) {
 			server := httptest.NewServer(echoHandler)
 			defer server.Close()
 
+			var httpClient HTTPClient = server.Client()
+			if tc.NilHTTPClient {
+				httpClient = nil
+			}
+
 			client, err := NewBasicClient(BasicClientConfig{
-				HTTPClient: server.Client(),
-				Address:    "http://argus-hostname.io",
-				Bucket:     "bucket-name",
-			})
+				Address: "http://argus-hostname.io",
+				Bucket:  "bucket-name",
+			}, httpClient)
 
 			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
@@ -278,10 +293,9 @@ func TestGetItems(t *testing.T) {
 			}))
 
 			client, err := NewBasicClient(BasicClientConfig{
-				HTTPClient: server.Client(),
-				Address:    server.URL,
-				Bucket:     bucket,
-			})
+				Address: server.URL,
+				Bucket:  bucket,
+			}, server.Client())
 
 			require.Nil(err)
 
@@ -434,10 +448,9 @@ func TestPushItem(t *testing.T) {
 			}))
 
 			client, err := NewBasicClient(BasicClientConfig{
-				HTTPClient: server.Client(),
-				Address:    server.URL,
-				Bucket:     bucket,
-			})
+				Address: server.URL,
+				Bucket:  bucket,
+			}, server.Client())
 
 			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
@@ -547,10 +560,9 @@ func TestRemoveItem(t *testing.T) {
 			}))
 
 			client, err := NewBasicClient(BasicClientConfig{
-				HTTPClient: server.Client(),
-				Address:    server.URL,
-				Bucket:     bucket,
-			})
+				Address: server.URL,
+				Bucket:  bucket,
+			}, server.Client())
 
 			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
