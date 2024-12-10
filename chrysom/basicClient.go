@@ -66,7 +66,7 @@ type BasicClientConfig struct {
 
 // BasicClient is the client used to make requests to Argus.
 type BasicClient struct {
-	client       HTTPClient
+	client       *http.Client
 	auth         Acquirer
 	storeBaseURL string
 	bucket       string
@@ -88,16 +88,12 @@ const (
 // Items is a slice of model.Item(s) .
 type Items []model.Item
 
-type HTTPClient interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
 type BasicClientIn struct {
 	fx.In
 
 	BasicClientConfig BasicClientConfig
 	// (Optional) Defaults to http.DefaultClient.
-	HTTPClient HTTPClient
+	HTTPClient *http.Client `name:"chrysom_http_client"`
 }
 
 // ProvideBasicClient provides a new BasicClient.
@@ -112,7 +108,7 @@ func ProvideBasicClient(in BasicClientIn) (*BasicClient, error) {
 
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.
-func NewBasicClient(config BasicClientConfig, client HTTPClient) (*BasicClient, error) {
+func NewBasicClient(config BasicClientConfig, client *http.Client) (*BasicClient, error) {
 	err := validateBasicConfig(&config)
 	if err != nil {
 		return nil, err

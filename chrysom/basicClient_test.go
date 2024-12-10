@@ -32,17 +32,17 @@ func TestValidateBasicConfig(t *testing.T) {
 	type testCase struct {
 		Description    string
 		Input          *BasicClientConfig
-		Client         HTTPClient
+		Client         *http.Client
 		ExpectedErr    error
 		ExpectedConfig *BasicClientConfig
 	}
 
 	allDefaultsCaseConfig := &BasicClientConfig{
-		Address: "http://awesome-argus-hostname.io",
+		Address: "example.com",
 		Bucket:  "bucket-name",
 	}
 	allDefinedCaseConfig := &BasicClientConfig{
-		Address: "http://legit-argus-hostname.io",
+		Address: "example.com",
 		Bucket:  "amazing-bucket",
 	}
 
@@ -57,14 +57,14 @@ func TestValidateBasicConfig(t *testing.T) {
 		{
 			Description: "No bucket",
 			Input: &BasicClientConfig{
-				Address: "http://awesome-argus-hostname.io",
+				Address: "example.com",
 			},
 			ExpectedErr: ErrBucketEmpty,
 		},
 		{
 			Description: "All default values",
 			Input: &BasicClientConfig{
-				Address: "http://awesome-argus-hostname.io",
+				Address: "example.com",
 				Bucket:  "bucket-name",
 			},
 			ExpectedConfig: allDefaultsCaseConfig,
@@ -72,7 +72,7 @@ func TestValidateBasicConfig(t *testing.T) {
 		{
 			Description: "All defined",
 			Input: &BasicClientConfig{
-				Address: "http://legit-argus-hostname.io",
+				Address: "example.com",
 				Bucket:  "amazing-bucket",
 			},
 			ExpectedConfig: allDefinedCaseConfig,
@@ -110,7 +110,7 @@ func TestSendRequest(t *testing.T) {
 		{
 			Description: "New Request fails",
 			Method:      "what method?",
-			URL:         "http://argus-hostname.io",
+			URL:         "example.com",
 			ExpectedErr: errNewRequestFailure,
 			MockAuth:    "",
 			MockError:   nil,
@@ -118,7 +118,7 @@ func TestSendRequest(t *testing.T) {
 		{
 			Description: "Auth acquirer fails",
 			Method:      http.MethodGet,
-			URL:         "http://argus-hostname.io",
+			URL:         "example.com",
 			MockError:   errFails,
 			MockAuth:    "",
 			ExpectedErr: ErrAuthAcquirerFailure,
@@ -134,7 +134,7 @@ func TestSendRequest(t *testing.T) {
 		{
 			Description: "Happy path",
 			Method:      http.MethodPut,
-			URL:         "http://argus-hostname.io",
+			URL:         "example.com",
 			Body:        []byte("testing"),
 			Owner:       "HappyCaseOwner",
 			ExpectedResponse: response{
@@ -147,7 +147,7 @@ func TestSendRequest(t *testing.T) {
 		{
 			Description: "Happy path with default http client",
 			Method:      http.MethodPut,
-			URL:         "http://argus-hostname.io",
+			URL:         "example.com",
 			Body:        []byte("testing"),
 			Owner:       "HappyCaseOwner",
 			ExpectedResponse: response{
@@ -176,13 +176,13 @@ func TestSendRequest(t *testing.T) {
 			server := httptest.NewServer(echoHandler)
 			defer server.Close()
 
-			var httpClient HTTPClient = server.Client()
+			httpClient := server.Client()
 			if tc.NilHTTPClient {
 				httpClient = nil
 			}
 
 			client, err := NewBasicClient(BasicClientConfig{
-				Address: "http://argus-hostname.io",
+				Address: "example.com",
 				Bucket:  "bucket-name",
 			}, httpClient)
 

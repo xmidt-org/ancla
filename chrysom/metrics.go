@@ -3,6 +3,12 @@
 
 package chrysom
 
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/touchstone"
+	"go.uber.org/fx"
+)
+
 // Names
 const (
 	WebhookListSizeGaugeName = "webhook_list_size"
@@ -21,3 +27,20 @@ const (
 	SuccessOutcome = "success"
 	FailureOutcome = "failure"
 )
+
+func ProvideMetrics() fx.Option {
+	return fx.Options(
+		touchstone.Gauge(
+			prometheus.GaugeOpts{
+				Name: WebhookListSizeGaugeName,
+				Help: WebhookListSizeGaugeHelp,
+			}),
+		touchstone.CounterVec(
+			prometheus.CounterOpts{
+				Name: PollsTotalCounterName,
+				Help: PollsTotalCounterHelp,
+			},
+			OutcomeLabel,
+		),
+	)
+}

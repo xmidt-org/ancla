@@ -3,10 +3,8 @@
 package anclafx
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/ancla"
 	"github.com/xmidt-org/ancla/chrysom"
-	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
 )
 
@@ -23,17 +21,6 @@ func Provide() fx.Option {
 			chrysom.ProvideDefaultListenerReader,
 			chrysom.ProvideListenerClient,
 		),
-		touchstone.Gauge(
-			prometheus.GaugeOpts{
-				Name: chrysom.WebhookListSizeGaugeName,
-				Help: chrysom.WebhookListSizeGaugeHelp,
-			}),
-		touchstone.CounterVec(
-			prometheus.CounterOpts{
-				Name: chrysom.PollsTotalCounterName,
-				Help: chrysom.PollsTotalCounterHelp,
-			},
-			chrysom.OutcomeLabel,
-		),
+		chrysom.ProvideMetrics(),
 	)
 }

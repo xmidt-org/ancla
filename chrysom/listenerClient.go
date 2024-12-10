@@ -46,10 +46,13 @@ type ListenerClientIn struct {
 	// Listener fetches a copy of all items within a bucket on
 	// an interval based on `BasicClientConfig.PullInterval`.
 	// (Optional). If not provided, listening won't be enabled for this client.
-	Listener          Listener
-	Config            BasicClientConfig
+	Listener Listener
+	// Config configures the ancla client and its listeners.
+	Config BasicClientConfig
+	// PollsTotalCounter measures the number of polls (and their success/failure outcomes) to fetch new items.
 	PollsTotalCounter *prometheus.CounterVec `name:"chrysom_polls_total"`
-	Reader            Reader
+	// Reader is the DB interface used to fetch new items using `GeItems`.
+	Reader Reader
 }
 
 // ListenerClient is the client used to poll Argus for updates.

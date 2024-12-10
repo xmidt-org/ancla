@@ -114,13 +114,16 @@ func ProvideService(in ClientServiceIn) *ClientService {
 }
 
 // TODO: Refactor and move Watch and Listener related code to chrysom.
+type DefaultListenersIn struct {
+	fx.In
 
-type DefaultListenerOut struct {
-	Watchers []Watch `group:"watchers,flatten"`
+	WebhookListSizeGauge prometheus.Gauge `name:"webhook_list_size"`
 }
 
-type DefaultListenersIn struct {
-	WebhookListSizeGauge prometheus.Gauge `name:"webhook_list_size"`
+type DefaultListenerOut struct {
+	fx.Out
+
+	Watchers []Watch `group:"watchers,flatten"`
 }
 
 func ProvideDefaultListeners(in DefaultListenersIn) DefaultListenerOut {
