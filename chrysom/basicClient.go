@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/xmidt-org/ancla/model"
+	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/sallust"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -55,6 +55,9 @@ type BasicClientConfig struct {
 	// Bucket partition to be used by this client.
 	Bucket string
 
+	// (Optional) Defaults to http.DefaultClient.
+	HTTPClient arrangehttp.ClientConfig
+
 	// Auth provides the mechanism to add auth headers to outgoing requests.
 	// (Optional) If not provided, no auth headers are added.
 	Auth Acquirer
@@ -88,17 +91,9 @@ const (
 // Items is a slice of model.Item(s) .
 type Items []model.Item
 
-type BasicClientIn struct {
-	fx.In
-
-	BasicClientConfig BasicClientConfig
-	// (Optional) Defaults to http.DefaultClient.
-	HTTPClient *http.Client `name:"chrysom_http_client"`
-}
-
 // ProvideBasicClient provides a new BasicClient.
-func ProvideBasicClient(in BasicClientIn) (*BasicClient, error) {
-	client, err := NewBasicClient(in.BasicClientConfig, in.HTTPClient)
+func ProvideBasicClient(config BasicClientConfig) (*BasicClient, error) {
+	client, err := NewBasicClient(config)
 	if err != nil {
 		return nil, errors.Join(errFailedConfig, err)
 	}
@@ -108,14 +103,15 @@ func ProvideBasicClient(in BasicClientIn) (*BasicClient, error) {
 
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.
-func NewBasicClient(config BasicClientConfig, client *http.Client) (*BasicClient, error) {
+func NewBasicClient(config BasicClientConfig) (*BasicClient, error) {
 	err := validateBasicConfig(&config)
 	if err != nil {
 		return nil, err
 	}
 
-	if client == nil {
-		client = http.DefaultClient
+	client, err := config.HTTPClient.NewClient()
+	if err != nil {
+		return nil, err
 	}
 
 	return &BasicClient{

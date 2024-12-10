@@ -12,7 +12,8 @@ require (
 	github.com/prometheus/client_model v0.6.1
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.9.0
-	github.com/xmidt-org/httpaux v0.4.0
+	github.com/xmidt-org/arrange v0.5.1
+	github.com/xmidt-org/httpaux v0.4.1
 	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.5
 	github.com/xmidt-org/urlegit v0.1.12

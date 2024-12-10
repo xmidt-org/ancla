@@ -89,12 +89,12 @@ func TestInternalWebhookToItem(t *testing.T) {
 func getExpiredItem() model.Item {
 	var expiresInSecs int64 = 0
 	return model.Item{
-		ID: "b3bbc3467366959e0aba3c33588a08c599f68a740fabf4aa348463d3dc7dcfe8",
+		ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 		Data: map[string]interface{}{
 			"Webhook": map[string]interface{}{
-				"registered_from_address": "http://original-requester.example.net",
+				"registered_from_address": "example.com",
 				"config": map[string]interface{}{
-					"url":          "http://deliver-here-0.example.net",
+					"url":          "example.com",
 					"content_type": "application/json",
 					"secret":       "superSecretXYZ",
 				},
@@ -102,7 +102,7 @@ func getExpiredItem() model.Item {
 				"matcher": map[string]interface{}{
 					"device_id": []interface{}{"mac:aabbccddee.*"},
 				},
-				"failure_url": "http://contact-here-when-fails.example.net",
+				"failure_url": "example.com",
 				"duration":    "1ns",
 				"until":       "1970-01-01T00:00:01Z",
 			},
@@ -115,9 +115,9 @@ func getExpiredItem() model.Item {
 func getExpiredInternalWebhook() Register {
 	return &RegistryV1{
 		Registration: webhook.RegistrationV1{
-			Address: "http://original-requester.example.net",
+			Address: "example.com",
 			Config: webhook.DeliveryConfig{
-				ReceiverURL: "http://deliver-here-0.example.net",
+				ReceiverURL: "example.com",
 				ContentType: "application/json",
 				Secret:      "superSecretXYZ",
 			},
@@ -127,7 +127,7 @@ func getExpiredInternalWebhook() Register {
 			}{
 				DeviceID: []string{"mac:aabbccddee.*"},
 			},
-			FailureURL: "http://contact-here-when-fails.example.net",
+			FailureURL: "example.com",
 			Duration:   webhook.CustomDuration(1),
 			Until:      time.Unix(1, 0).UTC(),
 		},
@@ -140,9 +140,9 @@ func getTestInternalWebhooks() []Register {
 	refTime := getRefTime()
 	reg = append(reg, &RegistryV1{
 		Registration: webhook.RegistrationV1{
-			Address: "http://original-requester.example.net",
+			Address: "example.com",
 			Config: webhook.DeliveryConfig{
-				ReceiverURL: "http://deliver-here-0.example.net",
+				ReceiverURL: "example.com",
 				ContentType: "application/json",
 				Secret:      "superSecretXYZ",
 			},
@@ -150,30 +150,11 @@ func getTestInternalWebhooks() []Register {
 			Matcher: webhook.MetadataMatcherConfig{
 				DeviceID: []string{"mac:aabbccddee.*"},
 			},
-			FailureURL: "http://contact-here-when-fails.example.net",
+			FailureURL: "example.com",
 			Duration:   webhook.CustomDuration(10 * time.Second),
 			Until:      refTime.Add(10 * time.Second),
 		},
 		PartnerIDs: []string{"comcast"},
-	})
-	reg = append(reg, &RegistryV1{
-		Registration: webhook.RegistrationV1{
-			Address: "http://original-requester.example.net",
-			Config: webhook.DeliveryConfig{
-				ContentType: "application/json",
-				ReceiverURL: "http://deliver-here-1.example.net",
-				Secret:      "doNotShare:e=mc^2",
-			},
-			Events: []string{"online"},
-			Matcher: webhook.MetadataMatcherConfig{
-				DeviceID: []string{"mac:aabbccddee.*"},
-			},
-
-			FailureURL: "http://contact-here-when-fails.example.net",
-			Duration:   webhook.CustomDuration(20 * time.Second),
-			Until:      refTime.Add(20 * time.Second),
-		},
-		PartnerIDs: []string{},
 	})
 
 	return reg

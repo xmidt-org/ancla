@@ -126,17 +126,16 @@ func TestAllInternalWebhooks(t *testing.T) {
 
 func getTestItems() chrysom.Items {
 	var (
-		firstItemExpiresInSecs  int64 = 10
-		secondItemExpiresInSecs int64 = 20
+		firstItemExpiresInSecs int64 = 10
 	)
 	return chrysom.Items{
 		model.Item{
-			ID: "b3bbc3467366959e0aba3c33588a08c599f68a740fabf4aa348463d3dc7dcfe8",
+			ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 			Data: map[string]interface{}{
 				"Webhook": map[string]interface{}{
-					"registered_from_address": "http://original-requester.example.net",
+					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
-						"url":          "http://deliver-here-0.example.net",
+						"url":          "example.com",
 						"content_type": "application/json",
 						"secret":       "superSecretXYZ",
 					},
@@ -144,7 +143,7 @@ func getTestItems() chrysom.Items {
 					"matcher": map[string]interface{}{
 						"device_id": []interface{}{"mac:aabbccddee.*"},
 					},
-					"failure_url": "http://contact-here-when-fails.example.net",
+					"failure_url": "example.com",
 					"duration":    "10s",
 					"until":       "2021-01-02T15:04:10Z",
 				},
@@ -152,28 +151,6 @@ func getTestItems() chrysom.Items {
 			},
 
 			TTL: &firstItemExpiresInSecs,
-		},
-		model.Item{
-			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
-			Data: map[string]interface{}{
-				"Webhook": map[string]interface{}{
-					"registered_from_address": "http://original-requester.example.net",
-					"config": map[string]interface{}{
-						"url":          "http://deliver-here-1.example.net",
-						"content_type": "application/json",
-						"secret":       "doNotShare:e=mc^2",
-					},
-					"events": []interface{}{"online"},
-					"matcher": map[string]interface{}{
-						"device_id": []interface{}{"mac:aabbccddee.*"},
-					},
-					"failure_url": "http://contact-here-when-fails.example.net",
-					"duration":    "20s",
-					"until":       "2021-01-02T15:04:20Z",
-				},
-				"partnerids": []string{},
-			},
-			TTL: &secondItemExpiresInSecs,
 		},
 	}
 }

@@ -99,7 +99,6 @@ func TestSendRequest(t *testing.T) {
 		URL              string
 		Body             []byte
 		ClientDoFails    bool
-		NilHTTPClient    bool
 		ExpectedResponse response
 		ExpectedErr      error
 		MockError        error
@@ -154,9 +153,8 @@ func TestSendRequest(t *testing.T) {
 				Code: http.StatusOK,
 				Body: []byte("testing"),
 			},
-			MockError:     nil,
-			MockAuth:      "basic xyz",
-			NilHTTPClient: true,
+			MockError: nil,
+			MockAuth:  "basic xyz",
 		},
 	}
 	for _, tc := range tcs {
@@ -176,22 +174,17 @@ func TestSendRequest(t *testing.T) {
 			server := httptest.NewServer(echoHandler)
 			defer server.Close()
 
-			httpClient := server.Client()
-			if tc.NilHTTPClient {
-				httpClient = nil
-			}
-
 			client, err := NewBasicClient(BasicClientConfig{
 				Address: "example.com",
 				Bucket:  "bucket-name",
-			}, httpClient)
+			})
 
 			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
 
 			var URL = server.URL
 			if tc.ClientDoFails {
-				URL = "http://should-definitely-fail.net"
+				URL = ""
 			}
 
 			assert.Nil(err)
@@ -295,7 +288,7 @@ func TestGetItems(t *testing.T) {
 			client, err := NewBasicClient(BasicClientConfig{
 				Address: server.URL,
 				Bucket:  bucket,
-			}, server.Client())
+			})
 
 			require.Nil(err)
 
@@ -450,7 +443,7 @@ func TestPushItem(t *testing.T) {
 			client, err := NewBasicClient(BasicClientConfig{
 				Address: server.URL,
 				Bucket:  bucket,
-			}, server.Client())
+			})
 
 			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
@@ -562,7 +555,7 @@ func TestRemoveItem(t *testing.T) {
 			client, err := NewBasicClient(BasicClientConfig{
 				Address: server.URL,
 				Bucket:  bucket,
-			}, server.Client())
+			})
 
 			acquirer.On("Acquire").Return(tc.MockAuth, tc.MockError)
 			client.auth = acquirer
