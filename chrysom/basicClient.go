@@ -15,6 +15,7 @@ import (
 
 	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/model"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -25,9 +26,6 @@ const (
 )
 
 var (
-	ErrNilMeasures             = errors.New("measures cannot be nil")
-	ErrAddressEmpty            = errors.New("argus address is required")
-	ErrBucketEmpty             = errors.New("bucket name is required")
 	ErrItemIDEmpty             = errors.New("item ID is required")
 	ErrItemDataEmpty           = errors.New("data field in item is required")
 	ErrUndefinedIntervalTicker = errors.New("interval ticker is nil. Can't listen for updates")
@@ -92,22 +90,31 @@ const (
 // Items is a slice of model.Item(s) .
 type Items []model.Item
 
-// NewBasicClient creates a new BasicClient that can be used to
-// make requests to Argus.
-func NewBasicClient(config BasicClientConfig,
-	getLogger func(context.Context) *zap.Logger) (*BasicClient, error) {
-	err := validateBasicConfig(&config)
+type BasicClientIn struct {
+	fx.In
+
+	Options Options `optional:"true" `
+}
+
+// ProvideBasicClient provides a new BasicClient.
+func ProvideBasicClient(in BasicClientIn) (*BasicClient, error) {
+	client, err := NewBasicClient(in.Options)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(errFailedConfig, err)
 	}
 
-	return &BasicClient{
-		client:       config.HTTPClient,
-		auth:         config.Auth,
-		bucket:       config.Bucket,
-		storeBaseURL: config.Address + storeAPIPath,
-		getLogger:    getLogger,
-	}, nil
+	return client, nil
+}
+
+// NewBasicClient creates a new BasicClient that can be used to
+// make requests to Argus.
+func NewBasicClient(opts Options) (*BasicClient, error) {
+	var client BasicClient
+
+	opts = append(defaultOptions, opts)
+	opts = append(opts, defaultValidateOptions)
+
+	return &client, opts.apply(&client)
 }
 
 // GetItems fetches all items that belong to a given owner.
@@ -250,20 +257,4 @@ func translateNonSuccessStatusCode(code int) error {
 	default:
 		return errNonSuccessResponse
 	}
-}
-
-func validateBasicConfig(config *BasicClientConfig) error {
-	if config.Address == "" {
-		return ErrAddressEmpty
-	}
-
-	if config.Bucket == "" {
-		return ErrBucketEmpty
-	}
-
-	if config.HTTPClient == nil {
-		config.HTTPClient = http.DefaultClient
-	}
-
-	return nil
 }

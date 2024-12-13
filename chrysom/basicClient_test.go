@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/model"
-	"go.uber.org/zap"
 )
 
 const failingURL = "nowhere://"
@@ -30,67 +29,107 @@ var (
 	errFails        = errors.New("fails")
 )
 
-func TestValidateBasicConfig(t *testing.T) {
+func TestValidateOptions(t *testing.T) {
 	type testCase struct {
 		Description    string
-		Input          *BasicClientConfig
-		Client         *http.Client
+		ValidateOption Option
+		Client         BasicClient
 		ExpectedErr    error
-		ExpectedConfig *BasicClientConfig
-	}
-
-	allDefaultsCaseConfig := &BasicClientConfig{
-		HTTPClient: http.DefaultClient,
-		Address:    "example.com",
-		Bucket:     "bucket-name",
-	}
-	allDefinedCaseConfig := &BasicClientConfig{
-		HTTPClient: http.DefaultClient,
-		Address:    "example.com",
-		Bucket:     "amazing-bucket",
 	}
 
 	tcs := []testCase{
 		{
-			Description: "No address",
-			Input: &BasicClientConfig{
-				Bucket: "bucket-name",
-			},
-			ExpectedErr: ErrAddressEmpty,
+			Description:    "Nil http client",
+			ValidateOption: validateHTTPClient(),
+			Client:         BasicClient{},
+			ExpectedErr:    ErrHttpClientNil,
 		},
 		{
-			Description: "No bucket",
-			Input: &BasicClientConfig{
-				Address: "example.com",
-			},
-			ExpectedErr: ErrBucketEmpty,
+			Description:    "Empty bucket",
+			ValidateOption: validateBucket(),
+			Client:         BasicClient{},
+			ExpectedErr:    ErrBucketEmpty,
 		},
 		{
-			Description: "All default values",
-			Input: &BasicClientConfig{
-				Address: "example.com",
-				Bucket:  "bucket-name",
-			},
-			ExpectedConfig: allDefaultsCaseConfig,
-		},
-		{
-			Description: "All defined",
-			Input: &BasicClientConfig{
-				Address: "example.com",
-				Bucket:  "amazing-bucket",
-			},
-			ExpectedConfig: allDefinedCaseConfig,
+			Description:    "Empty store base url",
+			ValidateOption: validateStoreBaseURL(),
+			Client:         BasicClient{},
+			ExpectedErr:    ErrStoreBaseURLEmpty,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			err := validateBasicConfig(tc.Input)
-			assert.Equal(tc.ExpectedErr, err)
-			if tc.ExpectedErr == nil {
-				assert.Equal(tc.ExpectedConfig, tc.Input)
+			err := tc.ValidateOption.apply(&tc.Client)
+			assert.ErrorIs(err, tc.ExpectedErr)
+		})
+	}
+}
+
+func TestValidateBasicConfig(t *testing.T) {
+	type testCase struct {
+		Description string
+		Input       BasicClientConfig
+		Client      *http.Client
+		ExpectedErr error
+	}
+
+	tcs := []testCase{
+		{
+			Description: "No address",
+			Input: BasicClientConfig{
+				Bucket: "bucket-name",
+			},
+			ExpectedErr: ErrAddressEmpty,
+		},
+		{
+			Description: "No bucket",
+			Input: BasicClientConfig{
+				Address: "example.com",
+			},
+			ExpectedErr: ErrBucketEmpty,
+		},
+		{
+			Description: "Bad http client",
+			Input: BasicClientConfig{
+				Address: "example.com",
+				Bucket:  "bucket-name",
+			},
+			ExpectedErr: ErrHttpClientNil,
+		},
+		{
+			Description: "All defined",
+			Input: BasicClientConfig{
+				Address: "example.com",
+				Bucket:  "bucket-name",
+			},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Description, func(t *testing.T) {
+			opts := append(
+				defaultOptions,
+				Address(tc.Input.Address),
+				Bucket(tc.Input.Bucket),
+				HTTPClient(tc.Input.HTTPClient),
+				defaultValidateOptions,
+			)
+
+			assert := assert.New(t)
+			client := BasicClient{}
+			errs := opts.apply(&client)
+			if tc.ExpectedErr != nil {
+				assert.ErrorIs(errs, tc.ExpectedErr)
+
+				return
 			}
+
+			assert.NoError(errs)
+			assert.Equal(tc.Input.Address+storeAPIPath, client.storeBaseURL)
+			assert.Equal(tc.Input.Bucket, client.bucket)
+			assert.NotNil(client.client)
 		})
 	}
 }
@@ -183,13 +222,11 @@ func TestSendRequest(t *testing.T) {
 			server := httptest.NewServer(echoHandler)
 			defer server.Close()
 
-			client, err := NewBasicClient(BasicClientConfig{
-				Address: "example.com",
-				Bucket:  "bucket-name",
-			},
-				func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				})
+			opts := Options{
+				Address("example.com"),
+				Bucket("bucket-name"),
+			}
+			client, err := NewBasicClient(opts)
 
 			if tc.MockAuth != "" || tc.MockError != nil {
 				authDecorator := new(auth.MockDecorator)
@@ -294,13 +331,11 @@ func TestGetItems(t *testing.T) {
 				rw.Write(tc.ResponsePayload)
 			}))
 
-			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
-			},
-				func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				})
+			opts := Options{
+				Address(server.URL),
+				Bucket(bucket),
+			}
+			client, err := NewBasicClient(opts)
 
 			require.Nil(err)
 
@@ -439,13 +474,11 @@ func TestPushItem(t *testing.T) {
 				}
 			}))
 
-			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
-			},
-				func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				})
+			opts := Options{
+				Address(server.URL),
+				Bucket(bucket),
+			}
+			client, err := NewBasicClient(opts)
 
 			if tc.MockAuth != "" || tc.MockError != nil {
 				authDecorator := new(auth.MockDecorator)
@@ -546,12 +579,11 @@ func TestRemoveItem(t *testing.T) {
 				rw.Write(tc.ResponsePayload)
 			}))
 
-			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
-			}, func(context.Context) *zap.Logger {
-				return zap.NewNop()
-			})
+			opts := Options{
+				Address(server.URL),
+				Bucket(bucket),
+			}
+			client, err := NewBasicClient(opts)
 
 			if tc.MockAuth != "" || tc.MockError != nil {
 				authDecorator := new(auth.MockDecorator)

@@ -21,8 +21,7 @@ type out struct {
 
 	Factory           *touchstone.Factory
 	BasicClientConfig chrysom.BasicClientConfig
-	GetLogger         chrysom.GetLogger
-	SetLogger         chrysom.SetLogger
+	Options           chrysom.Options
 }
 
 func provideDefaults() (out, error) {
@@ -43,6 +42,10 @@ func provideDefaults() (out, error) {
 		},
 		GetLogger: func(context.Context) *zap.Logger { return zap.NewNop() },
 		SetLogger: func(context.Context, *zap.Logger) context.Context { return context.Background() },
+		Options: chrysom.Options{
+			chrysom.Address("example.com"),
+			chrysom.Bucket("bucket-name"),
+		},
 	}, nil
 }
 
