@@ -16,12 +16,11 @@ import (
 	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/sallust"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
 var (
-	ErrAddressEmpty            = errors.New("argus address is required")
-	ErrBucketEmpty             = errors.New("bucket name is required")
 	ErrItemIDEmpty             = errors.New("item ID is required")
 	ErrItemDataEmpty           = errors.New("data field in item is required")
 	ErrUndefinedIntervalTicker = errors.New("interval ticker is nil. Can't listen for updates")
@@ -91,9 +90,15 @@ const (
 // Items is a slice of model.Item(s) .
 type Items []model.Item
 
+type BasicClientIn struct {
+	fx.In
+
+	Options Options `optional:"true" `
+}
+
 // ProvideBasicClient provides a new BasicClient.
-func ProvideBasicClient(config BasicClientConfig) (*BasicClient, error) {
-	client, err := NewBasicClient(config)
+func ProvideBasicClient(in BasicClientIn) (*BasicClient, error) {
+	client, err := NewBasicClient(in.Options)
 	if err != nil {
 		return nil, errors.Join(errFailedConfig, err)
 	}
@@ -103,23 +108,13 @@ func ProvideBasicClient(config BasicClientConfig) (*BasicClient, error) {
 
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.
-func NewBasicClient(config BasicClientConfig) (*BasicClient, error) {
-	err := validateBasicConfig(&config)
-	if err != nil {
-		return nil, err
-	}
+func NewBasicClient(opts Options) (*BasicClient, error) {
+	var client BasicClient
 
-	client, err := config.HTTPClient.NewClient()
-	if err != nil {
-		return nil, err
-	}
+	opts = append(defaultOptions, opts)
+	opts = append(opts, defaultValidateOptions)
 
-	return &BasicClient{
-		client:       client,
-		auth:         config.Auth,
-		bucket:       config.Bucket,
-		storeBaseURL: config.Address + storeAPIPath,
-	}, nil
+	return &client, opts.apply(&client)
 }
 
 // GetItems fetches all items that belong to a given owner.
@@ -262,16 +257,4 @@ func translateNonSuccessStatusCode(code int) error {
 	default:
 		return errNonSuccessResponse
 	}
-}
-
-func validateBasicConfig(config *BasicClientConfig) error {
-	if config.Address == "" {
-		return ErrAddressEmpty
-	}
-
-	if config.Bucket == "" {
-		return ErrBucketEmpty
-	}
-
-	return nil
 }

@@ -20,6 +20,7 @@ type out struct {
 
 	Factory           *touchstone.Factory
 	BasicClientConfig chrysom.BasicClientConfig
+	Options           chrysom.Options
 }
 
 func provideDefaults() (out, error) {
@@ -38,18 +39,30 @@ func provideDefaults() (out, error) {
 			Address: "example.com",
 			Bucket:  "bucket-name",
 		},
+		Options: chrysom.Options{
+			chrysom.Address("example.com"),
+			chrysom.Bucket("bucket-name"),
+		},
 	}, nil
 }
 
 func TestProvide(t *testing.T) {
 	t.Run("Test anclafx.Provide() defaults", func(t *testing.T) {
-		var svc *ancla.ClientService
+		var (
+			svc *ancla.ClientService
+			bc  *chrysom.BasicClient
+			l   *chrysom.ListenerClient
+		)
 		app := fxtest.New(t,
 			anclafx.Provide(),
 			fx.Provide(
 				provideDefaults,
 			),
-			fx.Populate(&svc),
+			fx.Populate(
+				&svc,
+				&bc,
+				&l,
+			),
 		)
 
 		require := require.New(t)
@@ -57,6 +70,8 @@ func TestProvide(t *testing.T) {
 		require.NoError(app.Err())
 		app.RequireStart()
 		require.NotNil(svc)
+		require.NotNil(bc)
+		require.NotNil(l)
 		app.RequireStop()
 	})
 }
