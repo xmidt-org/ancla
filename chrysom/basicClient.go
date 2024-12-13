@@ -11,8 +11,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/xmidt-org/ancla/model"
+	"github.com/xmidt-org/arrange/arrangehttp"
 	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
@@ -35,6 +37,7 @@ var (
 	errReadingBodyFailure = errors.New("failed while reading http response body")
 	errJSONUnmarshal      = errors.New("failed unmarshaling JSON response payload")
 	errJSONMarshal        = errors.New("failed marshaling item as JSON payload")
+	errFailedConfig       = errors.New("ancla configuration error")
 )
 
 const (
@@ -52,13 +55,16 @@ type BasicClientConfig struct {
 	// Bucket partition to be used by this client.
 	Bucket string
 
-	// HTTPClient refers to the client that will be used to send requests.
 	// (Optional) Defaults to http.DefaultClient.
-	HTTPClient *http.Client
+	HTTPClient arrangehttp.ClientConfig
 
 	// Auth provides the mechanism to add auth headers to outgoing requests.
 	// (Optional) If not provided, no auth headers are added.
 	Auth Acquirer
+
+	// PullInterval is how often listeners should get updates.
+	// (Optional). Defaults to 5 seconds.
+	PullInterval time.Duration
 }
 
 // BasicClient is the client used to make requests to Argus.
@@ -85,6 +91,16 @@ const (
 // Items is a slice of model.Item(s) .
 type Items []model.Item
 
+// ProvideBasicClient provides a new BasicClient.
+func ProvideBasicClient(config BasicClientConfig) (*BasicClient, error) {
+	client, err := NewBasicClient(config)
+	if err != nil {
+		return nil, errors.Join(errFailedConfig, err)
+	}
+
+	return client, nil
+}
+
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.
 func NewBasicClient(config BasicClientConfig) (*BasicClient, error) {
@@ -93,14 +109,17 @@ func NewBasicClient(config BasicClientConfig) (*BasicClient, error) {
 		return nil, err
 	}
 
-	clientStore := &BasicClient{
-		client:       config.HTTPClient,
+	client, err := config.HTTPClient.NewClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return &BasicClient{
+		client:       client,
 		auth:         config.Auth,
 		bucket:       config.Bucket,
 		storeBaseURL: config.Address + storeAPIPath,
-	}
-
-	return clientStore, nil
+	}, nil
 }
 
 // GetItems fetches all items that belong to a given owner.
@@ -252,10 +271,6 @@ func validateBasicConfig(config *BasicClientConfig) error {
 
 	if config.Bucket == "" {
 		return ErrBucketEmpty
-	}
-
-	if config.HTTPClient == nil {
-		config.HTTPClient = http.DefaultClient
 	}
 
 	return nil
