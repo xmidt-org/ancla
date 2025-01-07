@@ -11,7 +11,7 @@ import (
 	"time"
 
 	// nolint:typecheck
-	"github.com/xmidt-org/argus/model"
+	"github.com/xmidt-org/ancla/model"
 )
 
 type InternalWebhook struct {
