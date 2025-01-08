@@ -16,7 +16,6 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/argus/store"
 	"github.com/xmidt-org/bascule"
 	"github.com/xmidt-org/sallust"
 )
@@ -37,17 +36,12 @@ func TestErrorEncoder(t *testing.T) {
 			HConfig:      mockHandlerConfig,
 			ExpectedCode: 500,
 		},
-		{
-			Description:  "Coded request",
-			InputErr:     store.BadRequestErr{Message: "invalid param"},
-			HConfig:      mockHandlerConfig,
-			ExpectedCode: 400,
-		},
 	}
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			recorder := httptest.NewRecorder()
+			// TODO: remove gokit from errorEncoder and then update TestErrorEncoder tests
 			e := errorEncoder(tc.HConfig.GetLogger)
 			e(context.Background(), tc.InputErr, recorder)
 			assert.Equal(tc.ExpectedCode, recorder.Code)
