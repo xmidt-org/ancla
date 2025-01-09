@@ -10,28 +10,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	kithttp "github.com/go-kit/kit/transport/http"
-	"github.com/spf13/cast"
-	"github.com/xmidt-org/bascule/basculechecks"
+	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/httpaux/erraux"
 	"go.uber.org/zap"
-
-	"github.com/xmidt-org/bascule"
 )
 
 var (
 	errFailedWebhookUnmarshal    = errors.New("failed to JSON unmarshal webhook")
 	errAuthIsNotOfTypeBasicOrJWT = errors.New("auth is not of type Basic of JWT")
 	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
-	errAuthNotPresent            = errors.New("auth not present")
-	errAuthTokenIsNil            = errors.New("auth token is nil")
-	errPartnerIDsDoNotExist      = errors.New("partnerIDs do not exist")
 	DefaultBasicPartnerIDsHeader = "X-Xmidt-Partner-Ids"
-	jwtstr                       = "jwt"
-	basicstr                     = "basic"
 )
 
 const (
@@ -44,6 +35,7 @@ type transportConfig struct {
 	v                     Validator
 	basicPartnerIDsHeader string
 	disablePartnerIDs     bool
+	auth                  auth.Acquirer
 }
 
 type addWebhookRequest struct {
@@ -107,14 +99,21 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		wv.setWebhookDefaults(&webhook, r.RemoteAddr)
 
-		var partners []string
-		partners, err = extractPartnerIDs(config, c, r)
-		if err != nil && !config.disablePartnerIDs {
-			return nil, &erraux.Error{Err: err, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
+		partners, ok := auth.GetPartnerIDs(r.Context())
+		if !ok {
+			if !config.disablePartnerIDs {
+				return nil, &erraux.Error{Err: errGettingPartnerIDs, Message: "failed getting partnerIDs", Code: http.StatusBadRequest}
+			}
+			partners = []string{}
+		}
+
+		owner, ok := auth.GetPrincipal(r.Context())
+		if !ok {
+			owner = ""
 		}
 
 		return &addWebhookRequest{
-			owner: getOwner(r.Context()),
+			owner: owner,
 			internalWebook: InternalWebhook{
 				Webhook:    webhook,
 				PartnerIDs: partners,
@@ -123,60 +122,10 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 	}
 }
 
-func extractPartnerIDs(config transportConfig, c context.Context, r *http.Request) ([]string, error) {
-	auth, present := bascule.FromContext(c)
-	if !present {
-		return nil, errAuthNotPresent
-	}
-	if auth.Token == nil {
-		return nil, errAuthTokenIsNil
-	}
-
-	var partners []string
-
-	switch auth.Token.Type() {
-	case basicstr:
-		authHeader := r.Header[config.basicPartnerIDsHeader]
-		for _, value := range authHeader {
-			fields := strings.Split(value, ",")
-			for i := 0; i < len(fields); i++ {
-				fields[i] = strings.TrimSpace(fields[i])
-			}
-			partners = append(partners, fields...)
-		}
-		return partners, nil
-	case jwtstr:
-		authToken := auth.Token
-		partnersInterface, attrExist := bascule.GetNestedAttribute(authToken.Attributes(), basculechecks.PartnerKeys()...)
-		if !attrExist {
-			return nil, errPartnerIDsDoNotExist
-		}
-		vals, err := cast.ToStringSliceE(partnersInterface)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errGettingPartnerIDs, err)
-		}
-		partners = vals
-		return partners, nil
-	}
-	return nil, errAuthIsNotOfTypeBasicOrJWT
-}
-
 func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ interface{}) error {
 	rw.Header().Set(contentTypeHeader, jsonContentType)
 	rw.Write([]byte(`{"message": "Success"}`))
 	return nil
-}
-
-func getOwner(ctx context.Context) string {
-	auth, ok := bascule.FromContext(ctx)
-	if !ok {
-		return ""
-	}
-	switch auth.Token.Type() {
-	case jwtstr, basicstr:
-		return auth.Token.Principal()
-	}
-	return ""
 }
 
 func obfuscateSecrets(webhooks []Webhook) {

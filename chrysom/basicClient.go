@@ -12,8 +12,8 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/bascule/acquire"
 	"go.uber.org/zap"
 )
 
@@ -58,22 +58,16 @@ type BasicClientConfig struct {
 
 	// Auth provides the mechanism to add auth headers to outgoing requests.
 	// (Optional) If not provided, no auth headers are added.
-	Auth Auth
+	Auth auth.Acquirer
 }
 
 // BasicClient is the client used to make requests to Argus.
 type BasicClient struct {
 	client       *http.Client
-	auth         acquire.Acquirer
+	auth         auth.Acquirer
 	storeBaseURL string
 	bucket       string
 	getLogger    func(context.Context) *zap.Logger
-}
-
-// Auth contains authorization data for requests to Argus.
-type Auth struct {
-	JWT   acquire.RemoteBearerTokenAcquirerOptions
-	Basic string
 }
 
 type response struct {
@@ -101,19 +95,13 @@ func NewBasicClient(config BasicClientConfig,
 		return nil, err
 	}
 
-	tokenAcquirer, err := buildTokenAcquirer(config.Auth)
-	if err != nil {
-		return nil, err
-	}
-	clientStore := &BasicClient{
+	return &BasicClient{
 		client:       config.HTTPClient,
-		auth:         tokenAcquirer,
+		auth:         config.Auth,
 		bucket:       config.Bucket,
 		storeBaseURL: config.Address + storeAPIPath,
 		getLogger:    getLogger,
-	}
-
-	return clientStore, nil
+	}, nil
 }
 
 // GetItems fetches all items that belong to a given owner.
@@ -213,19 +201,28 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	if err != nil {
 		return response{}, fmt.Errorf(errWrappedFmt, errNewRequestFailure, err.Error())
 	}
-	err = acquire.AddAuth(r, c.auth)
-	if err != nil {
-		return response{}, fmt.Errorf(errWrappedFmt, ErrAuthAcquirerFailure, err.Error())
-	}
+
 	if len(owner) > 0 {
 		r.Header.Set(ItemOwnerHeaderKey, owner)
 	}
+
+	if c.auth != nil {
+		auth, err := c.auth.Acquire()
+		if err != nil {
+			return response{}, errors.Join(ErrAuthAcquirerFailure, err)
+		}
+
+		r.Header.Set("Authorization", auth)
+	}
+
 	resp, err := c.client.Do(r)
 	if err != nil {
 		return response{}, fmt.Errorf(errWrappedFmt, errDoRequestFailure, err.Error())
 	}
+
 	defer resp.Body.Close()
-	var sqResp = response{
+
+	sqResp := response{
 		Code:             resp.StatusCode,
 		ArgusErrorHeader: resp.Header.Get(XmidtErrorHeaderKey),
 	}
@@ -233,12 +230,10 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	if err != nil {
 		return sqResp, fmt.Errorf(errWrappedFmt, errReadingBodyFailure, err.Error())
 	}
-	sqResp.Body = bodyBytes
-	return sqResp, nil
-}
 
-func isEmpty(options acquire.RemoteBearerTokenAcquirerOptions) bool {
-	return len(options.AuthURL) < 1 || options.Buffer == 0 || options.Timeout == 0
+	sqResp.Body = bodyBytes
+
+	return sqResp, nil
 }
 
 // translateNonSuccessStatusCode returns as specific error
@@ -252,15 +247,6 @@ func translateNonSuccessStatusCode(code int) error {
 	default:
 		return errNonSuccessResponse
 	}
-}
-
-func buildTokenAcquirer(auth Auth) (acquire.Acquirer, error) {
-	if !isEmpty(auth.JWT) {
-		return acquire.NewRemoteBearerTokenAcquirer(auth.JWT)
-	} else if len(auth.Basic) > 0 {
-		return acquire.NewFixedAuthAcquirer(auth.Basic)
-	}
-	return &acquire.DefaultAcquirer{}, nil
 }
 
 func validateBasicConfig(config *BasicClientConfig) error {
