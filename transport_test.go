@@ -16,7 +16,7 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/bascule"
+	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/sallust"
 )
 
@@ -35,6 +35,12 @@ func TestErrorEncoder(t *testing.T) {
 			InputErr:     errors.New("some failure"),
 			HConfig:      mockHandlerConfig,
 			ExpectedCode: 500,
+		},
+		{
+			Description:  "Coded request",
+			InputErr:     BadRequestErr{Message: "invalid param"},
+			HConfig:      mockHandlerConfig,
+			ExpectedCode: 400,
 		},
 	}
 	for _, tc := range tcs {
@@ -57,51 +63,6 @@ func TestEncodeWebhookResponse(t *testing.T) {
 	encodeAddWebhookResponse(context.Background(), recorder, nil)
 	assert.JSONEq(`{"message": "Success"}`, recorder.Body.String())
 	assert.Equal(200, recorder.Code)
-}
-
-func TestGetOwner(t *testing.T) {
-	type testCase struct {
-		Description   string
-		Token         bascule.Token
-		ExpectedOwner string
-	}
-
-	tcs := []testCase{
-		{
-			Description:   "No auth token",
-			Token:         nil,
-			ExpectedOwner: "",
-		},
-		{
-			Description:   "jwt token",
-			Token:         bascule.NewToken("jwt", "sub-value-001", nil),
-			ExpectedOwner: "sub-value-001",
-		},
-		{
-			Description:   "basic token",
-			Token:         bascule.NewToken("basic", "user-001", nil),
-			ExpectedOwner: "user-001",
-		},
-
-		{
-			Description:   "unsupported",
-			Token:         bascule.NewToken("badType", "principalVal", nil),
-			ExpectedOwner: "",
-		},
-	}
-	for _, tc := range tcs {
-		assert := assert.New(t)
-		var ctx = context.Background()
-		// nolint:typecheck
-		if tc.Token != nil {
-			auth := bascule.Authentication{
-				Token: tc.Token,
-			}
-			ctx = bascule.WithAuthentication(ctx, auth)
-		}
-		owner := getOwner(ctx)
-		assert.Equal(tc.ExpectedOwner, owner)
-	}
 }
 
 func TestEncodeGetAllWebhooksResponse(t *testing.T) {
@@ -148,10 +109,16 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 		ReadBodyFail           bool
 		Validator              Validator
 		ExpectedStatusCode     int
-		Auth                   string
+		Context                context.Context
 		WrongContext           bool
 		DisablePartnerIDs      bool
 	}
+
+	var (
+		ctxEmpty                   = context.Background()
+		ctxWithoutPartnerIDs       = auth.SetPrincipal(ctxEmpty, "owner-from-auth")
+		ctxWithPrincipalPartnerIDs = auth.SetPartnerIDs(auth.SetPrincipal(ctxEmpty, "owner-from-auth"), []string{"comcast"})
+	)
 
 	tcs := []testCase{
 		{
@@ -159,82 +126,36 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
 			Validator:              Validators{},
-			Auth:                   "jwt",
+			Context:                ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:            "Normal happy path using Duration",
 			InputPayload:           addWebhookDecoderDurationInput(),
 			ExpectedDecodedRequest: addWebhookDecoderDurationOutput(true),
 			Validator:              Validators{},
-			Auth:                   "jwt",
+			Context:                ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:            "No validator provided",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Auth:                   "jwt",
+			Context:                ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:            "Do not check PartnerIDs",
 			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
+			ExpectedDecodedRequest: addWebhookDecoderOutput(false),
 			Validator:              Validators{},
-			Auth:                   "jwt",
+			Context:                ctxWithoutPartnerIDs,
 			DisablePartnerIDs:      true,
 		},
 		{
-			Description:            "Auth token not present failure",
+			Description:            "unable to retrieve PartnerIDs failure",
 			InputPayload:           addWebhookDecoderInput(),
 			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
 			Validator:              Validators{},
-			ExpectedErr:            errAuthNotPresent,
-			WrongContext:           true,
-		},
-		{
-			Description:            "Auth token is nil failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			ExpectedErr:            errAuthTokenIsNil,
-		},
-		{
-			Description:            "jwt auth token has no allowedPartners failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "jwtnopartners",
-			ExpectedErr:            errPartnerIDsDoNotExist,
-		},
-		{
-			Description:            "jwt partners do not cast failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "jwtpartnersdonotcast",
+			Context:                ctxWithoutPartnerIDs,
 			ExpectedErr:            errGettingPartnerIDs,
-		},
-		{
-			Description:            "auth is not jwt or basic failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "authnotbasicorjwt",
-			ExpectedErr:            errAuthIsNotOfTypeBasicOrJWT,
-		},
-		{
-			Description:            "basic auth",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "basic",
-		},
-		{
-			Description:        "Failed to JSON Unmarshal",
-			InputPayload:       "{",
-			ExpectedErr:        errFailedWebhookUnmarshal,
-			Validator:          Validators{},
-			ExpectedStatusCode: 400,
-			Auth:               "jwt",
 		},
 		{
 			Description:        "Failed to JSON Unmarshal Type Error",
@@ -242,7 +163,7 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			ExpectedErr:        errFailedWebhookUnmarshal,
 			Validator:          Validators{},
 			ExpectedStatusCode: 400,
-			Auth:               "jwt",
+			Context:            ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:        "Failed to JSON Unmarshal Invalid Duration Error",
@@ -250,22 +171,22 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 			ExpectedErr:        errFailedWebhookUnmarshal,
 			Validator:          Validators{},
 			ExpectedStatusCode: 400,
-			Auth:               "jwt",
+			Context:            ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:  "Webhook validation Failure",
 			InputPayload: addWebhookDecoderInput(),
 			Validator:    Validators{mockValidator()},
+			Context:      ctxWithPrincipalPartnerIDs,
 			ExpectedErr:  errMockValidatorFail,
-			Auth:         "jwt",
 		},
 		{
 			Description:        "Request Body Read Failure",
 			ExpectedErr:        errReadBodyFail,
 			ReadBodyFail:       true,
 			Validator:          Validators{},
+			Context:            ctxWithPrincipalPartnerIDs,
 			ExpectedStatusCode: 0,
-			Auth:               "jwt",
 		},
 	}
 
@@ -282,47 +203,14 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				disablePartnerIDs: tc.DisablePartnerIDs,
 			}
 			decode := addWebhookRequestDecoder(config)
-			var auth bascule.Authentication
-
-			switch tc.Auth {
-			case "basic":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("basic", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			case "jwt":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{"allowedResources": map[string]interface{}{"allowedPartners": "comcast"}})),
-				}
-			case "jwtnopartners":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			case "jwtpartnersdonotcast":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{"allowedResources": map[string]interface{}{"allowedPartners": nil}})),
-				}
-			case "authnotbasicorjwt":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("spongebob", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			}
-
-			r, err := http.NewRequestWithContext(bascule.WithAuthentication(context.Background(), auth),
-				http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
+			var err error
+			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
 			require.Nil(err)
 			if tc.ReadBodyFail {
 				r.Body = errReader{}
 			}
-
-			if tc.Auth == "basic" {
-				r.Header[DefaultBasicPartnerIDsHeader] = []string{"comcast"}
-			}
-			r.RemoteAddr = "original-requester.example.net:443"
+			r = r.WithContext(tc.Context)
+			r.RemoteAddr = "example.com:443"
 
 			var decodedRequest interface{}
 			if tc.WrongContext {
@@ -357,7 +245,7 @@ func addWebhookDecoderInput() string {
 	return `
 		{
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "superSecretXYZ"
 			},
@@ -365,7 +253,7 @@ func addWebhookDecoderInput() string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
+			"failure_url": "example.com",
 			"duration": 0,
 			"until": "2021-01-02T15:04:10Z"
 		}
@@ -375,7 +263,7 @@ func addWebhookDecoderDurationInput() string {
 	return `
 		{
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "superSecretXYZ"
 			},
@@ -383,7 +271,7 @@ func addWebhookDecoderDurationInput() string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
+			"failure_url": "example.com",
 			"duration": 300
 		}
 	`
@@ -432,9 +320,9 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 			owner: "owner-from-auth",
 			internalWebook: InternalWebhook{
 				Webhook: Webhook{
-					Address: "original-requester.example.net:443",
+					Address: "example.com:443",
 					Config: DeliveryConfig{
-						URL:         "http://deliver-here-0.example.net",
+						URL:         "example.com:443",
 						ContentType: "application/json",
 						Secret:      "superSecretXYZ",
 					},
@@ -442,7 +330,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 					Matcher: MetadataMatcherConfig{
 						DeviceID: []string{"mac:aabbccddee.*"},
 					},
-					FailureURL: "http://contact-here-when-fails.example.net",
+					FailureURL: "example.com",
 					Duration:   0,
 					Until:      getRefTime().Add(10 * time.Second),
 				},
@@ -454,9 +342,9 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 		owner: "owner-from-auth",
 		internalWebook: InternalWebhook{
 			Webhook: Webhook{
-				Address: "original-requester.example.net:443",
+				Address: "example.com:443",
 				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+					URL:         "example.com:443",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
@@ -464,7 +352,7 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 				Matcher: MetadataMatcherConfig{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
+				FailureURL: "example.com",
 				Duration:   0,
 				Until:      getRefTime().Add(10 * time.Second),
 			},
@@ -472,15 +360,16 @@ func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
 		},
 	}
 }
+
 func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	if withPIDs {
 		return &addWebhookRequest{
 			owner: "owner-from-auth",
 			internalWebook: InternalWebhook{
 				Webhook: Webhook{
-					Address: "original-requester.example.net:443",
+					Address: "example.com:443",
 					Config: DeliveryConfig{
-						URL:         "http://deliver-here-0.example.net",
+						URL:         "example.com:443",
 						ContentType: "application/json",
 						Secret:      "superSecretXYZ",
 					},
@@ -488,7 +377,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 					Matcher: MetadataMatcherConfig{
 						DeviceID: []string{"mac:aabbccddee.*"},
 					},
-					FailureURL: "http://contact-here-when-fails.example.net",
+					FailureURL: "example.com",
 					Duration:   5 * time.Minute,
 					Until:      getRefTime().Add(5 * time.Minute),
 				},
@@ -500,9 +389,9 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 		owner: "owner-from-auth",
 		internalWebook: InternalWebhook{
 			Webhook: Webhook{
-				Address: "original-requester.example.net:443",
+				Address: "example.com:443",
 				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+					URL:         "example.com:443",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
@@ -510,7 +399,7 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 				Matcher: MetadataMatcherConfig{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
+				FailureURL: "example.com",
 				Duration:   5 * time.Minute,
 				Until:      getRefTime().Add(5 * time.Minute),
 			},
@@ -523,9 +412,9 @@ func encodeGetAllInput() []InternalWebhook {
 	return []InternalWebhook{
 		{
 			Webhook: Webhook{
-				Address: "http://original-requester.example.net",
+				Address: "example.com:443",
 				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+					URL:         "example.com:443",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
@@ -535,17 +424,18 @@ func encodeGetAllInput() []InternalWebhook {
 				}{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
+				FailureURL: "example.com",
+				Duration:   0,
 				Until:      getRefTime().Add(10 * time.Second),
 			},
 			PartnerIDs: []string{"comcast"},
 		},
 		{
 			Webhook: Webhook{
-				Address: "http://original-requester.example.net",
+				Address: "example.com:443",
 				Config: DeliveryConfig{
 					ContentType: "application/json",
-					URL:         "http://deliver-here-1.example.net",
+					URL:         "example.com:443",
 					Secret:      "doNotShare:e=mc^2",
 				},
 				Events: []string{"online"},
@@ -554,12 +444,14 @@ func encodeGetAllInput() []InternalWebhook {
 				}{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
+				FailureURL: "example.com",
+				Duration:   0,
 				Until:      getRefTime().Add(20 * time.Second),
 			},
 			PartnerIDs: []string{"comcast"},
 		},
 	}
+
 }
 
 // once we move to go1.16 we could just embed this from a JSON file
@@ -568,9 +460,9 @@ func encodeGetAllOutput() string {
 	return `
 	[
 		{
-			"registered_from_address": "http://original-requester.example.net",
+			"registered_from_address": "example.com:443",
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "<obfuscated>"
 			},
@@ -578,14 +470,14 @@ func encodeGetAllOutput() string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
+			"failure_url": "example.com",
 			"duration": 0,
 			"until": "2021-01-02T15:04:10Z"
 		},
 		{
-			"registered_from_address": "http://original-requester.example.net",
+			"registered_from_address": "example.com:443",
 			"config": {
-				"url": "http://deliver-here-1.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "<obfuscated>"
 			},
@@ -593,7 +485,7 @@ func encodeGetAllOutput() string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
+			"failure_url": "example.com",
 			"duration": 0,
 			"until": "2021-01-02T15:04:20Z"
 		}
@@ -612,17 +504,17 @@ func TestSetWebhookDefaults(t *testing.T) {
 			desc: "No Until, Address, or DeviceID",
 			webhook: Webhook{
 				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+					URL: "example.com:443",
 				},
 				Events:   []string{"online", "offline"},
 				Matcher:  MetadataMatcherConfig{},
 				Duration: 5 * time.Minute,
 			},
-			remoteAddr: "http://original-requester.example.net",
+			remoteAddr: "example.com:443",
 			expectedWebhook: Webhook{
-				Address: "http://original-requester.example.net",
+				Address: "example.com:443",
 				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+					URL: "example.com:443",
 				},
 				Events: []string{"online", "offline"},
 				Matcher: MetadataMatcherConfig{
@@ -635,7 +527,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 			desc: "No Address or Request Address",
 			webhook: Webhook{
 				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+					URL: "example.com:443",
 				},
 				Events:   []string{"online", "offline"},
 				Matcher:  MetadataMatcherConfig{},
@@ -643,7 +535,7 @@ func TestSetWebhookDefaults(t *testing.T) {
 			},
 			expectedWebhook: Webhook{
 				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+					URL: "example.com:443",
 				},
 				Events: []string{"online", "offline"},
 				Matcher: MetadataMatcherConfig{
@@ -655,9 +547,9 @@ func TestSetWebhookDefaults(t *testing.T) {
 		{
 			desc: "All values set",
 			webhook: Webhook{
-				Address: "requester.example.net:443",
+				Address: "example.com:443",
 				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+					URL: "example.com:443",
 				},
 				Events: []string{"online", "offline"},
 				Matcher: MetadataMatcherConfig{
@@ -666,11 +558,11 @@ func TestSetWebhookDefaults(t *testing.T) {
 				Duration: 5 * time.Minute,
 				Until:    mockNow().Add(5 * time.Minute),
 			},
-			remoteAddr: "requester.example.net:443",
+			remoteAddr: "example.com:443",
 			expectedWebhook: Webhook{
-				Address: "requester.example.net:443",
+				Address: "example.com:443",
 				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+					URL: "example.com:443",
 				},
 				Events: []string{"online", "offline"},
 				Matcher: MetadataMatcherConfig{
@@ -692,4 +584,20 @@ func TestSetWebhookDefaults(t *testing.T) {
 			assert.Equal(tc.expectedWebhook, webhook)
 		})
 	}
+}
+
+type BadRequestErr struct {
+	Message string
+}
+
+func (bre BadRequestErr) Error() string {
+	return bre.Message
+}
+
+func (bre BadRequestErr) SanitizedError() string {
+	return bre.Message
+}
+
+func (bre BadRequestErr) StatusCode() int {
+	return http.StatusBadRequest
 }

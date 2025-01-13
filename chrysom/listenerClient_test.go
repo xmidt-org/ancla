@@ -116,7 +116,7 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 	if includeListener {
 		config.Listener = mockListener
 	}
-	client, err := NewListenerClient(config, nil, mockMeasures, &BasicClient{})
+	client, err := NewListenerClient(config, nil, mockMeasures, &BasicClient{client: http.DefaultClient})
 	if err != nil {
 		return nil, nil, err
 	}

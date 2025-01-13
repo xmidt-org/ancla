@@ -44,13 +44,6 @@ type Config struct {
 	// (Optional). Defaults to a no op logger.
 	Logger *zap.Logger
 
-	// JWTParserType establishes which parser type will be used by the JWT token
-	// acquirer used by Argus. Options include 'simple' and 'raw'.
-	// Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
-	// Raw: parser assumes all of the token payload == JWT token
-	// (Optional). Defaults to 'simple'
-	JWTParserType jwtAcquireParserType
-
 	// DisablePartnerIDs, if true, will allow webhooks to register without
 	// checking the validity of the partnerIDs in the request
 	DisablePartnerIDs bool
@@ -89,7 +82,7 @@ func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*servi
 	if cfg.Logger == nil {
 		cfg.Logger = sallust.Default()
 	}
-	prepArgusBasicClientConfig(&cfg)
+
 	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
@@ -158,16 +151,6 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	}
 
 	return iws, nil
-}
-
-func prepArgusBasicClientConfig(cfg *Config) error {
-	p, err := newJWTAcquireParser(cfg.JWTParserType)
-	if err != nil {
-		return err
-	}
-	cfg.BasicClientConfig.Auth.JWT.GetToken = p.token
-	cfg.BasicClientConfig.Auth.JWT.GetExpiration = p.expiration
-	return nil
 }
 
 func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
