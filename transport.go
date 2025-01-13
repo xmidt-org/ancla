@@ -20,7 +20,6 @@ import (
 
 var (
 	errFailedWebhookUnmarshal    = errors.New("failed to JSON unmarshal webhook")
-	errAuthIsNotOfTypeBasicOrJWT = errors.New("auth is not of type Basic of JWT")
 	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
 	DefaultBasicPartnerIDsHeader = "X-Xmidt-Partner-Ids"
 )
@@ -35,7 +34,6 @@ type transportConfig struct {
 	v                     Validator
 	basicPartnerIDsHeader string
 	disablePartnerIDs     bool
-	auth                  auth.Acquirer
 }
 
 type addWebhookRequest struct {

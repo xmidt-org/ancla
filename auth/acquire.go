@@ -3,8 +3,13 @@
 
 package auth
 
-// Acquirer acquires the credential for http request authorization headers.
-type Acquirer interface {
-	// Acquire gets a credential string.
-	Acquire() (string, error)
+import (
+	"context"
+	"net/http"
+)
+
+// Decorator decorates http requests with authorization header(s).
+type Decorator interface {
+	// Decorate decorates the given http request with authorization header(s).
+	Decorate(ctx context.Context, req *http.Request) error
 }

@@ -3,15 +3,23 @@
 package auth
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/stretchr/testify/mock"
 )
 
-type MockAquirer struct {
+const (
+	MockAuthHeaderName  = "MockAuthorization"
+	MockAuthHeaderValue = "mockAuth"
+)
+
+type MockDecorator struct {
 	mock.Mock
 }
 
-func (m *MockAquirer) Acquire() (string, error) {
-	args := m.Called()
+func (m *MockDecorator) Decorate(ctx context.Context, req *http.Request) error {
+	req.Header.Set(MockAuthHeaderName, MockAuthHeaderValue)
 
-	return args.String(0), args.Error(1)
+	return m.Called().Error(0)
 }

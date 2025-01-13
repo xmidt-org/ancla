@@ -30,7 +30,7 @@ var (
 	ErrItemIDEmpty             = errors.New("item ID is required")
 	ErrItemDataEmpty           = errors.New("data field in item is required")
 	ErrUndefinedIntervalTicker = errors.New("interval ticker is nil. Can't listen for updates")
-	ErrAuthAcquirerFailure     = errors.New("failed acquiring auth token")
+	ErrAuthDecoratorFailure    = errors.New("failed decorating auth header")
 	ErrBadRequest              = errors.New("argus rejected the request as invalid")
 )
 
@@ -58,13 +58,13 @@ type BasicClientConfig struct {
 
 	// Auth provides the mechanism to add auth headers to outgoing requests.
 	// (Optional) If not provided, no auth headers are added.
-	Auth auth.Acquirer
+	Auth auth.Decorator
 }
 
 // BasicClient is the client used to make requests to Argus.
 type BasicClient struct {
 	client       *http.Client
-	auth         auth.Acquirer
+	auth         auth.Decorator
 	storeBaseURL string
 	bucket       string
 	getLogger    func(context.Context) *zap.Logger
@@ -207,12 +207,9 @@ func (c *BasicClient) sendRequest(ctx context.Context, owner, method, url string
 	}
 
 	if c.auth != nil {
-		auth, err := c.auth.Acquire()
-		if err != nil {
-			return response{}, errors.Join(ErrAuthAcquirerFailure, err)
+		if err := c.auth.Decorate(ctx, r); err != nil {
+			return response{}, errors.Join(ErrAuthDecoratorFailure, err)
 		}
-
-		r.Header.Set("Authorization", auth)
 	}
 
 	resp, err := c.client.Do(r)
