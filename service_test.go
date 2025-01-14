@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
 
@@ -139,7 +138,7 @@ func TestAdd(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
 			svc := service{
-				logger: sallust.Default(),
+				logger: zap.NewNop(),
 				config: Config{},
 				argus:  m,
 				now:    time.Now,
@@ -185,7 +184,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 
 			svc := service{
 				argus:  m,
-				logger: sallust.Default(),
+				logger: zap.NewNop(),
 				config: Config{},
 			}
 			// nolint:typecheck

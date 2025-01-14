@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 const failingURL = "nowhere://"
@@ -190,7 +190,10 @@ func TestSendRequest(t *testing.T) {
 			client, err := NewBasicClient(BasicClientConfig{
 				Address: "example.com",
 				Bucket:  "bucket-name",
-			}, sallust.Get)
+			},
+				func(context.Context) *zap.Logger {
+					return zap.NewNop()
+				})
 
 			if tc.MockAuth != "" || tc.MockError != nil {
 				authDecorator := new(auth.MockDecorator)
@@ -298,7 +301,10 @@ func TestGetItems(t *testing.T) {
 			client, err := NewBasicClient(BasicClientConfig{
 				Address: server.URL,
 				Bucket:  bucket,
-			}, sallust.Get)
+			},
+				func(context.Context) *zap.Logger {
+					return zap.NewNop()
+				})
 
 			require.Nil(err)
 
@@ -440,7 +446,10 @@ func TestPushItem(t *testing.T) {
 			client, err := NewBasicClient(BasicClientConfig{
 				Address: server.URL,
 				Bucket:  bucket,
-			}, sallust.Get)
+			},
+				func(context.Context) *zap.Logger {
+					return zap.NewNop()
+				})
 
 			if tc.MockAuth != "" || tc.MockError != nil {
 				authDecorator := new(auth.MockDecorator)
@@ -544,7 +553,9 @@ func TestRemoveItem(t *testing.T) {
 			client, err := NewBasicClient(BasicClientConfig{
 				Address: server.URL,
 				Bucket:  bucket,
-			}, sallust.Get)
+			}, func(context.Context) *zap.Logger {
+				return zap.NewNop()
+			})
 
 			if tc.MockAuth != "" || tc.MockError != nil {
 				authDecorator := new(auth.MockDecorator)

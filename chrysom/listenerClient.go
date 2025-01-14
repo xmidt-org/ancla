@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
 
@@ -174,7 +173,7 @@ func validateListenerConfig(config *ListenerClientConfig) error {
 		return ErrNoListenerProvided
 	}
 	if config.Logger == nil {
-		config.Logger = sallust.Default()
+		config.Logger = zap.NewNop()
 	}
 	if config.PullInterval == 0 {
 		config.PullInterval = defaultPullInterval

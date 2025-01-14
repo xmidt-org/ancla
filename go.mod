@@ -9,7 +9,6 @@ require (
 	github.com/prometheus/client_model v0.6.1
 	github.com/stretchr/testify v1.9.0
 	github.com/xmidt-org/httpaux v0.4.0
-	github.com/xmidt-org/sallust v0.2.2
 	github.com/xmidt-org/touchstone v0.1.3
 	go.uber.org/fx v1.22.2
 	go.uber.org/multierr v1.11.0
@@ -30,6 +29,5 @@ require (
 	go.uber.org/dig v1.18.0 // indirect
 	golang.org/x/sys v0.22.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

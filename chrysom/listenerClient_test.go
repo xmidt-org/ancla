@@ -16,7 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 	happyListenerClientConfig = ListenerClientConfig{
 		Listener:     mockListener,
 		PullInterval: time.Second,
-		Logger:       sallust.Default(),
+		Logger:       zap.NewNop(),
 	}
 )
 
@@ -111,7 +111,7 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 
 	config := ListenerClientConfig{
 		PullInterval: time.Millisecond * 200,
-		Logger:       sallust.Default(),
+		Logger:       zap.NewNop(),
 	}
 	if includeListener {
 		config.Listener = mockListener
