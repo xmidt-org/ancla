@@ -17,11 +17,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/auth"
-	"github.com/xmidt-org/sallust"
+	"go.uber.org/zap"
 )
 
 func TestErrorEncoder(t *testing.T) {
-	mockHandlerConfig := HandlerConfig{GetLogger: sallust.Get}
+	mockHandlerConfig := HandlerConfig{GetLogger: func(context.Context) *zap.Logger {
+		return zap.NewNop()
+	}}
 
 	type testCase struct {
 		Description  string

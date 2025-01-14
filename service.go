@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/xmidt-org/ancla/chrysom"
-	"github.com/xmidt-org/sallust"
 	"go.uber.org/zap"
 )
 
@@ -80,7 +79,7 @@ type service struct {
 // NewService builds the Argus client service from the given configuration.
 func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*service, error) {
 	if cfg.Logger == nil {
-		cfg.Logger = sallust.Default()
+		cfg.Logger = zap.NewNop()
 	}
 
 	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
@@ -101,7 +100,7 @@ func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*servi
 // function when you are done watching for updates.
 func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, watches ...Watch) (func(), error) {
 	if cfg.Logger == nil {
-		cfg.Logger = sallust.Default()
+		cfg.Logger = zap.NewNop()
 	}
 	prepArgusListenerClientConfig(&cfg, watches...)
 	m := &chrysom.Measures{
