@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2024 Comcast Cable Communications Management, LLC
+// SPDX-FileCopyrightText: 2025 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 package anclafx
 
@@ -15,8 +15,9 @@ func Provide() fx.Option {
 		Module,
 		fx.Invoke(chrysom.ProvideStartListenerClient),
 		fx.Provide(
-			ancla.ProvideListener,
 			ancla.ProvideService,
+			ancla.ProvideListener,
+			ancla.ProvideDefaultListenerWatchers,
 			chrysom.ProvideBasicClient,
 			chrysom.ProvideDefaultListenerReader,
 			chrysom.ProvideListenerClient,
