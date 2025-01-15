@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/xmidt-org/ancla/chrysom"
-	"go.uber.org/zap"
 )
 
 const errFmt = "%w: %v"
@@ -24,7 +23,6 @@ var (
 )
 
 // Service describes the core operations around webhook subscriptions.
-// Initialize() provides a service ready to use and the controls around watching for updates.
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
@@ -34,17 +32,13 @@ type Service interface {
 	GetAll(ctx context.Context) ([]InternalWebhook, error)
 }
 
-// Config contains information needed to initialize the Argus Client service.
+// Config contains information needed to initialize the Argus database client.
 type Config struct {
+	// BasicClientConfig is the configuration for the Argus database client.
 	BasicClientConfig chrysom.BasicClientConfig
 
-	// Logger for this package.
-	// Gets passed to Argus config before initializing the client.
-	// (Optional). Defaults to a no op logger.
-	Logger *zap.Logger
-
 	// DisablePartnerIDs, if true, will allow webhooks to register without
-	// checking the validity of the partnerIDs in the request
+	// checking the validity of the partnerIDs in the request.
 	DisablePartnerIDs bool
 
 	// Validation provides options for validating the webhook's URL and TTL
@@ -55,66 +49,14 @@ type Config struct {
 	Validation ValidatorConfig
 }
 
-// ListenerConfig contains information needed to initialize the Listener Client service.
-type ListenerConfig struct {
-	Config chrysom.ListenerClientConfig
-
-	// Logger for this package.
-	// Gets passed to Argus config before initializing the client.
-	// (Optional). Defaults to a no op logger.
-	Logger *zap.Logger
-
-	// Measures for instrumenting this package.
-	// Gets passed to Argus config before initializing the client.
-	Measures Measures
-}
-
 type service struct {
-	argus  chrysom.PushReader
-	logger *zap.Logger
-	config Config
-	now    func() time.Time
+	// argus is the Argus database client.
+	argus chrysom.PushReader
+	now   func() time.Time
 }
 
-// NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*service, error) {
-	if cfg.Logger == nil {
-		cfg.Logger = zap.NewNop()
-	}
-
-	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
-	}
-	svc := &service{
-		logger: cfg.Logger,
-		argus:  basic,
-		config: cfg,
-		now:    time.Now,
-	}
-	return svc, nil
-}
-
-// StartListener builds the Argus listener client service from the given configuration.
-// It allows adding watchers for the internal subscription state. Call the returned
-// function when you are done watching for updates.
-func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, watches ...Watch) (func(), error) {
-	if cfg.Logger == nil {
-		cfg.Logger = zap.NewNop()
-	}
-	prepArgusListenerClientConfig(&cfg, watches...)
-	m := &chrysom.Measures{
-		Polls: cfg.Measures.ChrysomPollsTotalCounterName,
-	}
-	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, m, s.argus)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
-	}
-
-	listener.Start(context.Background())
-	return func() { listener.Stop(context.Background()) }, nil
-}
-
+// Add adds the given owned webhook to the current list of webhooks. If the operation
+// succeeds, a non-nil error is returned.
 func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
 	item, err := InternalWebhookToItem(s.now, iw)
 	if err != nil {
@@ -152,17 +94,10 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	return iws, nil
 }
 
-func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
-	logger := cfg.Logger
-	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGaugeName))
-	cfg.Config.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
-		iws, err := ItemsToInternalWebhooks(items)
-		if err != nil {
-			logger.Error("Failed to convert items to webhooks", zap.Error(err))
-			return
-		}
-		for _, watch := range watches {
-			watch.Update(iws)
-		}
-	})
+// NewService returns an ancla client used to interact with an Argus database.
+func NewService(client *chrysom.BasicClient) *service {
+	return &service{
+		argus: client,
+		now:   time.Now,
+	}
 }

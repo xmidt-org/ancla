@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/model"
@@ -41,6 +42,7 @@ var (
 	errReadingBodyFailure = errors.New("failed while reading http response body")
 	errJSONUnmarshal      = errors.New("failed unmarshaling JSON response payload")
 	errJSONMarshal        = errors.New("failed marshaling item as JSON payload")
+	errFailedConfig       = errors.New("ancla configuration error")
 )
 
 // BasicClientConfig contains config data for the client that will be used to
@@ -59,6 +61,10 @@ type BasicClientConfig struct {
 	// Auth provides the mechanism to add auth headers to outgoing requests.
 	// (Optional) If not provided, no auth headers are added.
 	Auth auth.Decorator
+
+	// PullInterval is how often listeners should get updates.
+	// (Optional). Defaults to 5 seconds.
+	PullInterval time.Duration
 }
 
 // BasicClient is the client used to make requests to Argus.

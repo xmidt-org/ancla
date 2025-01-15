@@ -54,34 +54,30 @@ func TestValidateBasicConfig(t *testing.T) {
 		{
 			Description: "No address",
 			Input: &BasicClientConfig{
-				HTTPClient: http.DefaultClient,
-				Bucket:     "bucket-name",
+				Bucket: "bucket-name",
 			},
 			ExpectedErr: ErrAddressEmpty,
 		},
 		{
 			Description: "No bucket",
 			Input: &BasicClientConfig{
-				HTTPClient: http.DefaultClient,
-				Address:    "example.com",
+				Address: "example.com",
 			},
 			ExpectedErr: ErrBucketEmpty,
 		},
 		{
 			Description: "All default values",
 			Input: &BasicClientConfig{
-				HTTPClient: http.DefaultClient,
-				Address:    "example.com",
-				Bucket:     "bucket-name",
+				Address: "example.com",
+				Bucket:  "bucket-name",
 			},
 			ExpectedConfig: allDefaultsCaseConfig,
 		},
 		{
 			Description: "All defined",
 			Input: &BasicClientConfig{
-				HTTPClient: http.DefaultClient,
-				Address:    "example.com",
-				Bucket:     "amazing-bucket",
+				Address: "example.com",
+				Bucket:  "amazing-bucket",
 			},
 			ExpectedConfig: allDefinedCaseConfig,
 		},
@@ -121,7 +117,7 @@ func TestSendRequest(t *testing.T) {
 			ExpectedErr: errNewRequestFailure,
 		},
 		{
-			Description: "Auth acquirer fails",
+			Description: "Auth decorator fails",
 			Method:      http.MethodGet,
 			URL:         "example.com",
 			MockError:   errFails,

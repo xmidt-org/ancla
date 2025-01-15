@@ -10,85 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
-	"go.uber.org/zap"
 )
-
-func TestNewService(t *testing.T) {
-	tcs := []struct {
-		desc        string
-		config      Config
-		getLogger   func(context.Context) *zap.Logger
-		expectedErr bool
-	}{
-		{
-			desc: "Success Case",
-			config: Config{
-				BasicClientConfig: chrysom.BasicClientConfig{
-					Address: "test",
-					Bucket:  "test",
-				},
-			},
-		},
-		{
-			desc:        "Chrysom Basic Client Creation Failure",
-			expectedErr: true,
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			_, err := NewService(tc.config, tc.getLogger)
-			if tc.expectedErr {
-				assert.NotNil(err)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
-}
-
-func TestStartListener(t *testing.T) {
-	mockServiceConfig := Config{
-		BasicClientConfig: chrysom.BasicClientConfig{
-			Address: "test",
-			Bucket:  "test",
-		},
-	}
-	mockService, _ := NewService(mockServiceConfig, nil)
-	tcs := []struct {
-		desc           string
-		serviceConfig  Config
-		listenerConfig ListenerConfig
-		svc            service
-		expectedErr    bool
-	}{
-		{
-			desc: "Success Case",
-			svc:  *mockService,
-			listenerConfig: ListenerConfig{
-				Config: chrysom.ListenerClientConfig{},
-			},
-		},
-		{
-			desc:        "Chrysom Listener Client Creation Failure",
-			expectedErr: true,
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			_, err := tc.svc.StartListener(tc.listenerConfig, nil)
-			if tc.expectedErr {
-				assert.NotNil(err)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
-}
 
 func TestAdd(t *testing.T) {
 	type pushItemResults struct {
@@ -138,10 +62,8 @@ func TestAdd(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
 			svc := service{
-				logger: zap.NewNop(),
-				config: Config{},
-				argus:  m,
-				now:    time.Now,
+				argus: m,
+				now:   time.Now,
 			}
 			// nolint:typecheck
 			m.On("PushItem", context.TODO(), tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
@@ -183,9 +105,7 @@ func TestAllInternalWebhooks(t *testing.T) {
 			m := new(mockPushReader)
 
 			svc := service{
-				argus:  m,
-				logger: zap.NewNop(),
-				config: Config{},
+				argus: m,
 			}
 			// nolint:typecheck
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
@@ -211,12 +131,12 @@ func getTestItems() chrysom.Items {
 	)
 	return chrysom.Items{
 		model.Item{
-			ID: "b3bbc3467366959e0aba3c33588a08c599f68a740fabf4aa348463d3dc7dcfe8",
+			ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 			Data: map[string]interface{}{
 				"Webhook": map[string]interface{}{
-					"registered_from_address": "http://original-requester.example.net",
+					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
-						"url":          "http://deliver-here-0.example.net",
+						"url":          "example.com",
 						"content_type": "application/json",
 						"secret":       "superSecretXYZ",
 					},
@@ -224,7 +144,7 @@ func getTestItems() chrysom.Items {
 					"matcher": map[string]interface{}{
 						"device_id": []interface{}{"mac:aabbccddee.*"},
 					},
-					"failure_url": "http://contact-here-when-fails.example.net",
+					"failure_url": "example.com",
 					"duration":    float64((10 * time.Second).Nanoseconds()),
 					"until":       "2021-01-02T15:04:10Z",
 				},
@@ -237,9 +157,9 @@ func getTestItems() chrysom.Items {
 			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
 			Data: map[string]interface{}{
 				"webhook": map[string]interface{}{
-					"registered_from_address": "http://original-requester.example.net",
+					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
-						"url":          "http://deliver-here-1.example.net",
+						"url":          "example.com",
 						"content_type": "application/json",
 						"secret":       "doNotShare:e=mc^2",
 					},
@@ -247,7 +167,7 @@ func getTestItems() chrysom.Items {
 					"matcher": map[string]interface{}{
 						"device_id": []interface{}{"mac:aabbccddee.*"},
 					},
-					"failure_url": "http://contact-here-when-fails.example.net",
+					"failure_url": "example.com",
 					"duration":    float64((20 * time.Second).Nanoseconds()),
 					"until":       "2021-01-02T15:04:20Z",
 				},
