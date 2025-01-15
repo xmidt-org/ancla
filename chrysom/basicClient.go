@@ -15,7 +15,6 @@ import (
 
 	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/model"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -92,31 +91,6 @@ const (
 
 // Items is a slice of model.Item(s) .
 type Items []model.Item
-
-// GetLogger returns a logger from the given context.
-type GetLogger func(context.Context) *zap.Logger
-
-// SetLogger embeds the `Listener.logger` in outgoing request contexts for `Listener.Update` calls.
-type SetLogger func(context.Context, *zap.Logger) context.Context
-
-type BasicClientIn struct {
-	fx.In
-
-	// Ancla Client config.
-	Config BasicClientConfig
-	// GetLogger returns a logger from the given context.
-	GetLogger GetLogger
-}
-
-// ProvideBasicClient provides a new BasicClient.
-func ProvideBasicClient(in BasicClientIn) (*BasicClient, error) {
-	client, err := NewBasicClient(in.Config, in.GetLogger)
-	if err != nil {
-		return nil, errors.Join(errFailedConfig, err)
-	}
-
-	return client, nil
-}
 
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.

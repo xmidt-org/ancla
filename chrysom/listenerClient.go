@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/fx"
 	"go.uber.org/zap"
 )
 
@@ -38,26 +37,6 @@ const (
 	defaultPullInterval = time.Second * 5
 )
 
-// ListenerConfig contains config data for polling the Argus client.
-type ListenerClientIn struct {
-	fx.In
-
-	// Listener fetches a copy of all items within a bucket on
-	// an interval based on `BasicClientConfig.PullInterval`.
-	// (Optional). If not provided, listening won't be enabled for this client.
-	Listener Listener
-	// Config configures the ancla client and its listeners.
-	Config BasicClientConfig
-	// PollsTotalCounter measures the number of polls (and their success/failure outcomes) to fetch new items.
-	PollsTotalCounter *prometheus.CounterVec `name:"chrysom_polls_total"`
-	// Reader is the DB interface used to fetch new items using `GeItems`.
-	Reader Reader
-	// GetLogger returns a logger from the given context.
-	GetLogger GetLogger
-	// SetLogger embeds the `Listener.logger` in outgoing request contexts for `Listener.Update` calls.
-	SetLogger SetLogger
-}
-
 // ListenerClient is the client used to poll Argus for updates.
 type ListenerClient struct {
 	observer  *observerConfig
@@ -74,20 +53,6 @@ type observerConfig struct {
 
 	shutdown chan struct{}
 	state    int32
-}
-
-// ProvideListenerClient provides a new ListenerClient.
-func ProvideListenerClient(in ListenerClientIn) (*ListenerClient, error) {
-	client, err := NewListenerClient(in.Listener, in.GetLogger, in.SetLogger, in.Config.PullInterval, in.PollsTotalCounter, in.Reader)
-	if err != nil {
-		return nil, errors.Join(err, errFailedConfig)
-	}
-
-	return client, nil
-}
-
-func ProvideDefaultListenerReader(client *BasicClient) Reader {
-	return client
 }
 
 // NewListenerClient creates a new ListenerClient to be used to poll Argus
@@ -186,20 +151,5 @@ func (c *ListenerClient) Stop(ctx context.Context) error {
 	c.observer.ticker.Stop()
 	c.observer.shutdown <- struct{}{}
 	atomic.SwapInt32(&c.observer.state, stopped)
-	return nil
-}
-
-type StartListenerIn struct {
-	fx.In
-
-	Listener *ListenerClient
-	LC       fx.Lifecycle
-}
-
-// ProvideStartListenerClient starts the Argus listener client service.
-func ProvideStartListenerClient(in StartListenerIn) error {
-	in.Listener.Start(context.Background())
-	in.LC.Append(fx.StopHook(in.Listener.Stop))
-
 	return nil
 }

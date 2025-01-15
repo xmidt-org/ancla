@@ -9,9 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/ancla/chrysom"
-	"go.uber.org/fx"
 )
 
 const errFmt = "%w: %v"
@@ -25,7 +23,6 @@ var (
 )
 
 // Service describes the core operations around webhook subscriptions.
-// Initialize() provides a service ready to use and the controls around watching for updates.
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
@@ -35,12 +32,13 @@ type Service interface {
 	GetAll(ctx context.Context) ([]InternalWebhook, error)
 }
 
-// Config contains information needed to initialize the Argus Client service.
+// Config contains information needed to initialize the Argus database client.
 type Config struct {
+	// BasicClientConfig is the configuration for the Argus database client.
 	BasicClientConfig chrysom.BasicClientConfig
 
 	// DisablePartnerIDs, if true, will allow webhooks to register without
-	// checking the validity of the partnerIDs in the request
+	// checking the validity of the partnerIDs in the request.
 	DisablePartnerIDs bool
 
 	// Validation provides options for validating the webhook's URL and TTL
@@ -52,10 +50,13 @@ type Config struct {
 }
 
 type service struct {
+	// argus is the Argus database client.
 	argus chrysom.PushReader
 	now   func() time.Time
 }
 
+// Add adds the given owned webhook to the current list of webhooks. If the operation
+// succeeds, a non-nil error is returned.
 func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
 	item, err := InternalWebhookToItem(s.now, iw)
 	if err != nil {
@@ -93,65 +94,10 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 	return iws, nil
 }
 
+// NewService returns an ancla client used to interact with an Argus database.
 func NewService(client *chrysom.BasicClient) *service {
 	return &service{
 		argus: client,
 		now:   time.Now,
 	}
-}
-
-type ServiceIn struct {
-	fx.In
-
-	BasicClient *chrysom.BasicClient
-}
-
-// ProvideService builds the Argus client service from the given configuration.
-func ProvideService(in ServiceIn) Service {
-	return NewService(in.BasicClient)
-}
-
-// TODO: Refactor and move Watch and Listener related code to chrysom.
-type DefaultListenersIn struct {
-	fx.In
-
-	WebhookListSizeGauge prometheus.Gauge `name:"webhook_list_size"`
-}
-
-type DefaultListenerOut struct {
-	fx.Out
-
-	Watchers []Watch `group:"watchers,flatten"`
-}
-
-func ProvideDefaultListeners(in DefaultListenersIn) DefaultListenerOut {
-	var watchers []Watch
-
-	watchers = append(watchers, webhookListSizeWatch(in.WebhookListSizeGauge))
-
-	return DefaultListenerOut{
-		Watchers: watchers,
-	}
-}
-
-type ListenerIn struct {
-	fx.In
-
-	Shutdowner fx.Shutdowner
-	Watchers   []Watch `group:"watchers"`
-}
-
-func ProvideListener(in ListenerIn) chrysom.Listener {
-	return chrysom.ListenerFunc(func(items chrysom.Items) {
-		iws, err := ItemsToInternalWebhooks(items)
-		if err != nil {
-			in.Shutdowner.Shutdown(fx.ExitCode(1))
-
-			return
-		}
-
-		for _, watch := range in.Watchers {
-			watch.Update(iws)
-		}
-	})
 }
