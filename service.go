@@ -100,14 +100,14 @@ func NewService(client *chrysom.BasicClient) *service {
 	}
 }
 
-type ClientServiceIn struct {
+type ServiceIn struct {
 	fx.In
 
 	BasicClient *chrysom.BasicClient
 }
 
 // ProvideService builds the Argus client service from the given configuration.
-func ProvideService(in ClientServiceIn) Service {
+func ProvideService(in ServiceIn) Service {
 	return NewService(in.BasicClient)
 }
 

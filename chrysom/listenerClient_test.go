@@ -21,7 +21,6 @@ import (
 
 var (
 	mockListener = ListenerFunc((func(_ Items) {
-		fmt.Println("Doing amazing work for 100ms")
 		time.Sleep(time.Millisecond * 100)
 	}))
 	pollsTotalCounter = prometheus.NewCounterVec(
@@ -45,7 +44,6 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 			t.Run(strconv.Itoa(testNumber), func(t *testing.T) {
 				t.Parallel()
 				assert := assert.New(t)
-				fmt.Printf("%d: Start\n", testNumber)
 				errStart := client.Start(context.Background())
 				if errStart != nil {
 					assert.Equal(ErrListenerNotStopped, errStart)
@@ -56,7 +54,6 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 				if errStop != nil {
 					assert.Equal(ErrListenerNotRunning, errStop)
 				}
-				fmt.Printf("%d: Done\n", testNumber)
 			})
 		}
 	})
