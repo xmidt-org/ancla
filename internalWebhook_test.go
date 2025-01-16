@@ -88,12 +88,12 @@ func TestInternalWebhookToItem(t *testing.T) {
 func getExpiredItem() model.Item {
 	var expiresInSecs int64 = 0
 	return model.Item{
-		ID: "b3bbc3467366959e0aba3c33588a08c599f68a740fabf4aa348463d3dc7dcfe8",
+		ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 		Data: map[string]interface{}{
 			"Webhook": map[string]interface{}{
-				"registered_from_address": "http://original-requester.example.net",
+				"registered_from_address": "example.com",
 				"config": map[string]interface{}{
-					"url":          "http://deliver-here-0.example.net",
+					"url":          "example.com",
 					"content_type": "application/json",
 					"secret":       "superSecretXYZ",
 				},
@@ -101,7 +101,7 @@ func getExpiredItem() model.Item {
 				"matcher": map[string]interface{}{
 					"device_id": []interface{}{"mac:aabbccddee.*"},
 				},
-				"failure_url": "http://contact-here-when-fails.example.net",
+				"failure_url": "example.com",
 				"duration":    float64(time.Second.Nanoseconds()),
 				"until":       "1970-01-01T00:00:01Z",
 			},
@@ -114,9 +114,9 @@ func getExpiredItem() model.Item {
 func getExpiredInternalWebhook() InternalWebhook {
 	return InternalWebhook{
 		Webhook: Webhook{
-			Address: "http://original-requester.example.net",
+			Address: "example.com",
 			Config: DeliveryConfig{
-				URL:         "http://deliver-here-0.example.net",
+				URL:         "example.com",
 				ContentType: "application/json",
 				Secret:      "superSecretXYZ",
 			},
@@ -126,7 +126,7 @@ func getExpiredInternalWebhook() InternalWebhook {
 			}{
 				DeviceID: []string{"mac:aabbccddee.*"},
 			},
-			FailureURL: "http://contact-here-when-fails.example.net",
+			FailureURL: "example.com",
 			Duration:   time.Second,
 			Until:      time.Unix(1, 0).UTC(),
 		},
@@ -139,9 +139,9 @@ func getTestInternalWebhooks() []InternalWebhook {
 	return []InternalWebhook{
 		{
 			Webhook: Webhook{
-				Address: "http://original-requester.example.net",
+				Address: "example.com",
 				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+					URL:         "example.com",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
@@ -149,7 +149,7 @@ func getTestInternalWebhooks() []InternalWebhook {
 				Matcher: MetadataMatcherConfig{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
+				FailureURL: "example.com",
 				Duration:   10 * time.Second,
 				Until:      refTime.Add(10 * time.Second),
 			},
@@ -157,10 +157,10 @@ func getTestInternalWebhooks() []InternalWebhook {
 		},
 		{
 			Webhook: Webhook{
-				Address: "http://original-requester.example.net",
+				Address: "example.com",
 				Config: DeliveryConfig{
 					ContentType: "application/json",
-					URL:         "http://deliver-here-1.example.net",
+					URL:         "example.com",
 					Secret:      "doNotShare:e=mc^2",
 				},
 				Events: []string{"online"},
@@ -168,7 +168,7 @@ func getTestInternalWebhooks() []InternalWebhook {
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
 
-				FailureURL: "http://contact-here-when-fails.example.net",
+				FailureURL: "example.com",
 				Duration:   20 * time.Second,
 				Until:      refTime.Add(20 * time.Second),
 			},
