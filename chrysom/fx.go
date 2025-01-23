@@ -10,66 +10,45 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/xmidt-org/touchstone"
 	"go.uber.org/fx"
-	"go.uber.org/zap"
 )
 
-// GetLogger returns a logger from the given context.
-type GetLogger func(context.Context) *zap.Logger
-
-// SetLogger embeds the `Listener.logger` in outgoing request contexts for `Listener.Update` calls.
-type SetLogger func(context.Context, *zap.Logger) context.Context
-
-type BasicClientIn struct {
-	fx.In
-
-	// Ancla Client config.
-	Config BasicClientConfig
-	// GetLogger returns a logger from the given context.
-	GetLogger GetLogger
-}
-
-// ProvideBasicClient provides a new BasicClient.
-func ProvideBasicClient(in BasicClientIn) (*BasicClient, error) {
-	client, err := NewBasicClient(in.Config, in.GetLogger)
-	if err != nil {
-		return nil, errors.Join(errFailedConfig, err)
-	}
-
-	return client, nil
-}
+var (
+	ErrMisconfiguredListener = errors.New("ancla listener configuration error")
+)
 
 // ListenerConfig contains config data for polling the Argus client.
 type ListenerClientIn struct {
 	fx.In
 
-	// Listener fetches a copy of all items within a bucket on
-	// an interval based on `BasicClientConfig.PullInterval`.
-	// (Optional). If not provided, listening won't be enabled for this client.
-	Listener Listener
-	// Config configures the ancla client and its listeners.
-	Config BasicClientConfig
 	// PollsTotalCounter measures the number of polls (and their success/failure outcomes) to fetch new items.
 	PollsTotalCounter *prometheus.CounterVec `name:"chrysom_polls_total"`
-	// Reader is the DB interface used to fetch new items using `GeItems`.
-	Reader Reader
-	// GetLogger returns a logger from the given context.
-	GetLogger GetLogger
-	// SetLogger embeds the `Listener.logger` in outgoing request contexts for `Listener.Update` calls.
-	SetLogger SetLogger
+	Options           []ListenerOption       `group:"listener_options"`
 }
 
 // ProvideListenerClient provides a new ListenerClient.
 func ProvideListenerClient(in ListenerClientIn) (*ListenerClient, error) {
-	client, err := NewListenerClient(in.Listener, in.GetLogger, in.SetLogger, in.Config.PullInterval, in.PollsTotalCounter, in.Reader)
+	client, err := NewListenerClient(in.PollsTotalCounter, in.Options)
 	if err != nil {
-		return nil, errors.Join(err, errFailedConfig)
+		return nil, errors.Join(err, ErrMisconfiguredListener)
 	}
 
 	return client, nil
 }
 
-func ProvideDefaultListenerReader(client *BasicClient) Reader {
-	return client
+// ReaderOptionOut contains options data for Listener client's reader.
+type ReaderOptionOut struct {
+	fx.Out
+
+	Option ListenerOption `group:"listener_options"`
+}
+
+// ProvideReaderOption provides Listener client's read option.
+// ancla.ProvideService determines which Reader is used, i.e.:
+// the default Argus db client or a user provided db client.
+func ProvideReaderOption(r Reader) (ReaderOptionOut, error) {
+	return ReaderOptionOut{
+		Option: reader(r),
+	}, nil
 }
 
 type StartListenerIn struct {

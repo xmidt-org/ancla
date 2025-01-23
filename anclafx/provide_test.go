@@ -4,7 +4,9 @@ package anclafx_test
 
 import (
 	"context"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla"
@@ -19,9 +21,9 @@ import (
 type out struct {
 	fx.Out
 
-	Factory           *touchstone.Factory
-	BasicClientConfig chrysom.BasicClientConfig
-	Options           chrysom.Options
+	Factory         *touchstone.Factory
+	ClientOptions   chrysom.ClientOptions   `group:"client_options,flatten"`
+	ListenerOptions chrysom.ListenerOptions `group:"listener_options,flatten"`
 }
 
 func provideDefaults() (out, error) {
@@ -36,15 +38,16 @@ func provideDefaults() (out, error) {
 
 	return out{
 		Factory: touchstone.NewFactory(cfg, zap.NewNop(), pr),
-		BasicClientConfig: chrysom.BasicClientConfig{
-			Address: "example.com",
-			Bucket:  "bucket-name",
-		},
-		GetLogger: func(context.Context) *zap.Logger { return zap.NewNop() },
-		SetLogger: func(context.Context, *zap.Logger) context.Context { return context.Background() },
-		Options: chrysom.Options{
-			chrysom.Address("example.com"),
+		ClientOptions: chrysom.ClientOptions{
+			chrysom.StoreBaseURL("example.com"),
 			chrysom.Bucket("bucket-name"),
+			chrysom.HTTPClient(http.DefaultClient),
+			chrysom.GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
+		},
+		ListenerOptions: chrysom.ListenerOptions{
+			chrysom.PullInterval(5 * time.Minute),
+			chrysom.GetListenerLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
+			chrysom.SetListenerLogger(func(context.Context, *zap.Logger) context.Context { return context.Background() }),
 		},
 	}, nil
 }
@@ -52,9 +55,9 @@ func provideDefaults() (out, error) {
 func TestProvide(t *testing.T) {
 	t.Run("Test anclafx.Provide() defaults", func(t *testing.T) {
 		var (
-			svc ancla.Service
-			bc  *chrysom.BasicClient
-			l   *chrysom.ListenerClient
+			svc      ancla.Service
+			reader   chrysom.Reader
+			listener *chrysom.ListenerClient
 		)
 
 		app := fxtest.New(t,
@@ -64,8 +67,8 @@ func TestProvide(t *testing.T) {
 			),
 			fx.Populate(
 				&svc,
-				&bc,
-				&l,
+				&reader,
+				&listener,
 			),
 		)
 
@@ -74,8 +77,8 @@ func TestProvide(t *testing.T) {
 		require.NoError(app.Err())
 		app.RequireStart()
 		require.NotNil(svc)
-		require.NotNil(bc)
-		require.NotNil(l)
+		require.NotNil(reader)
+		require.NotNil(listener)
 		app.RequireStop()
 	})
 }
