@@ -45,18 +45,28 @@ type ListenerClient struct {
 	state    int32
 }
 
+var (
+	defaultListenerOptions = ListenerOptions{
+		// defaultPullInterval
+		PullInterval(0),
+		// Nops defaults
+		GetListenerLogger(nil),
+		SetListenerLogger(nil),
+	}
+)
+
 // NewListenerClient creates a new ListenerClient to be used to poll Argus
 // for updates.
-func NewListenerClient(pollsTotalCounter *prometheus.CounterVec, opts ListenerOptions) (*ListenerClient, error) {
+func NewListenerClient(pollsTotalCounter *prometheus.CounterVec, opts ...ListenerOption) (*ListenerClient, error) {
 	client := ListenerClient{
 		pollsTotalCounter: pollsTotalCounter,
 		shutdown:          make(chan struct{}),
 	}
 
-	opts = append(defaultListenerOptions, opts)
-	opts = append(opts, defaultValidateListenerOptions)
+	opts = append(defaultListenerOptions, ListenerOptions(opts))
+	opts = append(opts, listenerValidator())
 
-	return &client, opts.apply(&client)
+	return &client, ListenerOptions(opts).apply(&client)
 }
 
 // Start begins listening for updates on an interval given that client configuration
@@ -64,10 +74,6 @@ func NewListenerClient(pollsTotalCounter *prometheus.CounterVec, opts ListenerOp
 // is a NoOp. If you want to restart the current listener process, call Stop() first.
 func (c *ListenerClient) Start(ctx context.Context) error {
 	logger := c.getLogger(ctx)
-	if c.listener == nil {
-		logger.Warn("No listener was setup to receive updates.")
-		return nil
-	}
 	if c.ticker == nil {
 		logger.Error("Observer ticker is nil", zap.Error(ErrUndefinedIntervalTicker))
 		return ErrUndefinedIntervalTicker

@@ -6,7 +6,6 @@ package chrysom
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -16,20 +15,6 @@ import (
 
 var (
 	ErrMisconfiguredClient = errors.New("ancla client configuration error")
-)
-
-var (
-	defaultValidateClientOptions = ClientOptions{
-		validateHTTPClient(),
-		validateStoreBaseURL(),
-		validateStoreAPIPath(),
-		validateBucket(),
-		validateGetClientLogger(),
-	}
-	defaultClientOptions = ClientOptions{
-		HTTPClient(http.DefaultClient),
-		StoreAPIPath(storeV1APIPath),
-	}
 )
 
 // ClientOption is a functional option type for BasicClient.
@@ -57,11 +42,10 @@ func (f clientOptionFunc) apply(c *BasicClient) error {
 func StoreBaseURL(url string) ClientOption {
 	return clientOptionFunc(
 		func(c *BasicClient) error {
-			if url == "" {
-				return fmt.Errorf("%w: empty string StoreBaseURL", ErrMisconfiguredClient)
+			c.storeBaseURL = "http://localhost:6600"
+			if url != "" {
+				c.storeBaseURL = url
 			}
-
-			c.storeBaseURL = url
 
 			return nil
 		})
@@ -72,11 +56,10 @@ func StoreBaseURL(url string) ClientOption {
 func StoreAPIPath(path string) ClientOption {
 	return clientOptionFunc(
 		func(c *BasicClient) error {
-			if path == "" {
-				return fmt.Errorf("%w: empty string StoreAPIPath", ErrMisconfiguredClient)
+			c.storeAPIPath = storeV1APIPath
+			if path != "" {
+				c.storeAPIPath = path
 			}
-
-			c.storeAPIPath = path
 
 			return nil
 		})
@@ -86,10 +69,6 @@ func StoreAPIPath(path string) ClientOption {
 func Bucket(bucket string) ClientOption {
 	return clientOptionFunc(
 		func(c *BasicClient) error {
-			if bucket == "" {
-				return fmt.Errorf("%w: empty string Bucket", ErrMisconfiguredClient)
-			}
-
 			c.bucket = bucket
 
 			return nil
@@ -100,11 +79,10 @@ func Bucket(bucket string) ClientOption {
 func HTTPClient(client *http.Client) ClientOption {
 	return clientOptionFunc(
 		func(c *BasicClient) error {
-			if client == nil {
-				return fmt.Errorf("%w: nil http client", ErrMisconfiguredClient)
+			c.client = http.DefaultClient
+			if client != nil {
+				c.client = client
 			}
-
-			c.client = client
 
 			return nil
 		})
@@ -114,11 +92,10 @@ func HTTPClient(client *http.Client) ClientOption {
 func GetClientLogger(get func(context.Context) *zap.Logger) ClientOption {
 	return clientOptionFunc(
 		func(c *BasicClient) error {
-			if get == nil {
-				return fmt.Errorf("%w: nil GetLogger", ErrMisconfiguredClient)
+			c.getLogger = func(context.Context) *zap.Logger { return zap.NewNop() }
+			if get != nil {
+				c.getLogger = get
 			}
-
-			c.getLogger = get
 
 			return nil
 		})
@@ -126,78 +103,32 @@ func GetClientLogger(get func(context.Context) *zap.Logger) ClientOption {
 
 // Auth sets auth, auth provides the mechanism to add auth headers to outgoing requests.
 // (Optional) If not provided, no auth headers are added.
-func Auth(auth auth.Decorator) ClientOption {
+func Auth(authD auth.Decorator) ClientOption {
 	return clientOptionFunc(
 		func(c *BasicClient) error {
-			if auth == nil {
-				return nil
-			}
-
-			c.auth = auth
-
-			return nil
-		})
-}
-
-func validateHTTPClient() ClientOption {
-	return clientOptionFunc(
-		func(c *BasicClient) error {
-			if c.client == nil {
-				return fmt.Errorf("%w: nil http client", ErrMisconfiguredClient)
+			c.auth = auth.Nop{}
+			if authD != nil {
+				c.auth = authD
 			}
 
 			return nil
 		})
 }
 
-func validateStoreBaseURL() ClientOption {
+func clientValidator() ClientOption {
 	return clientOptionFunc(
-		func(c *BasicClient) error {
-			if c.storeBaseURL == "" {
-				return fmt.Errorf("%w: empty string StoreBaseURL", ErrMisconfiguredClient)
+		func(c *BasicClient) (errs error) {
+			c.storeBaseURL, errs = url.JoinPath(c.storeBaseURL, c.storeAPIPath)
+			if errs != nil {
+				errs = errors.Join(errors.New("failed to combine StoreBaseURL & StoreAPIPath"), errs)
 			}
-
-			url, err := url.JoinPath(c.storeBaseURL, c.storeAPIPath)
-			if err != nil {
-				return errors.Join(err, ErrMisconfiguredClient)
-			}
-
-			c.storeBaseURL = url
-
-			return nil
-		})
-}
-
-func validateStoreAPIPath() ClientOption {
-	return clientOptionFunc(
-		func(c *BasicClient) error {
-			if c.storeAPIPath == "" {
-				return fmt.Errorf("%w: empty string StoreAPIPath", ErrMisconfiguredClient)
-			}
-
-			return nil
-		})
-
-}
-
-func validateBucket() ClientOption {
-	return clientOptionFunc(
-		func(c *BasicClient) error {
 			if c.bucket == "" {
-				return fmt.Errorf("%w: empty string Bucket", ErrMisconfiguredClient)
+				errs = errors.Join(errs, errors.New("empty string Bucket"))
+			}
+			if errs != nil {
+				errs = errors.Join(ErrMisconfiguredClient, errs)
 			}
 
-			return nil
-		})
-}
-
-func validateGetClientLogger() ClientOption {
-	return clientOptionFunc(
-		func(c *BasicClient) error {
-			if c.getLogger == nil {
-				return fmt.Errorf("%w: nil GetLogger", ErrMisconfiguredClient)
-			}
-
-			return nil
+			return
 		})
 }

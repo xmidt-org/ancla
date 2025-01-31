@@ -22,86 +22,20 @@ import (
 	"go.uber.org/zap"
 )
 
-const failingURL = "nowhere://"
+const (
+	failingURL = "nowhere://"
+	bucket     = "bucket-name"
+)
 
 var (
 	errFails = errors.New("fails")
 )
 
-func TestValidateClientOptions(t *testing.T) {
-	type testCase struct {
-		Description    string
-		ValidateOption ClientOption
-		Client         BasicClient
-		ExpectedError  error
+var (
+	requiredClientOptions = ClientOptions{
+		Bucket(bucket),
 	}
-
-	tcs := []testCase{
-		{
-			Description:    "Nil http client",
-			ValidateOption: validateHTTPClient(),
-			Client: BasicClient{
-				storeBaseURL: "https://example.com",
-				storeAPIPath: storeV1APIPath,
-				bucket:       "bucket-name",
-				getLogger:    func(context.Context) *zap.Logger { return zap.NewNop() },
-			},
-			ExpectedError: ErrMisconfiguredClient,
-		},
-		{
-			Description:    "Empty bucket",
-			ValidateOption: validateBucket(),
-			Client: BasicClient{
-				storeBaseURL: "https://example.com",
-				storeAPIPath: storeV1APIPath,
-				client:       http.DefaultClient,
-				getLogger:    func(context.Context) *zap.Logger { return zap.NewNop() },
-			},
-			ExpectedError: ErrMisconfiguredClient,
-		},
-		{
-			Description:    "Empty store base url",
-			ValidateOption: validateStoreBaseURL(),
-			Client: BasicClient{
-				storeAPIPath: storeV1APIPath,
-				bucket:       "bucket-name",
-				client:       http.DefaultClient,
-				getLogger:    func(context.Context) *zap.Logger { return zap.NewNop() },
-			},
-			ExpectedError: ErrMisconfiguredClient,
-		},
-		{
-			Description:    "Empty store api path",
-			ValidateOption: validateStoreAPIPath(),
-			Client: BasicClient{
-				storeBaseURL: "https://example.com",
-				bucket:       "bucket-name",
-				client:       http.DefaultClient,
-				getLogger:    func(context.Context) *zap.Logger { return zap.NewNop() },
-			},
-			ExpectedError: ErrMisconfiguredClient,
-		},
-		{
-			Description:    "Nil GetClientLogger",
-			ValidateOption: validateGetClientLogger(),
-			Client: BasicClient{
-				storeBaseURL: "https://example.com",
-				storeAPIPath: storeV1APIPath,
-				bucket:       "bucket-name",
-				client:       http.DefaultClient,
-			},
-			ExpectedError: ErrMisconfiguredClient,
-		},
-	}
-
-	for _, tc := range tcs {
-		t.Run(tc.Description, func(t *testing.T) {
-			assert := assert.New(t)
-			err := tc.ValidateOption.apply(&tc.Client)
-			assert.ErrorIs(err, tc.ExpectedError)
-		})
-	}
-}
+)
 
 func TestClientOptions(t *testing.T) {
 	type testCase struct {
@@ -112,74 +46,45 @@ func TestClientOptions(t *testing.T) {
 
 	tcs := []testCase{
 		{
-			Description: "Empty StoreBaseURL failure",
-			ClientOptions: ClientOptions{
-				Bucket("bucket-name"),
-				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-				HTTPClient(http.DefaultClient),
-			},
-			ExpectedErr: ErrMisconfiguredClient,
+			Description:   "Missing required options failure",
+			ClientOptions: ClientOptions{},
+			ExpectedErr:   ErrMisconfiguredClient,
 		},
 		{
-			Description: "Empty StoreBaseURL failure",
-			ClientOptions: ClientOptions{
-				StoreBaseURL("https://example.com"),
-				StoreAPIPath("%31%/"),
-				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-				HTTPClient(http.DefaultClient),
-			},
-			ExpectedErr: ErrMisconfiguredClient,
+			Description:   "Incorrect client values without defaults",
+			ClientOptions: ClientOptions{Bucket("")},
+			ExpectedErr:   ErrMisconfiguredClient,
 		},
 		{
-			Description: "Empty Bucket failure",
-			ClientOptions: ClientOptions{
-				StoreBaseURL("https://example.com"),
-				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-				HTTPClient(http.DefaultClient),
-			},
-			ExpectedErr: ErrMisconfiguredClient,
-		},
-		{
-			Description: "Nil http client failure",
-			ClientOptions: ClientOptions{
-				StoreBaseURL("https://example.com"),
-				Bucket("bucket-name"),
-				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
+			Description: "Correct required values and bad optional values (ignored)",
+			ClientOptions: append(requiredClientOptions, ClientOptions{
+				StoreBaseURL(""),
+				StoreAPIPath(""),
+				GetClientLogger(nil),
 				HTTPClient(nil),
-			},
-			ExpectedErr: ErrMisconfiguredClient,
+				Auth(nil),
+			}),
 		},
 		{
-			Description: "Nil GetClientLogger failure",
-			ClientOptions: ClientOptions{
-				StoreBaseURL("https://example.com"),
-				Bucket("bucket-name"),
-				HTTPClient(http.DefaultClient),
-			},
-			ExpectedErr: ErrMisconfiguredClient,
-		},
-		{
-			Description: "Required options defined",
-			ClientOptions: ClientOptions{
-				StoreBaseURL("https://example.com"),
-				Bucket("bucket-name"),
+			Description: "Correct required and optional values",
+			ClientOptions: append(requiredClientOptions, ClientOptions{
+				StoreBaseURL("localhost"),
+				StoreAPIPath(storeV1APIPath),
 				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
 				HTTPClient(http.DefaultClient),
-			},
+				Auth(&auth.Nop{}),
+			}),
+		},
+		{
+			Description:   "Correct required values only",
+			ClientOptions: requiredClientOptions,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
-			opts := append(
-				defaultClientOptions,
-				tc.ClientOptions,
-				defaultValidateClientOptions,
-			)
-
 			assert := assert.New(t)
-			client := BasicClient{}
-			errs := opts.apply(&client)
+			client, errs := NewBasicClient(tc.ClientOptions)
 			if tc.ExpectedErr != nil {
 				assert.ErrorIs(errs, tc.ExpectedErr)
 
@@ -280,12 +185,7 @@ func TestSendRequest(t *testing.T) {
 			server := httptest.NewServer(echoHandler)
 			defer server.Close()
 
-			opts := ClientOptions{
-				StoreBaseURL("example.com"),
-				Bucket("bucket-name"),
-				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-				HTTPClient(http.DefaultClient),
-			}
+			opts := append(requiredClientOptions, StoreBaseURL(server.URL))
 			client, err := NewBasicClient(opts)
 
 			authDecorator := new(auth.MockDecorator)
@@ -379,7 +279,7 @@ func TestGetItems(t *testing.T) {
 			var (
 				assert  = assert.New(t)
 				require = require.New(t)
-				bucket  = "bucket-name"
+				bucket  = bucket
 				owner   = "owner-name"
 			)
 
@@ -393,12 +293,7 @@ func TestGetItems(t *testing.T) {
 				rw.Write(tc.ResponsePayload)
 			}))
 
-			opts := ClientOptions{
-				StoreBaseURL(server.URL),
-				Bucket(bucket),
-				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-				HTTPClient(http.DefaultClient),
-			}
+			opts := append(requiredClientOptions, StoreBaseURL(server.URL))
 			client, err := NewBasicClient(opts)
 
 			require.Nil(err)
@@ -520,7 +415,7 @@ func TestPushItem(t *testing.T) {
 			var (
 				assert  = assert.New(t)
 				require = require.New(t)
-				bucket  = "bucket-name"
+				bucket  = bucket
 				id      = "252f10c83610ebca1a059c0bae8255eba2f95be4d1d7bcfa89d7248a82d9f111"
 			)
 
@@ -540,12 +435,7 @@ func TestPushItem(t *testing.T) {
 				}
 			}))
 
-			opts := ClientOptions{
-				StoreBaseURL(server.URL),
-				Bucket(bucket),
-				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-				HTTPClient(http.DefaultClient),
-			}
+			opts := append(requiredClientOptions, StoreBaseURL(server.URL))
 			client, err := NewBasicClient(opts)
 
 			authDecorator := new(auth.MockDecorator)
@@ -636,7 +526,7 @@ func TestRemoveItem(t *testing.T) {
 			var (
 				assert  = assert.New(t)
 				require = require.New(t)
-				bucket  = "bucket-name"
+				bucket  = bucket
 				// nolint:gosec
 				id = "7e8c5f378b4addbaebc70897c4478cca06009e3e360208ebd073dbee4b3774e7"
 			)
@@ -649,12 +539,7 @@ func TestRemoveItem(t *testing.T) {
 				rw.Write(tc.ResponsePayload)
 			}))
 
-			opts := ClientOptions{
-				StoreBaseURL(server.URL),
-				Bucket(bucket),
-				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-				HTTPClient(http.DefaultClient),
-			}
+			opts := append(requiredClientOptions, StoreBaseURL(server.URL))
 			client, err := NewBasicClient(opts)
 
 			authDecorator := new(auth.MockDecorator)

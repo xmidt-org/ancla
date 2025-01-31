@@ -22,7 +22,7 @@ type ListenerClientIn struct {
 
 	// PollsTotalCounter measures the number of polls (and their success/failure outcomes) to fetch new items.
 	PollsTotalCounter *prometheus.CounterVec `name:"chrysom_polls_total"`
-	Options           []ListenerOption       `group:"listener_options"`
+	Options           ListenerOptions        `group:"listener_options"`
 }
 
 // ProvideListenerClient provides a new ListenerClient.

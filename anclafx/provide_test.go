@@ -3,10 +3,7 @@
 package anclafx_test
 
 import (
-	"context"
-	"net/http"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla"
@@ -39,16 +36,10 @@ func provideDefaults() (out, error) {
 	return out{
 		Factory: touchstone.NewFactory(cfg, zap.NewNop(), pr),
 		ClientOptions: chrysom.ClientOptions{
-			chrysom.StoreBaseURL("example.com"),
 			chrysom.Bucket("bucket-name"),
-			chrysom.HTTPClient(http.DefaultClient),
-			chrysom.GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
 		},
-		ListenerOptions: chrysom.ListenerOptions{
-			chrysom.PullInterval(5 * time.Minute),
-			chrysom.GetListenerLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-			chrysom.SetListenerLogger(func(context.Context, *zap.Logger) context.Context { return context.Background() }),
-		},
+		// Listener has no required options
+		ListenerOptions: chrysom.ListenerOptions{},
 	}, nil
 }
 

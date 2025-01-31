@@ -5,7 +5,6 @@ package chrysom
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +15,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"go.uber.org/zap"
 )
 
@@ -33,108 +31,79 @@ var (
 	)
 )
 
-func TestValidateListenerOptions(t *testing.T) {
+func TestListenerOptions(t *testing.T) {
+
+	listener := ListenerInterface(mockListener)
+	anclaClient, err := NewBasicClient(requiredClientOptions)
+	require.NoError(t, err)
+	require.NotNil(t, anclaClient)
+
+	requiredListenerOptions := ListenerOptions{
+		reader(anclaClient),
+		Listener(listener),
+	}
+
 	type testCase struct {
-		Description    string
-		ValidateOption ListenerOption
-		Client         ListenerClient
+		Description     string
+		ListenerOptions ListenerOptions
+		ExpectedErr     error
 	}
 
 	tcs := []testCase{
 		{
-			Description:    "Nil listener",
-			ValidateOption: validateListener(),
-			Client: ListenerClient{
-				pullInterval: defaultPullInterval,
-				ticker:       time.NewTicker(defaultPullInterval),
-				getLogger: func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				},
-				setLogger: func(context.Context, *zap.Logger) context.Context {
-					return context.Background()
-				},
-				reader: &BasicClient{},
+			Description: "Nil reader failure",
+			ListenerOptions: ListenerOptions{
+				reader(nil),
+				Listener(listener),
 			},
+			ExpectedErr: ErrMisconfiguredListener,
 		},
 		{
-			Description:    "Non-postive pull interval",
-			ValidateOption: validatePullInterval(),
-			Client: ListenerClient{
-				listener:     ListenerFunc(func(Items) {}),
-				pullInterval: -1,
-				ticker:       time.NewTicker(defaultPullInterval),
-				getLogger: func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				},
-				setLogger: func(context.Context, *zap.Logger) context.Context {
-					return context.Background()
-				},
-				reader: &BasicClient{},
+			Description: "Nil listener failure",
+			ListenerOptions: ListenerOptions{
+				reader(anclaClient),
+				Listener(nil),
 			},
+			ExpectedErr: ErrMisconfiguredListener,
 		},
 		{
-			Description:    "Nil ticker",
-			ValidateOption: validatePullInterval(),
-			Client: ListenerClient{
-				listener:     ListenerFunc(func(Items) {}),
-				pullInterval: defaultPullInterval,
-				getLogger: func(context.Context) *zap.Logger {
-					return zap.NewNop()
+			Description: "Correct required values and bad optional values (ignored)",
+			ListenerOptions: append(requiredListenerOptions,
+				ListenerOptions{
+					GetListenerLogger(nil),
+					SetListenerLogger(nil),
+					PullInterval(-1),
 				},
-				setLogger: func(context.Context, *zap.Logger) context.Context {
-					return context.Background()
-				},
-				reader: &BasicClient{},
-			},
+			),
 		},
 		{
-			Description:    "Nil SetListenerLogger",
-			ValidateOption: validateSetListenerLogger(),
-			Client: ListenerClient{
-				listener:     ListenerFunc(func(Items) {}),
-				pullInterval: defaultPullInterval,
-				ticker:       time.NewTicker(defaultPullInterval),
-				getLogger: func(context.Context) *zap.Logger {
-					return zap.NewNop()
+			Description: "Correct required and optional values",
+			ListenerOptions: append(requiredListenerOptions,
+				ListenerOptions{
+					GetListenerLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
+					SetListenerLogger(func(context.Context, *zap.Logger) context.Context { return context.TODO() }),
+					PullInterval(1),
 				},
-				reader: &BasicClient{},
-			},
+			),
 		},
 		{
-			Description:    "Nil GetListenerLogger",
-			ValidateOption: validateGetListenerLogger(),
-			Client: ListenerClient{
-				listener:     ListenerFunc(func(Items) {}),
-				pullInterval: defaultPullInterval,
-				ticker:       time.NewTicker(defaultPullInterval),
-				setLogger: func(context.Context, *zap.Logger) context.Context {
-					return context.Background()
-				},
-				reader: &BasicClient{},
-			},
-		},
-		{
-			Description:    "Nil Reader",
-			ValidateOption: validateReader(),
-			Client: ListenerClient{
-				listener:     ListenerFunc(func(Items) {}),
-				pullInterval: defaultPullInterval,
-				ticker:       time.NewTicker(defaultPullInterval),
-				getLogger: func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				},
-				setLogger: func(context.Context, *zap.Logger) context.Context {
-					return context.Background()
-				},
-			},
+			Description:     "Correct listener values",
+			ListenerOptions: requiredListenerOptions,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			err := tc.ValidateOption.apply(&tc.Client)
-			assert.ErrorIs(err, ErrMisconfiguredListener)
+			listener, errs := NewListenerClient(pollsTotalCounter, tc.ListenerOptions)
+			if tc.ExpectedErr != nil {
+				assert.ErrorIs(errs, tc.ExpectedErr)
+
+				return
+			}
+
+			assert.NoError(errs)
+			assert.NotNil(listener)
 		})
 	}
 }
@@ -213,12 +182,7 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 	if includeListener {
 		listener = mockListener
 	}
-	anclaClient, err := NewBasicClient(ClientOptions{
-		StoreBaseURL("https://example.com"),
-		Bucket("bucket-name"),
-		GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-		HTTPClient(http.DefaultClient),
-	})
+	anclaClient, err := NewBasicClient(requiredClientOptions)
 	if err != nil {
 		return nil, func() {}, err
 	}
@@ -228,45 +192,12 @@ func newStartStopClient(includeListener bool) (*ListenerClient, func(), error) {
 			PullInterval(time.Millisecond * 200),
 			reader(anclaClient),
 			Listener(listener),
-			GetListenerLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-			SetListenerLogger(func(context.Context, *zap.Logger) context.Context { return context.Background() }),
+			GetListenerLogger(nil),
+			SetListenerLogger(nil),
 		})
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return listenerClient, server.Close, nil
-}
-
-func TestValidateListenerConfig(t *testing.T) {
-	tcs := []struct {
-		desc        string
-		options     ListenerOptions
-		expectedErr error
-	}{
-		{
-			desc:        "New listener client failure",
-			expectedErr: ErrMisconfiguredListener,
-		},
-		{
-			desc: "New listener client success",
-			options: ListenerOptions{
-				PullInterval(time.Second),
-				reader(&BasicClient{}),
-				Listener(mockListener),
-				GetListenerLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
-				SetListenerLogger(func(context.Context, *zap.Logger) context.Context { return context.Background() }),
-			},
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			_, err := NewListenerClient(pollsTotalCounter, tc.options)
-			assert.True(errors.Is(err, tc.expectedErr),
-				fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-					err, tc.expectedErr),
-			)
-		})
-	}
 }

@@ -13,3 +13,7 @@ type Decorator interface {
 	// Decorate decorates the given http request with authorization header(s).
 	Decorate(ctx context.Context, req *http.Request) error
 }
+
+type Nop struct{}
+
+func (Nop) Decorate(context.Context, *http.Request) error { return nil }
