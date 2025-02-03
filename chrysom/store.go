@@ -9,6 +9,8 @@ import (
 	"github.com/xmidt-org/ancla/model"
 )
 
+type Items []model.Item
+
 type PushReader interface {
 	Pusher
 	Reader
@@ -22,7 +24,7 @@ type Pusher interface {
 	RemoveItem(ctx context.Context, id, owner string) (model.Item, error)
 }
 
-type Listener interface {
+type ListenerInterface interface {
 	// Update is called when we get changes to our item listeners with either
 	// additions, or updates.
 	//
@@ -43,5 +45,5 @@ type Reader interface {
 
 type ConfigureListener interface {
 	// SetListener will attempt to set the lister.
-	SetListener(listener Listener) error
+	SetListener(listener ListenerInterface) error
 }

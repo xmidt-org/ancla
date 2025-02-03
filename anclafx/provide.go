@@ -19,7 +19,6 @@ func Provide() fx.Option {
 			ancla.ProvideListener,
 			ancla.ProvideDefaultListenerWatchers,
 			chrysom.ProvideBasicClient,
-			chrysom.ProvideDefaultListenerReader,
 			chrysom.ProvideListenerClient,
 		),
 		chrysom.ProvideMetrics(),

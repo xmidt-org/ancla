@@ -17,6 +17,11 @@ report.json
 # Ignore the vendor structure
 *vendor/
 
+# VSCode
+*.code-workspace
+.vscode/*
+.dev/*
+
 # Ignore the various build artifacts
 .ignore
 

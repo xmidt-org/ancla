@@ -13,16 +13,16 @@ import (
 type ServiceIn struct {
 	fx.In
 
-	// Ancla Client.
-	BasicClient *chrysom.BasicClient
+	// PushReader is the user provided db client.
+	PushReader chrysom.PushReader `optional:"true"`
 }
 
-// ProvideService builds the Argus client service from the given configuration.
-func ProvideService(in ServiceIn) Service {
-	return NewService(in.BasicClient)
+// ProvideService provides the Argus client service from the given configuration.
+func ProvideService(in ServiceIn) (Service, error) {
+	return NewService(in.PushReader), nil
 }
 
-// TODO: Refactor and move Watch and Listener related code to chrysom.
+// TODO: Refactor and move Watch and ListenerInterface related code to chrysom.
 type DefaultListenersIn struct {
 	fx.In
 
@@ -54,17 +54,26 @@ type ListenerIn struct {
 	Watchers []Watch `group:"watchers"`
 }
 
-func ProvideListener(in ListenerIn) chrysom.Listener {
-	return chrysom.ListenerFunc(func(items chrysom.Items) {
-		iws, err := ItemsToInternalWebhooks(items)
-		if err != nil {
-			in.Shutdowner.Shutdown(fx.ExitCode(1))
+// ListenerOut contains options data for Listener client's reader.
+type ListenerOut struct {
+	fx.Out
 
-			return
-		}
+	Option chrysom.ListenerOption `group:"listener_options"`
+}
 
-		for _, watch := range in.Watchers {
-			watch.Update(iws)
-		}
-	})
+func ProvideListener(in ListenerIn) ListenerOut {
+	return ListenerOut{
+		Option: chrysom.Listener(chrysom.ListenerFunc(func(items chrysom.Items) {
+			iws, err := ItemsToInternalWebhooks(items)
+			if err != nil {
+				in.Shutdowner.Shutdown(fx.ExitCode(1))
+
+				return
+			}
+
+			for _, watch := range in.Watchers {
+				watch.Update(iws)
+			}
+		})),
+	}
 }

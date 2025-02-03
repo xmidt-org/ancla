@@ -34,9 +34,6 @@ type Service interface {
 
 // Config contains information needed to initialize the Argus database client.
 type Config struct {
-	// BasicClientConfig is the configuration for the Argus database client.
-	BasicClientConfig chrysom.BasicClientConfig
-
 	// DisablePartnerIDs, if true, will allow webhooks to register without
 	// checking the validity of the partnerIDs in the request.
 	DisablePartnerIDs bool
@@ -95,7 +92,7 @@ func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
 }
 
 // NewService returns an ancla client used to interact with an Argus database.
-func NewService(client *chrysom.BasicClient) *service {
+func NewService(client chrysom.PushReader) *service {
 	return &service{
 		argus: client,
 		now:   time.Now,

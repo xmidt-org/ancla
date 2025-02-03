@@ -3,7 +3,6 @@
 package anclafx_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,10 +18,9 @@ import (
 type out struct {
 	fx.Out
 
-	Factory           *touchstone.Factory
-	BasicClientConfig chrysom.BasicClientConfig
-	GetLogger         chrysom.GetLogger
-	SetLogger         chrysom.SetLogger
+	Factory         *touchstone.Factory
+	ClientOptions   chrysom.ClientOptions   `group:"client_options,flatten"`
+	ListenerOptions chrysom.ListenerOptions `group:"listener_options,flatten"`
 }
 
 func provideDefaults() (out, error) {
@@ -37,21 +35,20 @@ func provideDefaults() (out, error) {
 
 	return out{
 		Factory: touchstone.NewFactory(cfg, zap.NewNop(), pr),
-		BasicClientConfig: chrysom.BasicClientConfig{
-			Address: "example.com",
-			Bucket:  "bucket-name",
+		ClientOptions: chrysom.ClientOptions{
+			chrysom.Bucket("bucket-name"),
 		},
-		GetLogger: func(context.Context) *zap.Logger { return zap.NewNop() },
-		SetLogger: func(context.Context, *zap.Logger) context.Context { return context.Background() },
+		// Listener has no required options
+		ListenerOptions: chrysom.ListenerOptions{},
 	}, nil
 }
 
 func TestProvide(t *testing.T) {
 	t.Run("Test anclafx.Provide() defaults", func(t *testing.T) {
 		var (
-			svc ancla.Service
-			bc  *chrysom.BasicClient
-			l   *chrysom.ListenerClient
+			svc        ancla.Service
+			pushReader chrysom.PushReader
+			listener   *chrysom.ListenerClient
 		)
 
 		app := fxtest.New(t,
@@ -61,8 +58,8 @@ func TestProvide(t *testing.T) {
 			),
 			fx.Populate(
 				&svc,
-				&bc,
-				&l,
+				&pushReader,
+				&listener,
 			),
 		)
 
@@ -71,8 +68,8 @@ func TestProvide(t *testing.T) {
 		require.NoError(app.Err())
 		app.RequireStart()
 		require.NotNil(svc)
-		require.NotNil(bc)
-		require.NotNil(l)
+		require.NotNil(pushReader)
+		require.NotNil(listener)
 		app.RequireStop()
 	})
 }

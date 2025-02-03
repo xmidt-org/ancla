@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/model"
@@ -25,53 +24,28 @@ const (
 )
 
 var (
-	ErrNilMeasures             = errors.New("measures cannot be nil")
-	ErrAddressEmpty            = errors.New("argus address is required")
-	ErrBucketEmpty             = errors.New("bucket name is required")
-	ErrItemIDEmpty             = errors.New("item ID is required")
-	ErrItemDataEmpty           = errors.New("data field in item is required")
-	ErrUndefinedIntervalTicker = errors.New("interval ticker is nil. Can't listen for updates")
-	ErrAuthDecoratorFailure    = errors.New("failed decorating auth header")
-	ErrBadRequest              = errors.New("argus rejected the request as invalid")
+	ErrItemIDEmpty          = errors.New("item ID is required")
+	ErrItemDataEmpty        = errors.New("data field in item is required")
+	ErrAuthDecoratorFailure = errors.New("failed decorating auth header")
+	ErrBadRequest           = errors.New("argus rejected the request as invalid")
 )
 
 var (
-	errNonSuccessResponse = errors.New("argus responded with a non-success status code")
-	errNewRequestFailure  = errors.New("failed creating an HTTP request")
-	errDoRequestFailure   = errors.New("http client failed while sending request")
-	errReadingBodyFailure = errors.New("failed while reading http response body")
-	errJSONUnmarshal      = errors.New("failed unmarshaling JSON response payload")
-	errJSONMarshal        = errors.New("failed marshaling item as JSON payload")
-	errFailedConfig       = errors.New("ancla configuration error")
+	ErrFailedAuthentication = errors.New("failed to authentication with argus")
+	errNonSuccessResponse   = errors.New("argus responded with a non-success status code")
+	errNewRequestFailure    = errors.New("failed creating an HTTP request")
+	errDoRequestFailure     = errors.New("http client failed while sending request")
+	errReadingBodyFailure   = errors.New("failed while reading http response body")
+	errJSONUnmarshal        = errors.New("failed unmarshaling JSON response payload")
+	errJSONMarshal          = errors.New("failed marshaling item as JSON payload")
 )
-
-// BasicClientConfig contains config data for the client that will be used to
-// make requests to the Argus client.
-type BasicClientConfig struct {
-	// Address is the Argus URL (i.e. https://example-argus.io:8090)
-	Address string
-
-	// Bucket partition to be used by this client.
-	Bucket string
-
-	// HTTPClient refers to the client that will be used to send requests.
-	// (Optional) Defaults to http.DefaultClient.
-	HTTPClient *http.Client
-
-	// Auth provides the mechanism to add auth headers to outgoing requests.
-	// (Optional) If not provided, no auth headers are added.
-	Auth auth.Decorator
-
-	// PullInterval is how often listeners should get updates.
-	// (Optional). Defaults to 5 seconds.
-	PullInterval time.Duration
-}
 
 // BasicClient is the client used to make requests to Argus.
 type BasicClient struct {
 	client       *http.Client
 	auth         auth.Decorator
 	storeBaseURL string
+	storeAPIPath string
 	bucket       string
 	getLogger    func(context.Context) *zap.Logger
 }
@@ -83,31 +57,32 @@ type response struct {
 }
 
 const (
-	storeAPIPath     = "/api/v1/store"
+	storeV1APIPath   = "/api/v1/store"
 	errWrappedFmt    = "%w: %s"
 	errStatusCodeFmt = "%w: received status %v"
 	errorHeaderKey   = "errorHeader"
 )
 
-// Items is a slice of model.Item(s) .
-type Items []model.Item
-
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.
-func NewBasicClient(config BasicClientConfig,
-	getLogger func(context.Context) *zap.Logger) (*BasicClient, error) {
-	err := validateBasicConfig(&config)
-	if err != nil {
-		return nil, err
-	}
+func NewBasicClient(opts ...ClientOption) (*BasicClient, error) {
+	var (
+		client               BasicClient
+		defaultClientOptions = ClientOptions{
+			// localhost defaults
+			StoreBaseURL(""),
+			StoreAPIPath(""),
+			// Nop defaults
+			HTTPClient(nil),
+			GetClientLogger(nil),
+			Auth(nil),
+		}
+	)
 
-	return &BasicClient{
-		client:       config.HTTPClient,
-		auth:         config.Auth,
-		bucket:       config.Bucket,
-		storeBaseURL: config.Address + storeAPIPath,
-		getLogger:    getLogger,
-	}, nil
+	opts = append(defaultClientOptions, opts...)
+	opts = append(opts, clientValidator())
+
+	return &client, ClientOptions(opts).apply(&client)
 }
 
 // GetItems fetches all items that belong to a given owner.
@@ -250,20 +225,4 @@ func translateNonSuccessStatusCode(code int) error {
 	default:
 		return errNonSuccessResponse
 	}
-}
-
-func validateBasicConfig(config *BasicClientConfig) error {
-	if config.Address == "" {
-		return ErrAddressEmpty
-	}
-
-	if config.Bucket == "" {
-		return ErrBucketEmpty
-	}
-
-	if config.HTTPClient == nil {
-		config.HTTPClient = http.DefaultClient
-	}
-
-	return nil
 }

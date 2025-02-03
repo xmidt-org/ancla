@@ -22,75 +22,77 @@ import (
 	"go.uber.org/zap"
 )
 
-const failingURL = "nowhere://"
-
-var (
-	_        Pusher = &BasicClient{}
-	_        Reader = &BasicClient{}
-	errFails        = errors.New("fails")
+const (
+	failingURL = "nowhere://"
+	bucket     = "bucket-name"
 )
 
-func TestValidateBasicConfig(t *testing.T) {
-	type testCase struct {
-		Description    string
-		Input          *BasicClientConfig
-		Client         *http.Client
-		ExpectedErr    error
-		ExpectedConfig *BasicClientConfig
-	}
+var (
+	errFails = errors.New("fails")
+)
 
-	allDefaultsCaseConfig := &BasicClientConfig{
-		HTTPClient: http.DefaultClient,
-		Address:    "example.com",
-		Bucket:     "bucket-name",
+var (
+	requiredClientOptions = ClientOptions{
+		Bucket(bucket),
 	}
-	allDefinedCaseConfig := &BasicClientConfig{
-		HTTPClient: http.DefaultClient,
-		Address:    "example.com",
-		Bucket:     "amazing-bucket",
+)
+
+func TestClientOptions(t *testing.T) {
+	type testCase struct {
+		Description   string
+		ClientOptions ClientOptions
+		ExpectedErr   error
 	}
 
 	tcs := []testCase{
 		{
-			Description: "No address",
-			Input: &BasicClientConfig{
-				Bucket: "bucket-name",
-			},
-			ExpectedErr: ErrAddressEmpty,
+			Description:   "Missing required options failure",
+			ClientOptions: ClientOptions{},
+			ExpectedErr:   ErrMisconfiguredClient,
 		},
 		{
-			Description: "No bucket",
-			Input: &BasicClientConfig{
-				Address: "example.com",
-			},
-			ExpectedErr: ErrBucketEmpty,
+			Description:   "Incorrect client values without defaults",
+			ClientOptions: ClientOptions{Bucket("")},
+			ExpectedErr:   ErrMisconfiguredClient,
 		},
 		{
-			Description: "All default values",
-			Input: &BasicClientConfig{
-				Address: "example.com",
-				Bucket:  "bucket-name",
-			},
-			ExpectedConfig: allDefaultsCaseConfig,
+			Description: "Correct required values and bad optional values (ignored)",
+			ClientOptions: append(requiredClientOptions, ClientOptions{
+				StoreBaseURL(""),
+				StoreAPIPath(""),
+				GetClientLogger(nil),
+				HTTPClient(nil),
+				Auth(nil),
+			}),
 		},
 		{
-			Description: "All defined",
-			Input: &BasicClientConfig{
-				Address: "example.com",
-				Bucket:  "amazing-bucket",
-			},
-			ExpectedConfig: allDefinedCaseConfig,
+			Description: "Correct required and optional values",
+			ClientOptions: append(requiredClientOptions, ClientOptions{
+				StoreBaseURL("localhost"),
+				StoreAPIPath(storeV1APIPath),
+				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
+				HTTPClient(http.DefaultClient),
+				Auth(auth.Nop),
+			}),
+		},
+		{
+			Description:   "Correct required values only",
+			ClientOptions: requiredClientOptions,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			err := validateBasicConfig(tc.Input)
-			assert.Equal(tc.ExpectedErr, err)
-			if tc.ExpectedErr == nil {
-				assert.Equal(tc.ExpectedConfig, tc.Input)
+			client, errs := NewBasicClient(tc.ClientOptions)
+			if tc.ExpectedErr != nil {
+				assert.ErrorIs(errs, tc.ExpectedErr)
+
+				return
 			}
+
+			assert.NoError(errs)
+			assert.NotNil(client)
 		})
 	}
 }
@@ -111,20 +113,20 @@ func TestSendRequest(t *testing.T) {
 
 	tcs := []testCase{
 		{
-			Description: "New Request fails",
+			Description: "New Request failure",
 			Method:      "what method?",
 			URL:         "example.com",
 			ExpectedErr: errNewRequestFailure,
 		},
 		{
-			Description: "Auth decorator fails",
+			Description: "Auth decorator failure",
 			Method:      http.MethodGet,
 			URL:         "example.com",
 			MockError:   errFails,
 			ExpectedErr: ErrAuthDecoratorFailure,
 		},
 		{
-			Description:   "Client Do fails",
+			Description:   "Client Do failure",
 			Method:        http.MethodPut,
 			ClientDoFails: true,
 			ExpectedErr:   errDoRequestFailure,
@@ -183,17 +185,12 @@ func TestSendRequest(t *testing.T) {
 			server := httptest.NewServer(echoHandler)
 			defer server.Close()
 
-			client, err := NewBasicClient(BasicClientConfig{
-				Address: "example.com",
-				Bucket:  "bucket-name",
-			},
-				func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				})
+			opts := append(requiredClientOptions, StoreBaseURL(server.URL))
+			client, err := NewBasicClient(opts)
 
+			authDecorator := new(auth.MockDecorator)
 			if tc.MockAuth != "" || tc.MockError != nil {
-				authDecorator := new(auth.MockDecorator)
-				authDecorator.On("Decorate").Return(tc.MockError)
+				authDecorator.On("Decorate").Return(tc.MockError).Once()
 				client.auth = authDecorator
 			}
 
@@ -211,6 +208,8 @@ func TestSendRequest(t *testing.T) {
 			} else {
 				assert.True(errors.Is(err, tc.ExpectedErr))
 			}
+
+			authDecorator.AssertExpectations(t)
 		})
 	}
 }
@@ -230,12 +229,12 @@ func TestGetItems(t *testing.T) {
 	tcs := []testCase{
 		{
 
-			Description: "Make request fails",
+			Description: "Make request failure",
 			ExpectedErr: ErrAuthDecoratorFailure,
 			MockError:   errFails,
 		},
 		{
-			Description:         "Do request fails",
+			Description:         "Do request failure",
 			ShouldDoRequestFail: true,
 			ExpectedErr:         errDoRequestFailure,
 		},
@@ -280,33 +279,28 @@ func TestGetItems(t *testing.T) {
 			var (
 				assert  = assert.New(t)
 				require = require.New(t)
-				bucket  = "bucket-name"
+				bucket  = bucket
 				owner   = "owner-name"
 			)
 
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 				assert.Equal(http.MethodGet, r.Method)
 				assert.Equal(owner, r.Header.Get(ItemOwnerHeaderKey))
-				assert.Equal(fmt.Sprintf("%s/%s", storeAPIPath, bucket), r.URL.Path)
+				assert.Equal(fmt.Sprintf("%s/%s", storeV1APIPath, bucket), r.URL.Path)
 				assert.Equal(tc.MockAuth, r.Header.Get(auth.MockAuthHeaderName))
 
 				rw.WriteHeader(tc.ResponseCode)
 				rw.Write(tc.ResponsePayload)
 			}))
 
-			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
-			},
-				func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				})
+			opts := append(requiredClientOptions, StoreBaseURL(server.URL))
+			client, err := NewBasicClient(opts)
 
 			require.Nil(err)
 
+			authDecorator := new(auth.MockDecorator)
 			if tc.MockAuth != "" || tc.MockError != nil {
-				authDecorator := new(auth.MockDecorator)
-				authDecorator.On("Decorate").Return(tc.MockError)
+				authDecorator.On("Decorate").Return(tc.MockError).Once()
 				client.auth = authDecorator
 			}
 
@@ -320,6 +314,8 @@ func TestGetItems(t *testing.T) {
 			if tc.ExpectedErr == nil {
 				assert.EqualValues(tc.ExpectedOutput, output)
 			}
+
+			authDecorator.AssertExpectations(t)
 		})
 	}
 }
@@ -360,13 +356,13 @@ func TestPushItem(t *testing.T) {
 			ExpectedErr: ErrItemDataEmpty,
 		},
 		{
-			Description: "Make request fails",
+			Description: "Make request failure",
 			Item:        validItem,
 			ExpectedErr: ErrAuthDecoratorFailure,
 			MockError:   errFails,
 		},
 		{
-			Description:         "Do request fails",
+			Description:         "Do request failure",
 			Item:                validItem,
 			ShouldDoRequestFail: true,
 			ExpectedErr:         errDoRequestFailure,
@@ -419,12 +415,12 @@ func TestPushItem(t *testing.T) {
 			var (
 				assert  = assert.New(t)
 				require = require.New(t)
-				bucket  = "bucket-name"
+				bucket  = bucket
 				id      = "252f10c83610ebca1a059c0bae8255eba2f95be4d1d7bcfa89d7248a82d9f111"
 			)
 
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-				assert.Equal(fmt.Sprintf("%s/%s/%s", storeAPIPath, bucket, id), r.URL.Path)
+				assert.Equal(fmt.Sprintf("%s/%s/%s", storeV1APIPath, bucket, id), r.URL.Path)
 				assert.Equal(tc.Owner, r.Header.Get(ItemOwnerHeaderKey))
 				assert.Equal(tc.MockAuth, r.Header.Get(auth.MockAuthHeaderName))
 
@@ -439,17 +435,12 @@ func TestPushItem(t *testing.T) {
 				}
 			}))
 
-			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
-			},
-				func(context.Context) *zap.Logger {
-					return zap.NewNop()
-				})
+			opts := append(requiredClientOptions, StoreBaseURL(server.URL))
+			client, err := NewBasicClient(opts)
 
+			authDecorator := new(auth.MockDecorator)
 			if tc.MockAuth != "" || tc.MockError != nil {
-				authDecorator := new(auth.MockDecorator)
-				authDecorator.On("Decorate").Return(tc.MockError)
+				authDecorator.On("Decorate").Return(tc.MockError).Once()
 				client.auth = authDecorator
 			}
 
@@ -469,6 +460,8 @@ func TestPushItem(t *testing.T) {
 			} else {
 				assert.True(errors.Is(err, tc.ExpectedErr))
 			}
+
+			authDecorator.AssertExpectations(t)
 		})
 	}
 }
@@ -489,12 +482,12 @@ func TestRemoveItem(t *testing.T) {
 
 	tcs := []testCase{
 		{
-			Description: "Make request fails",
+			Description: "Make request failure",
 			ExpectedErr: ErrAuthDecoratorFailure,
 			MockError:   errFails,
 		},
 		{
-			Description:         "Do request fails",
+			Description:         "Do request failure",
 			ShouldDoRequestFail: true,
 			ExpectedErr:         errDoRequestFailure,
 		},
@@ -533,12 +526,12 @@ func TestRemoveItem(t *testing.T) {
 			var (
 				assert  = assert.New(t)
 				require = require.New(t)
-				bucket  = "bucket-name"
+				bucket  = bucket
 				// nolint:gosec
 				id = "7e8c5f378b4addbaebc70897c4478cca06009e3e360208ebd073dbee4b3774e7"
 			)
 			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-				assert.Equal(fmt.Sprintf("%s/%s/%s", storeAPIPath, bucket, id), r.URL.Path)
+				assert.Equal(fmt.Sprintf("%s/%s/%s", storeV1APIPath, bucket, id), r.URL.Path)
 				assert.Equal(http.MethodDelete, r.Method)
 				assert.Equal(tc.MockAuth, r.Header.Get(auth.MockAuthHeaderName))
 
@@ -546,16 +539,12 @@ func TestRemoveItem(t *testing.T) {
 				rw.Write(tc.ResponsePayload)
 			}))
 
-			client, err := NewBasicClient(BasicClientConfig{
-				Address: server.URL,
-				Bucket:  bucket,
-			}, func(context.Context) *zap.Logger {
-				return zap.NewNop()
-			})
+			opts := append(requiredClientOptions, StoreBaseURL(server.URL))
+			client, err := NewBasicClient(opts)
 
+			authDecorator := new(auth.MockDecorator)
 			if tc.MockAuth != "" || tc.MockError != nil {
-				authDecorator := new(auth.MockDecorator)
-				authDecorator.On("Decorate").Return(tc.MockError)
+				authDecorator.On("Decorate").Return(tc.MockError).Once()
 				client.auth = authDecorator
 			}
 
@@ -571,6 +560,8 @@ func TestRemoveItem(t *testing.T) {
 			} else {
 				assert.True(errors.Is(err, tc.ExpectedErr))
 			}
+
+			authDecorator.AssertExpectations(t)
 		})
 	}
 }
@@ -648,7 +639,7 @@ func getItemsValidPayload() []byte {
 }
 
 func getItemsHappyOutput() Items {
-	return []model.Item{
+	return Items{
 		{
 			ID: "7e8c5f378b4addbaebc70897c4478cca06009e3e360208ebd073dbee4b3774e7",
 			Data: map[string]interface{}{
