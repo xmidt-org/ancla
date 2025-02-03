@@ -14,42 +14,12 @@ type ServiceIn struct {
 	fx.In
 
 	// PushReader is the user provided db client.
-	// (Optional)
-	// If provided, Ancla will not use default Argus db client.
-	PushReader chrysom.PushReader    `optional:"true"`
-	Options    chrysom.ClientOptions `group:"client_options"`
+	PushReader chrysom.PushReader `optional:"true"`
 }
 
-type ProvideServiceOut struct {
-	fx.Out
-
-	// Ancla service.
-	Service Service
-	// Ancla listener's db client.
-	Reader chrysom.Reader
-}
-
-// ProvideService provides the Argus client service from the given configuration and client options.
-func ProvideService(in ServiceIn) (ProvideServiceOut, error) {
-	// If the user provides a non-nil chrysom.PushReader (their own db client), then use that instead
-	// of an Argus db client.
-	// Otherwise, create and use a new Argus db client.
-	if in.PushReader != nil {
-		return ProvideServiceOut{
-			Service: NewService(in.PushReader),
-			Reader:  in.PushReader,
-		}, nil
-	}
-
-	client, err := chrysom.NewBasicClient(in.Options)
-	if err != nil {
-		return ProvideServiceOut{}, err
-	}
-
-	return ProvideServiceOut{
-		Service: NewService(in.PushReader),
-		Reader:  client,
-	}, nil
+// ProvideService provides the Argus client service from the given configuration.
+func ProvideService(in ServiceIn) (Service, error) {
+	return NewService(in.PushReader), nil
 }
 
 // TODO: Refactor and move Watch and ListenerInterface related code to chrysom.

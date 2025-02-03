@@ -33,7 +33,7 @@ func (f listenerOptionFunc) apply(c *ListenerClient) error {
 }
 
 // reader sets the reader.
-// Used internally by `ProvideReaderOption` for fx dependency injection.
+// Used internally by `ProvideBasicClient` for fx dependency injection.
 func reader(reader Reader) ListenerOption {
 	return listenerOptionFunc(
 		func(c *ListenerClient) error {

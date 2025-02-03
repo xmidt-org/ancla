@@ -45,25 +45,22 @@ type ListenerClient struct {
 	state    int32
 }
 
-var (
-	defaultListenerOptions = ListenerOptions{
+// NewListenerClient creates a new ListenerClient to be used to poll Argus
+// for updates.
+func NewListenerClient(pollsTotalCounter *prometheus.CounterVec, opts ...ListenerOption) (*ListenerClient, error) {
+	defaultListenerOptions := ListenerOptions{
 		// defaultPullInterval
 		PullInterval(0),
 		// Nops defaults
 		GetListenerLogger(nil),
 		SetListenerLogger(nil),
 	}
-)
-
-// NewListenerClient creates a new ListenerClient to be used to poll Argus
-// for updates.
-func NewListenerClient(pollsTotalCounter *prometheus.CounterVec, opts ...ListenerOption) (*ListenerClient, error) {
 	client := ListenerClient{
 		pollsTotalCounter: pollsTotalCounter,
 		shutdown:          make(chan struct{}),
 	}
 
-	opts = append(defaultListenerOptions, ListenerOptions(opts))
+	opts = append(defaultListenerOptions, opts...)
 	opts = append(opts, listenerValidator())
 
 	return &client, ListenerOptions(opts).apply(&client)

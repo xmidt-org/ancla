@@ -46,9 +46,9 @@ func provideDefaults() (out, error) {
 func TestProvide(t *testing.T) {
 	t.Run("Test anclafx.Provide() defaults", func(t *testing.T) {
 		var (
-			svc      ancla.Service
-			reader   chrysom.Reader
-			listener *chrysom.ListenerClient
+			svc        ancla.Service
+			pushReader chrysom.PushReader
+			listener   *chrysom.ListenerClient
 		)
 
 		app := fxtest.New(t,
@@ -58,7 +58,7 @@ func TestProvide(t *testing.T) {
 			),
 			fx.Populate(
 				&svc,
-				&reader,
+				&pushReader,
 				&listener,
 			),
 		)
@@ -68,7 +68,7 @@ func TestProvide(t *testing.T) {
 		require.NoError(app.Err())
 		app.RequireStart()
 		require.NotNil(svc)
-		require.NotNil(reader)
+		require.NotNil(pushReader)
 		require.NotNil(listener)
 		app.RequireStop()
 	})

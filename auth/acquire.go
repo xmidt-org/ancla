@@ -14,6 +14,8 @@ type Decorator interface {
 	Decorate(ctx context.Context, req *http.Request) error
 }
 
-type Nop struct{}
+type DecoratorFunc func(context.Context, *http.Request) error
 
-func (Nop) Decorate(context.Context, *http.Request) error { return nil }
+func (f DecoratorFunc) Decorate(ctx context.Context, req *http.Request) error { return f(ctx, req) }
+
+var Nop = DecoratorFunc(func(context.Context, *http.Request) error { return nil })

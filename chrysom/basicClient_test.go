@@ -72,7 +72,7 @@ func TestClientOptions(t *testing.T) {
 				StoreAPIPath(storeV1APIPath),
 				GetClientLogger(func(context.Context) *zap.Logger { return zap.NewNop() }),
 				HTTPClient(http.DefaultClient),
-				Auth(&auth.Nop{}),
+				Auth(auth.Nop),
 			}),
 		},
 		{

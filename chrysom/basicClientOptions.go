@@ -106,7 +106,7 @@ func GetClientLogger(get func(context.Context) *zap.Logger) ClientOption {
 func Auth(authD auth.Decorator) ClientOption {
 	return clientOptionFunc(
 		func(c *BasicClient) error {
-			c.auth = auth.Nop{}
+			c.auth = auth.Nop
 			if authD != nil {
 				c.auth = authD
 			}

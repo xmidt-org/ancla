@@ -63,24 +63,23 @@ const (
 	errorHeaderKey   = "errorHeader"
 )
 
-var (
-	defaultClientOptions = ClientOptions{
-		// localhost defaults
-		StoreBaseURL(""),
-		StoreAPIPath(""),
-		// Nop defaults
-		HTTPClient(nil),
-		GetClientLogger(nil),
-		Auth(nil),
-	}
-)
-
 // NewBasicClient creates a new BasicClient that can be used to
 // make requests to Argus.
 func NewBasicClient(opts ...ClientOption) (*BasicClient, error) {
-	var client BasicClient
+	var (
+		client               BasicClient
+		defaultClientOptions = ClientOptions{
+			// localhost defaults
+			StoreBaseURL(""),
+			StoreAPIPath(""),
+			// Nop defaults
+			HTTPClient(nil),
+			GetClientLogger(nil),
+			Auth(nil),
+		}
+	)
 
-	opts = append(defaultClientOptions, ClientOptions(opts))
+	opts = append(defaultClientOptions, opts...)
 	opts = append(opts, clientValidator())
 
 	return &client, ClientOptions(opts).apply(&client)

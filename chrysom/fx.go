@@ -16,6 +16,29 @@ var (
 	ErrMisconfiguredListener = errors.New("ancla listener configuration error")
 )
 
+type ProvideBasicClientIn struct {
+	fx.In
+
+	Options ClientOptions `group:"client_options"`
+}
+
+type ProvideBasicClientOut struct {
+	fx.Out
+
+	// Ancla service's db client.
+	PushReader PushReader
+	// Ancla listener's db client option.
+	Reader ListenerOption `group:"listener_options"`
+}
+
+func ProvideBasicClient(in ProvideBasicClientIn) (ProvideBasicClientOut, error) {
+	client, err := NewBasicClient(in.Options...)
+	return ProvideBasicClientOut{
+		PushReader: client,
+		Reader:     reader(client),
+	}, err
+}
+
 // ListenerConfig contains config data for polling the Argus client.
 type ListenerClientIn struct {
 	fx.In
@@ -27,7 +50,7 @@ type ListenerClientIn struct {
 
 // ProvideListenerClient provides a new ListenerClient.
 func ProvideListenerClient(in ListenerClientIn) (*ListenerClient, error) {
-	client, err := NewListenerClient(in.PollsTotalCounter, in.Options)
+	client, err := NewListenerClient(in.PollsTotalCounter, in.Options...)
 	if err != nil {
 		return nil, errors.Join(err, ErrMisconfiguredListener)
 	}
@@ -40,15 +63,6 @@ type ReaderOptionOut struct {
 	fx.Out
 
 	Option ListenerOption `group:"listener_options"`
-}
-
-// ProvideReaderOption provides Listener client's read option.
-// ancla.ProvideService determines which Reader is used, i.e.:
-// the default Argus db client or a user provided db client.
-func ProvideReaderOption(r Reader) (ReaderOptionOut, error) {
-	return ReaderOptionOut{
-		Option: reader(r),
-	}, nil
 }
 
 type StartListenerIn struct {
