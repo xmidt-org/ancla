@@ -17,7 +17,7 @@ func TestNewAddWebhookEndpoint(t *testing.T) {
 	endpoint := newAddWebhookEndpoint(m)
 	input := &addWebhookRequest{
 		owner:          "owner-val",
-		internalWebook: InternalWebhook{},
+		internalWebook: &RegistryV1{},
 	}
 
 	errFake := errors.New("failed")
@@ -35,7 +35,7 @@ func TestGetAllWebhooksEndpoint(t *testing.T) {
 	m := new(mockService)
 	endpoint := newGetAllWebhooksEndpoint(m)
 
-	respFake := []InternalWebhook{}
+	respFake := []Register{}
 	// nolint:typecheck
 	m.On("GetAll", context.Background()).Return(respFake, nil)
 	resp, err := endpoint(context.Background(), nil)

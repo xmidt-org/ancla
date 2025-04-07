@@ -4,47 +4,33 @@
 package ancla
 
 import (
-	"errors"
-	"fmt"
 	"time"
-)
 
-var (
-	SpecialUseIPs = []string{
-		"0.0.0.0/8",          //local ipv4
-		"fe80::/10",          //local ipv6
-		"255.255.255.255/32", //broadcast to neighbors
-		"2001::/32",          //ipv6 TEREDO prefix
-		"2001:5::/32",        //EID space for lisp
-		"2002::/16",          //ipv6 6to4
-		"fc00::/7",           //ipv6 unique local
-		"192.0.0.0/24",       //ipv4 IANA
-		"2001:0000::/23",     //ipv6 IANA
-		"224.0.0.1/32",       //ipv4 multicast
-	}
-	SpecialUseHosts = []string{
-		".example.",
-		".invalid.",
-		".test.",
-		"localhost",
-	}
-	errFailedToBuildValidators    = errors.New("failed to build validators")
-	errFailedToBuildValidURLFuncs = errors.New("failed to build ValidURLFuncs")
+	"github.com/xmidt-org/urlegit"
+	webhook "github.com/xmidt-org/webhook-schema"
 )
 
 type ValidatorConfig struct {
-	URL URLVConfig
-	TTL TTLVConfig
+	URL    URLVConfig
+	TTL    TTLVConfig
+	IP     IPConfig
+	Domain DomainConfig
+	Opts   OptionsConfig
+}
+
+type IPConfig struct {
+	Allow            bool
+	ForbiddenSubnets []string
+}
+
+type DomainConfig struct {
+	AllowSpecialUseDomains bool
+	ForbiddenDomains       []string
 }
 
 type URLVConfig struct {
-	HTTPSOnly            bool
-	AllowLoopback        bool
-	AllowIP              bool
-	AllowSpecialUseHosts bool
-	AllowSpecialUseIPs   bool
-	InvalidHosts         []string
-	InvalidSubnets       []string
+	Schemes       []string
+	AllowLoopback bool
 }
 
 type TTLVConfig struct {
@@ -53,63 +39,67 @@ type TTLVConfig struct {
 	Now    func() time.Time
 }
 
-// BuildValidURLFuncs translates the configuration into a list of ValidURLFuncs
-// to be run on the webhook.
-func buildValidURLFuncs(config ValidatorConfig) ([]ValidURLFunc, error) {
-	var v []ValidURLFunc
-	v = append(v, GoodURLScheme(config.URL.HTTPSOnly))
-	if !config.URL.AllowLoopback {
-		v = append(v, RejectLoopback())
-	}
-	if !config.URL.AllowIP {
-		v = append(v, RejectAllIPs())
-	}
-	if !config.URL.AllowSpecialUseHosts {
-		config.URL.InvalidHosts = append(config.URL.InvalidHosts, SpecialUseHosts...)
-	}
-	if len(config.URL.InvalidHosts) > 0 {
-		v = append(v, RejectHosts(config.URL.InvalidHosts))
-	}
-	if !config.URL.AllowSpecialUseIPs {
-		config.URL.InvalidSubnets = append(config.URL.InvalidSubnets, SpecialUseIPs...)
-	}
-	if len(config.URL.InvalidSubnets) > 0 {
-		fInvalidSubnets, err := InvalidSubnets(config.URL.InvalidSubnets)
-		if err != nil {
-			return nil, fmt.Errorf("%w: %v", errFailedToBuildValidURLFuncs, err)
-		}
-		v = append(v, fInvalidSubnets)
-	}
-	return v, nil
+type OptionsConfig struct {
+	AtLeastOneEvent                bool
+	EventRegexMustCompile          bool
+	DeviceIDRegexMustCompile       bool
+	ValidateRegistrationDuration   bool
+	ProvideReceiverURLValidator    bool
+	ProvideFailureURLValidator     bool
+	ProvideAlternativeURLValidator bool
+	CheckUntil                     bool
 }
 
-// BuildValidators translates the configuration into a list of validators to be run on the
-// webhook.
-func BuildValidators(config ValidatorConfig) (Validators, error) {
-	v, err := buildValidURLFuncs(config)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
+// BuildURLChecker translates the configuration into url Checker to be run on the webhook.
+func (config *ValidatorConfig) BuildURLChecker() (*urlegit.Checker, error) {
+	var o []urlegit.Option
+	if len(config.URL.Schemes) > 0 {
+		o = append(o, urlegit.OnlyAllowSchemes(config.URL.Schemes...))
 	}
+	if !config.URL.AllowLoopback {
+		o = append(o, urlegit.ForbidLoopback())
+	}
+	if !config.IP.Allow {
+		o = append(o, urlegit.ForbidAnyIPs())
+	}
+	if len(config.IP.ForbiddenSubnets) > 0 {
+		o = append(o, urlegit.ForbidSubnets(config.IP.ForbiddenSubnets))
+	}
+	if !config.Domain.AllowSpecialUseDomains {
+		o = append(o, urlegit.ForbidSpecialUseDomains())
+	}
+	if len(config.Domain.ForbiddenDomains) > 0 {
+		o = append(o, urlegit.ForbidDomainNames(config.Domain.ForbiddenDomains...))
+	}
+	return urlegit.New(o...)
+}
 
-	vs := Validators{
-		GoodConfigURL(v),
-		GoodFailureURL(v),
-		GoodAlternativeURLs(v),
-		CheckEvents(),
-		CheckDeviceID(),
-		CheckUntilOrDurationExist(),
+// BuildOptions translates the configuration into a list of options to be used to validate the registration
+func (config *ValidatorConfig) BuildOptions(checker *urlegit.Checker) []webhook.Option {
+	var opts []webhook.Option
+	if config.Opts.AtLeastOneEvent {
+		opts = append(opts, webhook.AtLeastOneEvent())
 	}
-	fCheckDuration, err := CheckDuration(config.TTL.Max)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
+	if config.Opts.EventRegexMustCompile {
+		opts = append(opts, webhook.EventRegexMustCompile())
 	}
-	vs = append(vs, fCheckDuration)
-
-	fCheckUntil, err := CheckUntil(config.TTL.Jitter, config.TTL.Max, config.TTL.Now)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errFailedToBuildValidators, err)
+	if config.Opts.DeviceIDRegexMustCompile {
+		opts = append(opts, webhook.DeviceIDRegexMustCompile())
 	}
-	vs = append(vs, fCheckUntil)
-
-	return vs, nil
+	if config.Opts.ValidateRegistrationDuration {
+		opts = append(opts, webhook.ValidateRegistrationDuration(config.TTL.Max))
+	}
+	if config.Opts.ProvideReceiverURLValidator {
+		opts = append(opts, webhook.ProvideReceiverURLValidator(checker))
+	}
+	if config.Opts.ProvideFailureURLValidator {
+		opts = append(opts, webhook.ProvideFailureURLValidator(checker))
+	}
+	if config.Opts.ProvideAlternativeURLValidator {
+		opts = append(opts, webhook.ProvideAlternativeURLValidator(checker))
+	}
+	if config.Opts.CheckUntil {
+		opts = append(opts, webhook.Until(config.TTL.Now, config.TTL.Jitter, config.TTL.Max))
+	}
+	return opts
 }
