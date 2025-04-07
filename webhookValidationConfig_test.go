@@ -17,33 +17,46 @@ var (
 	mockNow = func() time.Time {
 		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 	}
+
 	mockMax        = 5 * time.Minute
 	mockJitter     = 5 * time.Second
 	buildAllConfig = ValidatorConfig{
 		URL: URLVConfig{
-			HTTPSOnly:            true,
-			AllowLoopback:        false,
-			AllowIP:              false,
-			AllowSpecialUseHosts: false,
-			AllowSpecialUseIPs:   false,
-			InvalidHosts:         []string{},
-			InvalidSubnets:       []string{},
+			Schemes:       []string{"https"},
+			AllowLoopback: false,
+		},
+		IP: IPConfig{
+			Allow: false,
+		},
+		Domain: DomainConfig{
+			AllowSpecialUseDomains: false,
 		},
 		TTL: TTLVConfig{
 			Max:    mockMax,
 			Jitter: mockJitter,
 			Now:    mockNow,
 		},
+		Opts: OptionsConfig{
+			AtLeastOneEvent:                true,
+			EventRegexMustCompile:          true,
+			DeviceIDRegexMustCompile:       true,
+			ValidateRegistrationDuration:   true,
+			ProvideReceiverURLValidator:    true,
+			ProvideFailureURLValidator:     true,
+			ProvideAlternativeURLValidator: true,
+			CheckUntil:                     true,
+		},
 	}
 	buildNoneConfig = ValidatorConfig{
 		URL: URLVConfig{
-			HTTPSOnly:            false,
-			AllowLoopback:        true,
-			AllowIP:              true,
-			AllowSpecialUseHosts: true,
-			AllowSpecialUseIPs:   true,
-			InvalidHosts:         []string{},
-			InvalidSubnets:       []string{},
+			Schemes:       []string{"https", "http"},
+			AllowLoopback: true,
+		},
+		IP: IPConfig{
+			Allow: true,
+		},
+		Domain: DomainConfig{
+			AllowSpecialUseDomains: true,
 		},
 		TTL: TTLVConfig{
 			Max:    mockMax,
@@ -64,11 +77,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			desc: "HTTPSOnly only",
 			config: ValidatorConfig{
 				URL: URLVConfig{
-					HTTPSOnly:            true,
-					AllowLoopback:        true,
-					AllowIP:              true,
-					AllowSpecialUseHosts: true,
-					AllowSpecialUseIPs:   true,
+					AllowLoopback: true,
+					Schemes:       []string{"https"},
 				},
 			},
 			expectedFuncCount: 1,
@@ -77,11 +87,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			desc: "AllowLoopback only",
 			config: ValidatorConfig{
 				URL: URLVConfig{
-					HTTPSOnly:            false,
-					AllowLoopback:        false,
-					AllowIP:              true,
-					AllowSpecialUseHosts: true,
-					AllowSpecialUseIPs:   true,
+					AllowLoopback: false,
+					Schemes:       []string{"https", "http"},
 				},
 			},
 			expectedFuncCount: 2,
@@ -89,12 +96,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		{
 			desc: "AllowIp Only",
 			config: ValidatorConfig{
-				URL: URLVConfig{
-					HTTPSOnly:            false,
-					AllowLoopback:        true,
-					AllowIP:              false,
-					AllowSpecialUseHosts: true,
-					AllowSpecialUseIPs:   true,
+				IP: IPConfig{
+					Allow: false,
 				},
 			},
 			expectedFuncCount: 2,
@@ -102,12 +105,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		{
 			desc: "AllowSpecialUseHosts Only",
 			config: ValidatorConfig{
-				URL: URLVConfig{
-					HTTPSOnly:            false,
-					AllowLoopback:        true,
-					AllowIP:              true,
-					AllowSpecialUseHosts: false,
-					AllowSpecialUseIPs:   true,
+				Domain: DomainConfig{
+					AllowSpecialUseDomains: false,
 				},
 			},
 			expectedFuncCount: 2,
@@ -115,29 +114,30 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		{
 			desc: "AllowSpecialuseIPS Only",
 			config: ValidatorConfig{
-				URL: URLVConfig{
-					HTTPSOnly:            false,
-					AllowLoopback:        true,
-					AllowIP:              true,
-					AllowSpecialUseHosts: true,
-					AllowSpecialUseIPs:   false,
+				IP: IPConfig{
+					Allow: true,
 				},
 			},
 			expectedFuncCount: 2,
 		},
 		{
-			desc: "InvalidSubnet Failure",
+			desc: "Forbidden Subnets",
 			config: ValidatorConfig{
-				URL: URLVConfig{
-					HTTPSOnly:            false,
-					AllowLoopback:        true,
-					AllowIP:              true,
-					AllowSpecialUseHosts: true,
-					AllowSpecialUseIPs:   false,
-					InvalidSubnets:       []string{"https://localhost:9000"},
+				IP: IPConfig{
+					Allow:            false,
+					ForbiddenSubnets: []string{"10.0.0.0/8"},
 				},
 			},
-			expectedErr: errFailedToBuildValidURLFuncs,
+			expectedFuncCount: 1,
+		},
+		{
+			desc: "Forbidden Domains",
+			config: ValidatorConfig{
+				Domain: DomainConfig{
+					AllowSpecialUseDomains: true,
+					ForbiddenDomains:       []string{"example.com."},
+				},
+			},
 		},
 		{
 			desc: "Build None",
@@ -157,7 +157,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			vals, err := buildValidURLFuncs(tc.config)
+			vals, err := tc.config.BuildURLChecker()
 			if tc.expectedErr != nil {
 				assert.True(errors.Is(err, tc.expectedErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
@@ -166,69 +166,14 @@ func TestBuildValidURLFuncs(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.Equal(tc.expectedFuncCount, len(vals))
 		})
 	}
 }
 
-func TestBuildValidators(t *testing.T) {
-	tcs := []struct {
-		desc              string
-		config            ValidatorConfig
-		expectedErr       error
-		expectedFuncCount int
-	}{
-		{
-			desc: "BuildValidURLFuncs Failure",
-			config: ValidatorConfig{
-				URL: URLVConfig{
-					HTTPSOnly:            false,
-					AllowLoopback:        true,
-					AllowIP:              true,
-					AllowSpecialUseHosts: true,
-					AllowSpecialUseIPs:   false,
-					InvalidSubnets:       []string{"https://localhost:9000"},
-				},
-			},
-			expectedErr: errFailedToBuildValidators,
-		},
-		{
-			desc: "CheckDuration Failure",
-			config: ValidatorConfig{
-				TTL: TTLVConfig{
-					Max: -1 * time.Second,
-				},
-			},
-			expectedErr: errFailedToBuildValidators,
-		},
-		{
-			desc: "CheckUntil Failure",
-			config: ValidatorConfig{
-				TTL: TTLVConfig{
-					Jitter: -1 * time.Second,
-				},
-			},
-			expectedErr: errFailedToBuildValidators,
-		},
-		{
-			desc:              "All Validators Added",
-			expectedFuncCount: 8,
-		},
-	}
-	for _, tc := range tcs {
-		t.Run(tc.desc, func(t *testing.T) {
-			assert := assert.New(t)
-			vals, err := BuildValidators(tc.config)
-			if tc.expectedErr != nil {
-				assert.True(errors.Is(err, tc.expectedErr),
-					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
-						err, tc.expectedErr))
-				assert.Nil(vals)
-				return
-			}
-			require.NoError(t, err)
-			assert.NotNil(vals)
-			assert.Equal(tc.expectedFuncCount, len(vals))
-		})
-	}
+func TestBuildOptions(t *testing.T) {
+	checker, err := buildAllConfig.BuildURLChecker()
+	assert.NoError(t, err)
+	opts := buildAllConfig.BuildOptions(checker)
+	assert.NotNil(t, opts)
+	assert.Len(t, opts, 8)
 }

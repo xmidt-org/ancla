@@ -26,10 +26,10 @@ var (
 type Service interface {
 	// Add adds the given owned webhook to the current list of webhooks. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, iw InternalWebhook) error
+	Add(ctx context.Context, owner string, iw Register) error
 
 	// GetAll lists all the current registered webhooks.
-	GetAll(ctx context.Context) ([]InternalWebhook, error)
+	GetAll(ctx context.Context) ([]Register, error)
 }
 
 // Config contains information needed to initialize the Argus database client.
@@ -54,7 +54,7 @@ type service struct {
 
 // Add adds the given owned webhook to the current list of webhooks. If the operation
 // succeeds, a non-nil error is returned.
-func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
+func (s *service) Add(ctx context.Context, owner string, iw Register) error {
 	item, err := InternalWebhookToItem(s.now, iw)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
@@ -72,13 +72,13 @@ func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) err
 
 // GetAll returns all webhooks found on the configured webhooks partition
 // of Argus.
-func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
+func (s *service) GetAll(ctx context.Context) ([]Register, error) {
 	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
 	}
 
-	iws := make([]InternalWebhook, len(items))
+	iws := make([]Register, len(items))
 
 	for i, item := range items {
 		webhook, err := ItemToInternalWebhook(item)

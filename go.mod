@@ -1,15 +1,17 @@
 module github.com/xmidt-org/ancla
 
-go 1.23
+go 1.24
 
 require (
 	github.com/aws/aws-sdk-go v1.44.317
 	github.com/go-kit/kit v0.13.0
 	github.com/prometheus/client_golang v1.20.4
 	github.com/prometheus/client_model v0.6.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/xmidt-org/httpaux v0.4.1
 	github.com/xmidt-org/touchstone v0.1.3
+	github.com/xmidt-org/urlegit v0.1.28
+	github.com/xmidt-org/webhook-schema v0.1.1-0.20250218203050-e75573a965e1
 	go.uber.org/fx v1.23.0
 	go.uber.org/zap v1.27.0
 )
