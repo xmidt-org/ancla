@@ -5,6 +5,7 @@ package ancla
 
 import (
 	"github.com/xmidt-org/ancla/chrysom"
+	"github.com/xmidt-org/ancla/schema"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
@@ -26,8 +27,8 @@ func ProvideService(in ServiceIn) (Service, error) {
 type DefaultListenersIn struct {
 	fx.In
 
-	// Metric for webhook list size, used by the webhook list size watcher listener.
-	WebhookListSizeGauge prometheus.Gauge `name:"webhook_list_size"`
+	// Metric for wrpEventStream list size, used by the wrpEventStream list size watcher listener.
+	WRPEventStreamListSizeGauge prometheus.Gauge `name:"wrp_event_stream_list_size"`
 }
 
 type DefaultListenerOut struct {
@@ -39,7 +40,7 @@ type DefaultListenerOut struct {
 func ProvideDefaultListenerWatchers(in DefaultListenersIn) DefaultListenerOut {
 	var watchers []Watch
 
-	watchers = append(watchers, webhookListSizeWatch(in.WebhookListSizeGauge))
+	watchers = append(watchers, wrpEventStreamListSizeWatch(in.WRPEventStreamListSizeGauge))
 
 	return DefaultListenerOut{
 		Watchers: watchers,
@@ -50,7 +51,7 @@ type ListenerIn struct {
 	fx.In
 
 	Shutdowner fx.Shutdowner
-	// Watchers are called by the Listener when new webhooks are fetched.
+	// Watchers are called by the Listener when new wrpEventStreams are fetched.
 	Watchers []Watch `group:"watchers"`
 }
 
@@ -64,7 +65,7 @@ type ListenerOut struct {
 func ProvideListener(in ListenerIn) ListenerOut {
 	return ListenerOut{
 		Option: chrysom.Listener(chrysom.ListenerFunc(func(items chrysom.Items) {
-			iws, err := ItemsToInternalWebhooks(items)
+			iws, err := schema.ItemsToSchemas(items)
 			if err != nil {
 				in.Shutdowner.Shutdown(fx.ExitCode(1))
 

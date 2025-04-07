@@ -1,5 +1,5 @@
 # ancla
-Provides a configurable webhook registry component for XMiDT services. Application code can use the registry directly or as a plug-in for ancla's helper HTTP handlers.
+Provides a configurable wrpEventStream registry component for XMiDT services. Application code can use the registry directly or as a plug-in for ancla's helper HTTP handlers.
 
 [![Build Status](https://github.com/xmidt-org/ancla/actions/workflows/ci.yml/badge.svg)](https://github.com/xmidt-org/ancla/actions/workflows/ci.yml)
 [![codecov.io](http://codecov.io/github/xmidt-org/ancla/coverage.svg?branch=main)](http://codecov.io/github/xmidt-org/ancla?branch=main)

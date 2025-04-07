@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package ancla
+package schema
 
 import (
 	"errors"
@@ -17,18 +17,17 @@ var (
 	mockNow = func() time.Time {
 		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 	}
-
 	mockMax        = 5 * time.Minute
 	mockJitter     = 5 * time.Second
-	buildAllConfig = ValidatorConfig{
+	buildAllConfig = SchemaURLValidatorConfig{
 		URL: URLVConfig{
 			Schemes:       []string{"https"},
 			AllowLoopback: false,
 		},
-		IP: IPConfig{
+		IP: IPVConfig{
 			Allow: false,
 		},
-		Domain: DomainConfig{
+		Domain: DomainVConfig{
 			AllowSpecialUseDomains: false,
 		},
 		TTL: TTLVConfig{
@@ -36,7 +35,7 @@ var (
 			Jitter: mockJitter,
 			Now:    mockNow,
 		},
-		Opts: OptionsConfig{
+		BuildOpts: BuildOptions{
 			AtLeastOneEvent:                true,
 			EventRegexMustCompile:          true,
 			DeviceIDRegexMustCompile:       true,
@@ -47,15 +46,15 @@ var (
 			CheckUntil:                     true,
 		},
 	}
-	buildNoneConfig = ValidatorConfig{
+	buildNoneConfig = SchemaURLValidatorConfig{
 		URL: URLVConfig{
 			Schemes:       []string{"https", "http"},
 			AllowLoopback: true,
 		},
-		IP: IPConfig{
+		IP: IPVConfig{
 			Allow: true,
 		},
-		Domain: DomainConfig{
+		Domain: DomainVConfig{
 			AllowSpecialUseDomains: true,
 		},
 		TTL: TTLVConfig{
@@ -69,13 +68,13 @@ var (
 func TestBuildValidURLFuncs(t *testing.T) {
 	tcs := []struct {
 		desc              string
-		config            ValidatorConfig
+		config            SchemaURLValidatorConfig
 		expectedErr       error
 		expectedFuncCount int
 	}{
 		{
 			desc: "HTTPSOnly only",
-			config: ValidatorConfig{
+			config: SchemaURLValidatorConfig{
 				URL: URLVConfig{
 					AllowLoopback: true,
 					Schemes:       []string{"https"},
@@ -85,7 +84,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		},
 		{
 			desc: "AllowLoopback only",
-			config: ValidatorConfig{
+			config: SchemaURLValidatorConfig{
 				URL: URLVConfig{
 					AllowLoopback: false,
 					Schemes:       []string{"https", "http"},
@@ -95,8 +94,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		},
 		{
 			desc: "AllowIp Only",
-			config: ValidatorConfig{
-				IP: IPConfig{
+			config: SchemaURLValidatorConfig{
+				IP: IPVConfig{
 					Allow: false,
 				},
 			},
@@ -104,8 +103,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		},
 		{
 			desc: "AllowSpecialUseHosts Only",
-			config: ValidatorConfig{
-				Domain: DomainConfig{
+			config: SchemaURLValidatorConfig{
+				Domain: DomainVConfig{
 					AllowSpecialUseDomains: false,
 				},
 			},
@@ -113,8 +112,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		},
 		{
 			desc: "AllowSpecialuseIPS Only",
-			config: ValidatorConfig{
-				IP: IPConfig{
+			config: SchemaURLValidatorConfig{
+				IP: IPVConfig{
 					Allow: true,
 				},
 			},
@@ -122,8 +121,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		},
 		{
 			desc: "Forbidden Subnets",
-			config: ValidatorConfig{
-				IP: IPConfig{
+			config: SchemaURLValidatorConfig{
+				IP: IPVConfig{
 					Allow:            false,
 					ForbiddenSubnets: []string{"10.0.0.0/8"},
 				},
@@ -132,8 +131,8 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		},
 		{
 			desc: "Forbidden Domains",
-			config: ValidatorConfig{
-				Domain: DomainConfig{
+			config: SchemaURLValidatorConfig{
+				Domain: DomainVConfig{
 					AllowSpecialUseDomains: true,
 					ForbiddenDomains:       []string{"example.com."},
 				},
@@ -141,14 +140,14 @@ func TestBuildValidURLFuncs(t *testing.T) {
 		},
 		{
 			desc: "Build None",
-			config: ValidatorConfig{
+			config: SchemaURLValidatorConfig{
 				URL: buildNoneConfig.URL,
 			},
 			expectedFuncCount: 1,
 		},
 		{
 			desc: "Build All",
-			config: ValidatorConfig{
+			config: SchemaURLValidatorConfig{
 				URL: buildAllConfig.URL,
 			},
 			expectedFuncCount: 5,

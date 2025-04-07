@@ -7,16 +7,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/ancla/schema"
 )
 
-func TestWebhookListSizeWatch(t *testing.T) {
+func TestWRPEventStreamListSizeWatch(t *testing.T) {
 	require := require.New(t)
 	gauge := new(mockGauge)
-	watch := webhookListSizeWatch(gauge)
+	watch := wrpEventStreamListSizeWatch(gauge)
 	require.NotNil(watch)
 	// nolint:typecheck
 	gauge.On("Set", float64(2))
-	watch.Update([]Register{&RegistryV1{}, &RegistryV2{}})
+	watch.Update([]schema.RegistryManifest{&schema.RegistryV1{}, &schema.RegistryV2{}})
 	// nolint:typecheck
 	gauge.AssertExpectations(t)
 }

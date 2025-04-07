@@ -9,15 +9,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/ancla/schema"
 )
 
-func TestNewAddWebhookEndpoint(t *testing.T) {
+func TestNewAddWRPEventStreamEndpoint(t *testing.T) {
 	assert := assert.New(t)
 	m := new(mockService)
-	endpoint := newAddWebhookEndpoint(m)
-	input := &addWebhookRequest{
+	endpoint := newAddWRPEventStreamEndpoint(m)
+	input := &addWRPEventStreamRequest{
 		owner:          "owner-val",
-		internalWebook: &RegistryV1{},
+		internalWebook: &schema.RegistryV1{},
 	}
 
 	errFake := errors.New("failed")
@@ -30,12 +31,12 @@ func TestNewAddWebhookEndpoint(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
-func TestGetAllWebhooksEndpoint(t *testing.T) {
+func TestGetAllWRPEventStreamsEndpoint(t *testing.T) {
 	assert := assert.New(t)
 	m := new(mockService)
-	endpoint := newGetAllWebhooksEndpoint(m)
+	endpoint := newGetAllWRPEventStreamsEndpoint(m)
 
-	respFake := []Register{}
+	respFake := []schema.RegistryManifest{}
 	// nolint:typecheck
 	m.On("GetAll", context.Background()).Return(respFake, nil)
 	resp, err := endpoint(context.Background(), nil)

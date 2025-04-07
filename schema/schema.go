@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package ancla
+package schema
 
 import (
 	"crypto/sha256"
@@ -16,19 +16,20 @@ import (
 	webhook "github.com/xmidt-org/webhook-schema"
 )
 
-type Register interface {
+type RegistryManifest interface {
 	GetId() string
 	GetUntil() time.Time
 }
 
 type RegistryV1 struct {
-	PartnerIDs   []string
-	Registration webhook.RegistrationV1 `json:"Webhook"`
+	PartnerIDs []string
+	// nolint:staticcheck
+	Registration webhook.RegistrationV1 `json:"registration_v1"`
 }
 
 type RegistryV2 struct {
 	PartnerIds   []string
-	Registration webhook.RegistrationV2
+	Registration webhook.RegistrationV2 `json:"registration_v2"`
 }
 
 func (v1 *RegistryV1) GetId() string {
@@ -47,14 +48,14 @@ func (v2 *RegistryV2) GetUntil() time.Time {
 	return v2.Registration.Expires
 }
 
-func InternalWebhookToItem(now func() time.Time, iw Register) (model.Item, error) {
-	encodedWebhook, err := json.Marshal(iw)
+func SchemaToItem(now func() time.Time, iw RegistryManifest) (model.Item, error) {
+	encodedWRPEventStream, err := json.Marshal(iw)
 	if err != nil {
 		return model.Item{}, err
 	}
 	var data map[string]interface{}
 
-	err = json.Unmarshal(encodedWebhook, &data)
+	err = json.Unmarshal(encodedWRPEventStream, &data)
 	if err != nil {
 		return model.Item{}, err
 	}
@@ -71,25 +72,25 @@ func InternalWebhookToItem(now func() time.Time, iw Register) (model.Item, error
 	}, nil
 }
 
-func ItemToInternalWebhook(i model.Item) (Register, error) {
+func ItemToSchema(i model.Item) (RegistryManifest, error) {
 	var (
 		v1   *RegistryV1
 		v2   *RegistryV2
 		errs error
 	)
-	encodedWebhook, err := json.Marshal(i.Data)
+	encodedWRPEventStream, err := json.Marshal(i.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal(encodedWebhook, &v2)
+	err = json.Unmarshal(encodedWRPEventStream, &v2)
 	if err == nil && v2.Registration.CanonicalName != "" {
 		return v2, nil
 	} else if err != nil {
 		errs = errors.Join(errs, fmt.Errorf("RegistryV2 unmarshal error: %s", err))
 	}
 
-	err = json.Unmarshal(encodedWebhook, &v1)
+	err = json.Unmarshal(encodedWRPEventStream, &v1)
 	if err == nil {
 		return v1, nil
 	}
@@ -99,10 +100,10 @@ func ItemToInternalWebhook(i model.Item) (Register, error) {
 	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2: %s", errs)
 }
 
-func ItemsToInternalWebhooks(items []model.Item) ([]Register, error) {
-	iws := []Register{}
+func ItemsToSchemas(items []model.Item) ([]RegistryManifest, error) {
+	iws := []RegistryManifest{}
 	for _, item := range items {
-		iw, err := ItemToInternalWebhook(item)
+		iw, err := ItemToSchema(item)
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +112,7 @@ func ItemsToInternalWebhooks(items []model.Item) ([]Register, error) {
 	return iws, nil
 }
 
-func InternalWebhooksToWebhooks(iws []Register) []any {
+func SchemasToWRPEventStreams(iws []RegistryManifest) []any {
 	w := make([]any, 0, len(iws))
 	for _, iw := range iws {
 		switch r := iw.(type) {
