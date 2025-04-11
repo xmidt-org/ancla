@@ -15,11 +15,11 @@ import (
 
 func TestItemToSchema(t *testing.T) {
 	items := getTestItems()
-	iws := getTestSchemas()
+	manifests := getTestSchemas()
 	tcs := []struct {
 		Description    string
 		InputItem      model.Item
-		ExpectedSchema RegistryManifest
+		ExpectedSchema Manifest
 		ShouldErr      bool
 	}{
 		{
@@ -34,18 +34,18 @@ func TestItemToSchema(t *testing.T) {
 		{
 			Description:    "Success",
 			InputItem:      items[0],
-			ExpectedSchema: iws[0],
+			ExpectedSchema: manifests[0],
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			w, err := ItemToSchema(tc.InputItem)
+			m, err := ItemToSchema(tc.InputItem)
 			if tc.ShouldErr {
 				assert.Error(err)
 			}
-			assert.Equal(tc.ExpectedSchema, w)
+			assert.Equal(tc.ExpectedSchema, m)
 		})
 	}
 }
@@ -56,10 +56,10 @@ func TestSchemaToItem(t *testing.T) {
 		return refTime
 	}
 	items := getTestItems()
-	iws := getTestSchemas()
+	manifests := getTestSchemas()
 	tcs := []struct {
 		Description  string
-		InputSchema  RegistryManifest
+		InputSchema  Manifest
 		ExpectedItem model.Item
 		ShouldErr    bool
 	}{
@@ -70,7 +70,7 @@ func TestSchemaToItem(t *testing.T) {
 		},
 		{
 			Description:  "Happy path",
-			InputSchema:  iws[0],
+			InputSchema:  manifests[0],
 			ExpectedItem: items[0],
 		},
 	}
@@ -92,7 +92,7 @@ func getExpiredItem() model.Item {
 	return model.Item{
 		ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 		Data: map[string]interface{}{
-			"registration_v1": map[string]interface{}{
+			"wrp_event_stream_schema_v1": map[string]interface{}{
 				"registered_from_address": "example.com",
 				"config": map[string]interface{}{
 					"url":          "example.com",
@@ -113,8 +113,8 @@ func getExpiredItem() model.Item {
 	}
 }
 
-func getExpiredSchema() RegistryManifest {
-	return &RegistryV1{
+func getExpiredSchema() Manifest {
+	return &ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
@@ -138,10 +138,10 @@ func getExpiredSchema() RegistryManifest {
 	}
 }
 
-func getTestSchemas() []RegistryManifest {
-	var reg []RegistryManifest
+func getTestSchemas() []Manifest {
+	var reg []Manifest
 	refTime := getRefTime()
-	reg = append(reg, &RegistryV1{
+	reg = append(reg, &ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
@@ -160,7 +160,7 @@ func getTestSchemas() []RegistryManifest {
 			Until:      refTime.Add(10 * time.Second),
 		},
 		PartnerIDs: []string{"comcast"},
-	}, &RegistryV1{
+	}, &ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
@@ -201,7 +201,7 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 			Data: map[string]interface{}{
-				"registration_v1": map[string]interface{}{
+				"wrp_event_stream_schema_v1": map[string]interface{}{
 					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
 						"url":          "example.com",
@@ -224,7 +224,7 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
 			Data: map[string]interface{}{
-				"registration_v1": map[string]interface{}{
+				"wrp_event_stream_schema_v1": map[string]interface{}{
 					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
 						"url":          "example.com",

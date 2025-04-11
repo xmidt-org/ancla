@@ -17,7 +17,7 @@ func TestWRPEventStreamListSizeWatch(t *testing.T) {
 	require.NotNil(watch)
 	// nolint:typecheck
 	gauge.On("Set", float64(2))
-	watch.Update([]schema.RegistryManifest{&schema.RegistryV1{}, &schema.RegistryV2{}})
+	watch.Update([]schema.Manifest{&schema.ManifestV1{}, &schema.ManifestV2{}})
 	// nolint:typecheck
 	gauge.AssertExpectations(t)
 }

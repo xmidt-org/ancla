@@ -78,7 +78,7 @@ func TestEncodeWRPEventStreamResponse(t *testing.T) {
 func TestEncodeGetAllWRPEventStreamsResponse(t *testing.T) {
 	type testCase struct {
 		Description      string
-		InputSchemas     []schema.RegistryManifest
+		InputSchemas     []schema.Manifest
 		ExpectedJSONResp string
 		ExpectedErr      error
 	}
@@ -184,7 +184,7 @@ func TestAddWRPEventStreamRequestDecoder(t *testing.T) {
 			Context:            ctxWithPrincipalPartnerIDs,
 		},
 		{
-			Description:  "WRPEventStream validation Failure",
+			Description:  "EventStream validation Failure",
 			InputPayload: addWRPEventStreamDecoderInput(),
 			Validator:    mockValidator(),
 			Context:      ctxWithPrincipalPartnerIDs,
@@ -330,7 +330,7 @@ func addWRPEventStreamDecoderOutput(withPIDs bool) *addWRPEventStreamRequest {
 	if withPIDs {
 		return &addWRPEventStreamRequest{
 			owner: "owner-from-auth",
-			internalWebook: &schema.RegistryV1{
+			internalWebook: &schema.ManifestV1{
 				// nolint:staticcheck
 				Registration: webhook.RegistrationV1{
 					Address: "example.com:443",
@@ -354,7 +354,7 @@ func addWRPEventStreamDecoderOutput(withPIDs bool) *addWRPEventStreamRequest {
 	}
 	return &addWRPEventStreamRequest{
 		owner: "owner-from-auth",
-		internalWebook: &schema.RegistryV1{
+		internalWebook: &schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
 				Address: "example.com:443",
@@ -380,7 +380,7 @@ func addWRPEventStreamDecoderDurationOutput(withPIDs bool) *addWRPEventStreamReq
 	if withPIDs {
 		return &addWRPEventStreamRequest{
 			owner: "owner-from-auth",
-			internalWebook: &schema.RegistryV1{
+			internalWebook: &schema.ManifestV1{
 				// nolint:staticcheck
 				Registration: webhook.RegistrationV1{
 					Address: "example.com:443",
@@ -404,7 +404,7 @@ func addWRPEventStreamDecoderDurationOutput(withPIDs bool) *addWRPEventStreamReq
 	}
 	return &addWRPEventStreamRequest{
 		owner: "owner-from-auth",
-		internalWebook: &schema.RegistryV1{
+		internalWebook: &schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
 				Address: "example.com:443",
@@ -427,9 +427,9 @@ func addWRPEventStreamDecoderDurationOutput(withPIDs bool) *addWRPEventStreamReq
 	}
 }
 
-func encodeGetAllInput() []schema.RegistryManifest {
-	return []schema.RegistryManifest{
-		&schema.RegistryV1{
+func encodeGetAllInput() []schema.Manifest {
+	return []schema.Manifest{
+		&schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
 				Address: "example.com:443",
@@ -451,7 +451,7 @@ func encodeGetAllInput() []schema.RegistryManifest {
 			},
 			PartnerIDs: []string{"comcast"},
 		},
-		&schema.RegistryV1{
+		&schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
 				Address: "example.com:443",
@@ -613,10 +613,10 @@ func TestSetWRPEventStreamDefaults(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			w := wrpEventStreamValidator{
+			v := wrpEventStreamValidator{
 				now: mockNow,
 			}
-			w.setV1Defaults(tc.registration, tc.remoteAddr)
+			v.setV1Defaults(tc.registration, tc.remoteAddr)
 			assert.Equal(tc.expectedRegistration, tc.registration)
 		})
 	}

@@ -16,111 +16,110 @@ import (
 	webhook "github.com/xmidt-org/webhook-schema"
 )
 
-type RegistryManifest interface {
+type Manifest interface {
 	GetId() string
 	GetUntil() time.Time
 }
 
-type RegistryV1 struct {
+type ManifestV1 struct {
 	PartnerIDs []string
 	// nolint:staticcheck
-	Registration webhook.RegistrationV1 `json:"registration_v1"`
+	Registration webhook.RegistrationV1 `json:"wrp_event_stream_schema_v1"`
 }
 
-type RegistryV2 struct {
+type ManifestV2 struct {
 	PartnerIds   []string
-	Registration webhook.RegistrationV2 `json:"registration_v2"`
+	Registration webhook.RegistrationV2 `json:"wrp_event_stream_schema_v2"`
 }
 
-func (v1 *RegistryV1) GetId() string {
+func (v1 *ManifestV1) GetId() string {
 	return v1.Registration.Config.ReceiverURL
 }
 
-func (v1 *RegistryV1) GetUntil() time.Time {
+func (v1 *ManifestV1) GetUntil() time.Time {
 	return v1.Registration.Until
 }
 
-func (v2 *RegistryV2) GetId() string {
+func (v2 *ManifestV2) GetId() string {
 	return v2.Registration.CanonicalName
 }
 
-func (v2 *RegistryV2) GetUntil() time.Time {
+func (v2 *ManifestV2) GetUntil() time.Time {
 	return v2.Registration.Expires
 }
 
-func SchemaToItem(now func() time.Time, iw RegistryManifest) (model.Item, error) {
-	encodedWRPEventStream, err := json.Marshal(iw)
+func SchemaToItem(now func() time.Time, manifest Manifest) (model.Item, error) {
+	TTLSeconds := int64(math.Max(0, manifest.GetUntil().Sub(now()).Seconds()))
+	encodedSchema, err := json.Marshal(manifest)
 	if err != nil {
 		return model.Item{}, err
 	}
+
 	var data map[string]interface{}
-
-	err = json.Unmarshal(encodedWRPEventStream, &data)
-	if err != nil {
+	if err = json.Unmarshal(encodedSchema, &data); err != nil {
 		return model.Item{}, err
 	}
-
-	SecondsToExpiry := iw.GetUntil().Sub(now()).Seconds()
-	TTLSeconds := int64(math.Max(0, SecondsToExpiry))
-
-	checksum := fmt.Sprintf("%x", sha256.Sum256([]byte(iw.GetId())))
 
 	return model.Item{
 		Data: data,
-		ID:   checksum,
+		ID:   fmt.Sprintf("%x", sha256.Sum256([]byte(manifest.GetId()))),
 		TTL:  &TTLSeconds,
 	}, nil
 }
 
-func ItemToSchema(i model.Item) (RegistryManifest, error) {
+func ItemToSchema(i model.Item) (Manifest, error) {
 	var (
-		v1   *RegistryV1
-		v2   *RegistryV2
+		v1   *ManifestV1
+		v2   *ManifestV2
 		errs error
 	)
-	encodedWRPEventStream, err := json.Marshal(i.Data)
+
+	encodedSchema, err := json.Marshal(i.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	err = json.Unmarshal(encodedWRPEventStream, &v2)
+	err = json.Unmarshal(encodedSchema, &v2)
 	if err == nil && v2.Registration.CanonicalName != "" {
 		return v2, nil
 	} else if err != nil {
-		errs = errors.Join(errs, fmt.Errorf("RegistryV2 unmarshal error: %s", err))
+		errs = errors.Join(errs, fmt.Errorf("%T Unmarshal error: %s", v2, err))
 	}
 
-	err = json.Unmarshal(encodedWRPEventStream, &v1)
+	err = json.Unmarshal(encodedSchema, &v1)
 	if err == nil {
 		return v1, nil
 	}
 
-	errs = errors.Join(errs, fmt.Errorf("RegistryV1 unmarshal error: %s", err))
+	errs = errors.Join(errs, fmt.Errorf("%T Unmarshal error: %s", v1, err))
 
-	return nil, fmt.Errorf("could not unmarshal data into either RegistryV1 or RegistryV2: %s", errs)
+	return nil, fmt.Errorf("could not Unmarshal data into either %T or %T: %s", v1, v2, errs)
 }
 
-func ItemsToSchemas(items []model.Item) ([]RegistryManifest, error) {
-	iws := []RegistryManifest{}
+func ItemsToSchemas(items []model.Item) ([]Manifest, error) {
+	ms := []Manifest{}
 	for _, item := range items {
-		iw, err := ItemToSchema(item)
+		m, err := ItemToSchema(item)
 		if err != nil {
 			return nil, err
 		}
-		iws = append(iws, iw)
+
+		ms = append(ms, m)
 	}
-	return iws, nil
+
+	return ms, nil
 }
 
-func SchemasToWRPEventStreams(iws []RegistryManifest) []any {
-	w := make([]any, 0, len(iws))
-	for _, iw := range iws {
-		switch r := iw.(type) {
-		case *RegistryV1:
+func SchemasToWRPEventStreams(manifests []Manifest) []any {
+	w := make([]any, 0, len(manifests))
+	for _, m := range manifests {
+		switch r := m.(type) {
+		case *ManifestV1:
 			w = append(w, r.Registration)
-		case *RegistryV2:
+		case *ManifestV2:
 			w = append(w, r.Registration)
 		}
 	}
+
 	return w
 }

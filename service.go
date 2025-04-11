@@ -27,10 +27,10 @@ var (
 type Service interface {
 	// Add adds the given owned wrpEventStream to the current list of wrpEventStreams. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, iw schema.RegistryManifest) error
+	Add(ctx context.Context, owner string, iw schema.Manifest) error
 
 	// GetAll lists all the current registered wrpEventStreams.
-	GetAll(ctx context.Context) ([]schema.RegistryManifest, error)
+	GetAll(ctx context.Context) ([]schema.Manifest, error)
 }
 
 // Config contains information needed to initialize the Argus database client.
@@ -55,8 +55,8 @@ type service struct {
 
 // Add adds the given owned wrpEventStream to the current list of wrpEventStreams. If the operation
 // succeeds, a non-nil error is returned.
-func (s *service) Add(ctx context.Context, owner string, iw schema.RegistryManifest) error {
-	item, err := schema.SchemaToItem(s.now, iw)
+func (s *service) Add(ctx context.Context, owner string, manifest schema.Manifest) error {
+	item, err := schema.SchemaToItem(s.now, manifest)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWRPEventStreamConversion, err)
 	}
@@ -73,23 +73,23 @@ func (s *service) Add(ctx context.Context, owner string, iw schema.RegistryManif
 
 // GetAll returns all wrpEventStreams found on the configured wrpEventStreams partition
 // of Argus.
-func (s *service) GetAll(ctx context.Context) ([]schema.RegistryManifest, error) {
+func (s *service) GetAll(ctx context.Context) ([]schema.Manifest, error) {
 	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWRPEventStreamsFetch, err)
 	}
 
-	iws := make([]schema.RegistryManifest, len(items))
+	manifests := make([]schema.Manifest, len(items))
 
 	for i, item := range items {
-		wrpEventStream, err := schema.ItemToSchema(item)
+		m, err := schema.ItemToSchema(item)
 		if err != nil {
 			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
 		}
-		iws[i] = wrpEventStream
+		manifests[i] = m
 	}
 
-	return iws, nil
+	return manifests, nil
 }
 
 // NewService returns an ancla client used to interact with an Argus database.

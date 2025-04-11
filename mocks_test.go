@@ -59,16 +59,16 @@ type mockService struct {
 	mock.Mock
 }
 
-func (m *mockService) Add(ctx context.Context, owner string, iw schema.RegistryManifest) error {
+func (m *mockService) Add(ctx context.Context, owner string, manifest schema.Manifest) error {
 	// nolint:typecheck
-	args := m.Called(ctx, owner, iw)
+	args := m.Called(ctx, owner, manifest)
 	return args.Error(0)
 }
 
-func (m *mockService) GetAll(ctx context.Context) ([]schema.RegistryManifest, error) {
+func (m *mockService) GetAll(ctx context.Context) ([]schema.Manifest, error) {
 	// nolint:typecheck
 	args := m.Called(ctx)
-	return args.Get(0).([]schema.RegistryManifest), args.Error(1)
+	return args.Get(0).([]schema.Manifest), args.Error(1)
 }
 
 type mockCounter struct {

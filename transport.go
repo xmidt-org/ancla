@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	errFailedWRPEventStreamUnmarshal = errors.New("failed to JSON unmarshal wrpEventStream")
+	errFailedWRPEventStreamUnmarshal = errors.New("failed to JSON Unmarshal wrpEventStream")
 	errGettingPartnerIDs             = errors.New("unable to retrieve PartnerIDs")
 	DefaultBasicPartnerIDsHeader     = "X-Xmidt-Partner-Ids"
 )
@@ -40,18 +40,18 @@ type transportConfig struct {
 
 type addWRPEventStreamRequest struct {
 	owner          string
-	internalWebook schema.RegistryManifest
+	internalWebook schema.Manifest
 }
 
 func encodeGetAllWRPEventStreamsResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
-	iws := response.([]schema.RegistryManifest)
-	wrpEventStreams := schema.SchemasToWRPEventStreams(iws)
-	if wrpEventStreams == nil {
+	manifests := response.([]schema.Manifest)
+	streams := schema.SchemasToWRPEventStreams(manifests)
+	if streams == nil {
 		// prefer JSON output to be "[]" instead of "<nil>"
-		wrpEventStreams = []any{}
+		streams = []any{}
 	}
-	obfuscateSecrets(wrpEventStreams)
-	encodedWRPEventStreams, err := json.Marshal(&wrpEventStreams)
+	obfuscateSecrets(streams)
+	encodedWRPEventStreams, err := json.Marshal(&streams)
 	if err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func addWRPEventStreamRequestDecoder(config transportConfig) kithttp.DecodeReque
 				return nil, &erraux.Error{Err: err, Message: "failed wrpEventStream validation", Code: http.StatusBadRequest}
 			}
 			wv.setV1Defaults(&v1, r.RemoteAddr)
-			reg := &schema.RegistryV1{
+			reg := &schema.ManifestV1{
 				PartnerIDs:   partners,
 				Registration: v1,
 			}
@@ -128,7 +128,7 @@ func addWRPEventStreamRequestDecoder(config transportConfig) kithttp.DecodeReque
 				return nil, &erraux.Error{Err: err, Message: "failed wrpEventStream validation", Code: http.StatusBadRequest}
 			}
 
-			reg := &schema.RegistryV2{
+			reg := &schema.ManifestV2{
 				PartnerIds:   partners,
 				Registration: v2,
 			}
@@ -152,18 +152,18 @@ func encodeAddWRPEventStreamResponse(ctx context.Context, rw http.ResponseWriter
 	return nil
 }
 
-func obfuscateSecrets(wrpEventStreams []any) {
-	for i, v := range wrpEventStreams {
+func obfuscateSecrets(streams []any) {
+	for i, v := range streams {
 		switch r := v.(type) {
 		// nolint:staticcheck
 		case webhook.RegistrationV1:
 			r.Config.Secret = "<obfuscated>"
-			wrpEventStreams[i] = r
+			streams[i] = r
 		case webhook.RegistrationV2:
 			for i := range r.Webhooks {
 				r.Webhooks[i].Secret = "<obfuscated>"
 			}
-			wrpEventStreams[i] = r
+			streams[i] = r
 		}
 	}
 }

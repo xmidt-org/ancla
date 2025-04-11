@@ -57,8 +57,7 @@ func TestAdd(t *testing.T) {
 		},
 	}
 
-	inputWRPEventStream := getTestSchemas()[0]
-
+	inputManifest := getTestSchemas()[0]
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
@@ -69,7 +68,7 @@ func TestAdd(t *testing.T) {
 			}
 			// nolint:typecheck
 			m.On("PushItem", context.TODO(), tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
-			err := svc.Add(context.TODO(), tc.Owner, inputWRPEventStream)
+			err := svc.Add(context.TODO(), tc.Owner, inputManifest)
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
 			}
@@ -84,7 +83,7 @@ func TestAllSchemas(t *testing.T) {
 		Description     string
 		GetItemsResp    chrysom.Items
 		GetItemsErr     error
-		ExpectedSchemas []schema.RegistryManifest
+		ExpectedSchemas []schema.Manifest
 		ExpectedErr     error
 	}
 
@@ -95,7 +94,7 @@ func TestAllSchemas(t *testing.T) {
 			ExpectedErr: errFailedWRPEventStreamsFetch,
 		},
 		{
-			Description:     "WRPEventStreams fetch success",
+			Description:     "wrpEventStreams fetch success",
 			GetItemsResp:    getTestItems(),
 			ExpectedSchemas: getTestSchemas(),
 		},
@@ -111,13 +110,13 @@ func TestAllSchemas(t *testing.T) {
 			}
 			// nolint:typecheck
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
-			iws, err := svc.GetAll(context.TODO())
+			manifests, err := svc.GetAll(context.TODO())
 
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
-				assert.Empty(iws)
+				assert.Empty(manifests)
 			} else {
-				assert.EqualValues(tc.ExpectedSchemas, iws)
+				assert.EqualValues(tc.ExpectedSchemas, manifests)
 			}
 
 			// nolint:typecheck
@@ -126,10 +125,10 @@ func TestAllSchemas(t *testing.T) {
 	}
 }
 
-func getTestSchemas() []schema.RegistryManifest {
-	var reg []schema.RegistryManifest
+func getTestSchemas() []schema.Manifest {
+	var reg []schema.Manifest
 	refTime := getRefTime()
-	reg = append(reg, &schema.RegistryV1{
+	reg = append(reg, &schema.ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
@@ -148,7 +147,7 @@ func getTestSchemas() []schema.RegistryManifest {
 			Until:      refTime.Add(10 * time.Second),
 		},
 		PartnerIDs: []string{"comcast"},
-	}, &schema.RegistryV1{
+	}, &schema.ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
@@ -189,7 +188,7 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 			Data: map[string]interface{}{
-				"registration_v1": map[string]interface{}{
+				"wrp_event_stream_schema_v1": map[string]interface{}{
 					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
 						"url":          "example.com",
@@ -212,7 +211,7 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
 			Data: map[string]interface{}{
-				"registration_v1": map[string]interface{}{
+				"wrp_event_stream_schema_v1": map[string]interface{}{
 					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
 						"url":          "example.com",

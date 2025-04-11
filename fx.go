@@ -65,7 +65,7 @@ type ListenerOut struct {
 func ProvideListener(in ListenerIn) ListenerOut {
 	return ListenerOut{
 		Option: chrysom.Listener(chrysom.ListenerFunc(func(items chrysom.Items) {
-			iws, err := schema.ItemsToSchemas(items)
+			manifests, err := schema.ItemsToSchemas(items)
 			if err != nil {
 				in.Shutdowner.Shutdown(fx.ExitCode(1))
 
@@ -73,7 +73,7 @@ func ProvideListener(in ListenerIn) ListenerOut {
 			}
 
 			for _, watch := range in.Watchers {
-				watch.Update(iws)
+				watch.Update(manifests)
 			}
 		})),
 	}

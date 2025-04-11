@@ -18,7 +18,7 @@ func TestNewAddWRPEventStreamEndpoint(t *testing.T) {
 	endpoint := newAddWRPEventStreamEndpoint(m)
 	input := &addWRPEventStreamRequest{
 		owner:          "owner-val",
-		internalWebook: &schema.RegistryV1{},
+		internalWebook: &schema.ManifestV1{},
 	}
 
 	errFake := errors.New("failed")
@@ -36,7 +36,7 @@ func TestGetAllWRPEventStreamsEndpoint(t *testing.T) {
 	m := new(mockService)
 	endpoint := newGetAllWRPEventStreamsEndpoint(m)
 
-	respFake := []schema.RegistryManifest{}
+	respFake := []schema.Manifest{}
 	// nolint:typecheck
 	m.On("GetAll", context.Background()).Return(respFake, nil)
 	resp, err := endpoint(context.Background(), nil)
