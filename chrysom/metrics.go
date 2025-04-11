@@ -5,10 +5,10 @@ package chrysom
 
 // Names
 const (
-	WebhookListSizeGaugeName = "webhook_list_size"
-	WebhookListSizeGaugeHelp = "Size of the current list of webhooks."
-	PollsTotalCounterName    = "chrysom_polls_total"
-	PollsTotalCounterHelp    = "Counter for the number of polls (and their success/failure outcomes) to fetch new items."
+	WRPEventStreamListSizeGaugeName = "wrp_event_stream_list_size"
+	WRPEventStreamListSizeGaugeHelp = "Size of the current list of wrpEventStreams."
+	PollsTotalCounterName           = "chrysom_polls_total"
+	PollsTotalCounterHelp           = "Counter for the number of polls (and their success/failure outcomes) to fetch new items."
 )
 
 // Labels

@@ -9,14 +9,14 @@ import (
 	"github.com/go-kit/kit/endpoint"
 )
 
-func newAddWebhookEndpoint(s Service) endpoint.Endpoint {
+func newAddWRPEventStreamEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
-		r := request.(*addWebhookRequest)
+		r := request.(*addWRPEventStreamRequest)
 		return nil, s.Add(ctx, r.owner, r.internalWebook)
 	}
 }
 
-func newGetAllWebhooksEndpoint(s Service) endpoint.Endpoint {
+func newGetAllWRPEventStreamsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, _ interface{}) (interface{}, error) {
 		return s.GetAll(ctx)
 	}

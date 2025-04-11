@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
+	"github.com/xmidt-org/ancla/schema"
+	webhook "github.com/xmidt-org/webhook-schema"
 )
 
 func TestAdd(t *testing.T) {
@@ -32,7 +34,7 @@ func TestAdd(t *testing.T) {
 			PushItemResults: pushItemResults{
 				err: errors.New("push item failed"),
 			},
-			ExpectedErr: errFailedWebhookPush,
+			ExpectedErr: errFailedWRPEventStreamPush,
 		},
 		{
 			Description: "Unknown push result",
@@ -55,8 +57,7 @@ func TestAdd(t *testing.T) {
 		},
 	}
 
-	inputWebhook := getTestInternalWebhooks()[0]
-
+	inputManifest := getTestSchemas()[0]
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
@@ -67,7 +68,7 @@ func TestAdd(t *testing.T) {
 			}
 			// nolint:typecheck
 			m.On("PushItem", context.TODO(), tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
-			err := svc.Add(context.TODO(), tc.Owner, inputWebhook)
+			err := svc.Add(context.TODO(), tc.Owner, inputManifest)
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
 			}
@@ -77,25 +78,25 @@ func TestAdd(t *testing.T) {
 	}
 }
 
-func TestAllInternalWebhooks(t *testing.T) {
+func TestAllSchemas(t *testing.T) {
 	type testCase struct {
-		Description              string
-		GetItemsResp             chrysom.Items
-		GetItemsErr              error
-		ExpectedInternalWebhooks []Register
-		ExpectedErr              error
+		Description     string
+		GetItemsResp    chrysom.Items
+		GetItemsErr     error
+		ExpectedSchemas []schema.Manifest
+		ExpectedErr     error
 	}
 
 	tcs := []testCase{
 		{
-			Description: "Fetching argus webhooks fails",
+			Description: "Fetching argus wrpEventStreams fails",
 			GetItemsErr: errors.New("db failed"),
-			ExpectedErr: errFailedWebhooksFetch,
+			ExpectedErr: errFailedWRPEventStreamsFetch,
 		},
 		{
-			Description:              "Webhooks fetch success",
-			GetItemsResp:             getTestItems(),
-			ExpectedInternalWebhooks: getTestInternalWebhooks(),
+			Description:     "wrpEventStreams fetch success",
+			GetItemsResp:    getTestItems(),
+			ExpectedSchemas: getTestSchemas(),
 		},
 	}
 
@@ -109,19 +110,73 @@ func TestAllInternalWebhooks(t *testing.T) {
 			}
 			// nolint:typecheck
 			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
-			iws, err := svc.GetAll(context.TODO())
+			manifests, err := svc.GetAll(context.TODO())
 
 			if tc.ExpectedErr != nil {
 				assert.True(errors.Is(err, tc.ExpectedErr))
-				assert.Empty(iws)
+				assert.Empty(manifests)
 			} else {
-				assert.EqualValues(tc.ExpectedInternalWebhooks, iws)
+				assert.EqualValues(tc.ExpectedSchemas, manifests)
 			}
 
 			// nolint:typecheck
 			m.AssertExpectations(t)
 		})
 	}
+}
+
+func getTestSchemas() []schema.Manifest {
+	var reg []schema.Manifest
+	refTime := getRefTime()
+	reg = append(reg, &schema.ManifestV1{
+		// nolint:staticcheck
+		Registration: webhook.RegistrationV1{
+			Address: "example.com",
+			// nolint:staticcheck
+			Config: webhook.DeliveryConfig{
+				ReceiverURL: "example.com",
+				ContentType: "application/json",
+				Secret:      "superSecretXYZ",
+			},
+			Events: []string{"online"},
+			Matcher: webhook.MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "example.com",
+			Duration:   webhook.CustomDuration(10 * time.Second),
+			Until:      refTime.Add(10 * time.Second),
+		},
+		PartnerIDs: []string{"comcast"},
+	}, &schema.ManifestV1{
+		// nolint:staticcheck
+		Registration: webhook.RegistrationV1{
+			Address: "example.com",
+			// nolint:staticcheck
+			Config: webhook.DeliveryConfig{
+				ReceiverURL: "example.com",
+				ContentType: "application/json",
+				Secret:      "doNotShare:e=mc^2",
+			},
+			Events: []string{"online"},
+			Matcher: webhook.MetadataMatcherConfig{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "example.com",
+			Duration:   webhook.CustomDuration(20 * time.Second),
+			Until:      refTime.Add(20 * time.Second),
+		},
+		PartnerIDs: []string{},
+	})
+
+	return reg
+}
+
+func getRefTime() time.Time {
+	refTime, err := time.Parse(time.RFC3339, "2021-01-02T15:04:00Z")
+	if err != nil {
+		panic(err)
+	}
+	return refTime
 }
 
 func getTestItems() chrysom.Items {
@@ -133,7 +188,7 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 			Data: map[string]interface{}{
-				"Webhook": map[string]interface{}{
+				"wrp_event_stream_schema_v1": map[string]interface{}{
 					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
 						"url":          "example.com",
@@ -156,7 +211,7 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
 			Data: map[string]interface{}{
-				"webhook": map[string]interface{}{
+				"wrp_event_stream_schema_v1": map[string]interface{}{
 					"registered_from_address": "example.com",
 					"config": map[string]interface{}{
 						"url":          "example.com",

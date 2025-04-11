@@ -1,25 +1,26 @@
 // SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package ancla
+package schema
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/webhook-schema"
 )
 
-func TestItemToInternalWebhook(t *testing.T) {
+func TestItemToSchema(t *testing.T) {
 	items := getTestItems()
-	iws := getTestInternalWebhooks()
+	manifests := getTestSchemas()
 	tcs := []struct {
-		Description             string
-		InputItem               model.Item
-		ExpectedInternalWebhook Register
-		ShouldErr               bool
+		Description    string
+		InputItem      model.Item
+		ExpectedSchema Manifest
+		ShouldErr      bool
 	}{
 		{
 			Description: "Err Marshaling",
@@ -31,53 +32,53 @@ func TestItemToInternalWebhook(t *testing.T) {
 			ShouldErr: true,
 		},
 		{
-			Description:             "Success",
-			InputItem:               items[0],
-			ExpectedInternalWebhook: iws[0],
+			Description:    "Success",
+			InputItem:      items[0],
+			ExpectedSchema: manifests[0],
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			w, err := ItemToInternalWebhook(tc.InputItem)
+			m, err := ItemToSchema(tc.InputItem)
 			if tc.ShouldErr {
 				assert.Error(err)
 			}
-			assert.Equal(tc.ExpectedInternalWebhook, w)
+			assert.Equal(tc.ExpectedSchema, m)
 		})
 	}
 }
 
-func TestInternalWebhookToItem(t *testing.T) {
+func TestSchemaToItem(t *testing.T) {
 	refTime := getRefTime()
 	fixedNow := func() time.Time {
 		return refTime
 	}
 	items := getTestItems()
-	iws := getTestInternalWebhooks()
+	manifests := getTestSchemas()
 	tcs := []struct {
-		Description          string
-		InputInternalWebhook Register
-		ExpectedItem         model.Item
-		ShouldErr            bool
+		Description  string
+		InputSchema  Manifest
+		ExpectedItem model.Item
+		ShouldErr    bool
 	}{
 		{
-			Description:          "Expired item",
-			InputInternalWebhook: getExpiredInternalWebhook(),
-			ExpectedItem:         getExpiredItem(),
+			Description:  "Expired item",
+			InputSchema:  getExpiredSchema(),
+			ExpectedItem: getExpiredItem(),
 		},
 		{
-			Description:          "Happy path",
-			InputInternalWebhook: iws[0],
-			ExpectedItem:         items[0],
+			Description:  "Happy path",
+			InputSchema:  manifests[0],
+			ExpectedItem: items[0],
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			item, err := InternalWebhookToItem(fixedNow, tc.InputInternalWebhook)
+			item, err := SchemaToItem(fixedNow, tc.InputSchema)
 			if tc.ShouldErr {
 				assert.Error(err)
 			}
@@ -91,7 +92,7 @@ func getExpiredItem() model.Item {
 	return model.Item{
 		ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 		Data: map[string]interface{}{
-			"Webhook": map[string]interface{}{
+			"wrp_event_stream_schema_v1": map[string]interface{}{
 				"registered_from_address": "example.com",
 				"config": map[string]interface{}{
 					"url":          "example.com",
@@ -112,10 +113,12 @@ func getExpiredItem() model.Item {
 	}
 }
 
-func getExpiredInternalWebhook() Register {
-	return &RegistryV1{
+func getExpiredSchema() Manifest {
+	return &ManifestV1{
+		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
+			// nolint:staticcheck
 			Config: webhook.DeliveryConfig{
 				ReceiverURL: "example.com",
 				ContentType: "application/json",
@@ -135,12 +138,14 @@ func getExpiredInternalWebhook() Register {
 	}
 }
 
-func getTestInternalWebhooks() []Register {
-	var reg []Register
+func getTestSchemas() []Manifest {
+	var reg []Manifest
 	refTime := getRefTime()
-	reg = append(reg, &RegistryV1{
+	reg = append(reg, &ManifestV1{
+		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
+			// nolint:staticcheck
 			Config: webhook.DeliveryConfig{
 				ReceiverURL: "example.com",
 				ContentType: "application/json",
@@ -155,9 +160,11 @@ func getTestInternalWebhooks() []Register {
 			Until:      refTime.Add(10 * time.Second),
 		},
 		PartnerIDs: []string{"comcast"},
-	}, &RegistryV1{
+	}, &ManifestV1{
+		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
+			// nolint:staticcheck
 			Config: webhook.DeliveryConfig{
 				ReceiverURL: "example.com",
 				ContentType: "application/json",
@@ -183,4 +190,58 @@ func getRefTime() time.Time {
 		panic(err)
 	}
 	return refTime
+}
+
+func getTestItems() chrysom.Items {
+	var (
+		firstItemExpiresInSecs  int64 = 10
+		secondItemExpiresInSecs int64 = 20
+	)
+	return chrysom.Items{
+		model.Item{
+			ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
+			Data: map[string]interface{}{
+				"wrp_event_stream_schema_v1": map[string]interface{}{
+					"registered_from_address": "example.com",
+					"config": map[string]interface{}{
+						"url":          "example.com",
+						"content_type": "application/json",
+						"secret":       "superSecretXYZ",
+					},
+					"events": []interface{}{"online"},
+					"matcher": map[string]interface{}{
+						"device_id": []interface{}{"mac:aabbccddee.*"},
+					},
+					"failure_url": "example.com",
+					"duration":    "10s",
+					"until":       "2021-01-02T15:04:10Z",
+				},
+				"PartnerIDs": []interface{}{"comcast"},
+			},
+
+			TTL: &firstItemExpiresInSecs,
+		},
+		model.Item{
+			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
+			Data: map[string]interface{}{
+				"wrp_event_stream_schema_v1": map[string]interface{}{
+					"registered_from_address": "example.com",
+					"config": map[string]interface{}{
+						"url":          "example.com",
+						"content_type": "application/json",
+						"secret":       "doNotShare:e=mc^2",
+					},
+					"events": []interface{}{"online"},
+					"matcher": map[string]interface{}{
+						"device_id": []interface{}{"mac:aabbccddee.*"},
+					},
+					"failure_url": "example.com",
+					"duration":    "20s",
+					"until":       "2021-01-02T15:04:20Z",
+				},
+				"partnerids": []string{},
+			},
+			TTL: &secondItemExpiresInSecs,
+		},
+	}
 }

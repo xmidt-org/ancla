@@ -84,8 +84,8 @@ func ProvideMetrics() fx.Option {
 	return fx.Options(
 		touchstone.Gauge(
 			prometheus.GaugeOpts{
-				Name: WebhookListSizeGaugeName,
-				Help: WebhookListSizeGaugeHelp,
+				Name: WRPEventStreamListSizeGaugeName,
+				Help: WRPEventStreamListSizeGaugeHelp,
 			}),
 		touchstone.CounterVec(
 			prometheus.CounterOpts{

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
 
-package ancla
+package schema
 
 import (
 	"time"
@@ -10,20 +10,22 @@ import (
 	webhook "github.com/xmidt-org/webhook-schema"
 )
 
-type ValidatorConfig struct {
-	URL    URLVConfig
-	TTL    TTLVConfig
-	IP     IPConfig
-	Domain DomainConfig
-	Opts   OptionsConfig
+// SchemaURLValidatorConfig provides options for validating the wrpEventStream's URL and TTL
+// related fields.
+type SchemaURLValidatorConfig struct {
+	URL       URLVConfig
+	TTL       TTLVConfig
+	IP        IPVConfig
+	Domain    DomainVConfig
+	BuildOpts BuildOptions
 }
 
-type IPConfig struct {
+type IPVConfig struct {
 	Allow            bool
 	ForbiddenSubnets []string
 }
 
-type DomainConfig struct {
+type DomainVConfig struct {
 	AllowSpecialUseDomains bool
 	ForbiddenDomains       []string
 }
@@ -39,7 +41,8 @@ type TTLVConfig struct {
 	Now    func() time.Time
 }
 
-type OptionsConfig struct {
+// BuildOptions translates the configuration into a list of options to be used to validate the registration
+type BuildOptions struct {
 	AtLeastOneEvent                bool
 	EventRegexMustCompile          bool
 	DeviceIDRegexMustCompile       bool
@@ -50,8 +53,8 @@ type OptionsConfig struct {
 	CheckUntil                     bool
 }
 
-// BuildURLChecker translates the configuration into url Checker to be run on the webhook.
-func (config *ValidatorConfig) BuildURLChecker() (*urlegit.Checker, error) {
+// BuildURLChecker translates the configuration into url Checker to be run on the wrpEventStream.
+func (config *SchemaURLValidatorConfig) BuildURLChecker() (*urlegit.Checker, error) {
 	var o []urlegit.Option
 	if len(config.URL.Schemes) > 0 {
 		o = append(o, urlegit.OnlyAllowSchemes(config.URL.Schemes...))
@@ -75,30 +78,30 @@ func (config *ValidatorConfig) BuildURLChecker() (*urlegit.Checker, error) {
 }
 
 // BuildOptions translates the configuration into a list of options to be used to validate the registration
-func (config *ValidatorConfig) BuildOptions(checker *urlegit.Checker) []webhook.Option {
+func (config *SchemaURLValidatorConfig) BuildOptions(checker *urlegit.Checker) []webhook.Option {
 	var opts []webhook.Option
-	if config.Opts.AtLeastOneEvent {
+	if config.BuildOpts.AtLeastOneEvent {
 		opts = append(opts, webhook.AtLeastOneEvent())
 	}
-	if config.Opts.EventRegexMustCompile {
+	if config.BuildOpts.EventRegexMustCompile {
 		opts = append(opts, webhook.EventRegexMustCompile())
 	}
-	if config.Opts.DeviceIDRegexMustCompile {
+	if config.BuildOpts.DeviceIDRegexMustCompile {
 		opts = append(opts, webhook.DeviceIDRegexMustCompile())
 	}
-	if config.Opts.ValidateRegistrationDuration {
+	if config.BuildOpts.ValidateRegistrationDuration {
 		opts = append(opts, webhook.ValidateRegistrationDuration(config.TTL.Max))
 	}
-	if config.Opts.ProvideReceiverURLValidator {
+	if config.BuildOpts.ProvideReceiverURLValidator {
 		opts = append(opts, webhook.ProvideReceiverURLValidator(checker))
 	}
-	if config.Opts.ProvideFailureURLValidator {
+	if config.BuildOpts.ProvideFailureURLValidator {
 		opts = append(opts, webhook.ProvideFailureURLValidator(checker))
 	}
-	if config.Opts.ProvideAlternativeURLValidator {
+	if config.BuildOpts.ProvideAlternativeURLValidator {
 		opts = append(opts, webhook.ProvideAlternativeURLValidator(checker))
 	}
-	if config.Opts.CheckUntil {
+	if config.BuildOpts.CheckUntil {
 		opts = append(opts, webhook.Until(config.TTL.Now, config.TTL.Jitter, config.TTL.Max))
 	}
 	return opts

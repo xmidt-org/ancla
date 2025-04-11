@@ -14,15 +14,16 @@ import (
 
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/xmidt-org/ancla/auth"
+	"github.com/xmidt-org/ancla/schema"
 	"github.com/xmidt-org/httpaux/erraux"
 	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
 )
 
 var (
-	errFailedWebhookUnmarshal    = errors.New("failed to JSON unmarshal webhook")
-	errGettingPartnerIDs         = errors.New("unable to retrieve PartnerIDs")
-	DefaultBasicPartnerIDsHeader = "X-Xmidt-Partner-Ids"
+	errFailedWRPEventStreamUnmarshal = errors.New("failed to JSON Unmarshal wrpEventStream")
+	errGettingPartnerIDs             = errors.New("unable to retrieve PartnerIDs")
+	DefaultBasicPartnerIDsHeader     = "X-Xmidt-Partner-Ids"
 )
 
 const (
@@ -37,31 +38,31 @@ type transportConfig struct {
 	disablePartnerIDs     bool
 }
 
-type addWebhookRequest struct {
+type addWRPEventStreamRequest struct {
 	owner          string
-	internalWebook Register
+	internalWebook schema.Manifest
 }
 
-func encodeGetAllWebhooksResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
-	iws := response.([]Register)
-	webhooks := InternalWebhooksToWebhooks(iws)
-	if webhooks == nil {
+func encodeGetAllWRPEventStreamsResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
+	manifests := response.([]schema.Manifest)
+	streams := schema.SchemasToWRPEventStreams(manifests)
+	if streams == nil {
 		// prefer JSON output to be "[]" instead of "<nil>"
-		webhooks = []any{}
+		streams = []any{}
 	}
-	obfuscateSecrets(webhooks)
-	encodedWebhooks, err := json.Marshal(&webhooks)
+	obfuscateSecrets(streams)
+	encodedWRPEventStreams, err := json.Marshal(&streams)
 	if err != nil {
 		return err
 	}
 
 	rw.Header().Set(contentTypeHeader, jsonContentType)
-	_, err = rw.Write(encodedWebhooks)
+	_, err = rw.Write(encodedWRPEventStreams)
 	return err
 }
 
-func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc {
-	wv := webhookValidator{
+func addWRPEventStreamRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc {
+	wv := wrpEventStreamValidator{
 		now: config.now,
 	}
 
@@ -82,6 +83,7 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		}
 
 		var (
+			// nolint:staticcheck
 			v1       webhook.RegistrationV1
 			v2       webhook.RegistrationV2
 			errs     error
@@ -105,15 +107,15 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		err = json.Unmarshal(requestPayload, &v1)
 		if err == nil {
 			if err = opts.Validate(&v1); err != nil {
-				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
+				return nil, &erraux.Error{Err: err, Message: "failed wrpEventStream validation", Code: http.StatusBadRequest}
 			}
 			wv.setV1Defaults(&v1, r.RemoteAddr)
-			reg := &RegistryV1{
+			reg := &schema.ManifestV1{
 				PartnerIDs:   partners,
 				Registration: v1,
 			}
 
-			return &addWebhookRequest{
+			return &addWRPEventStreamRequest{
 				owner:          owner,
 				internalWebook: reg,
 			}, nil
@@ -123,15 +125,15 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 		err = json.Unmarshal(requestPayload, &v2)
 		if err == nil {
 			if err = opts.Validate(&v2); err != nil {
-				return nil, &erraux.Error{Err: err, Message: "failed webhook validation", Code: http.StatusBadRequest}
+				return nil, &erraux.Error{Err: err, Message: "failed wrpEventStream validation", Code: http.StatusBadRequest}
 			}
 
-			reg := &RegistryV2{
+			reg := &schema.ManifestV2{
 				PartnerIds:   partners,
 				Registration: v2,
 			}
 
-			return &addWebhookRequest{
+			return &addWRPEventStreamRequest{
 				owner:          owner,
 				internalWebook: reg,
 			}, nil
@@ -140,36 +142,38 @@ func addWebhookRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc 
 
 		errs = errors.Join(errs, err)
 
-		return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWebhookUnmarshal, errs), Code: http.StatusBadRequest}
+		return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWRPEventStreamUnmarshal, errs), Code: http.StatusBadRequest}
 	}
 }
 
-func encodeAddWebhookResponse(ctx context.Context, rw http.ResponseWriter, _ interface{}) error {
+func encodeAddWRPEventStreamResponse(ctx context.Context, rw http.ResponseWriter, _ interface{}) error {
 	rw.Header().Set(contentTypeHeader, jsonContentType)
 	rw.Write([]byte(`{"message": "Success"}`))
 	return nil
 }
 
-func obfuscateSecrets(webhooks []any) {
-	for i, v := range webhooks {
+func obfuscateSecrets(streams []any) {
+	for i, v := range streams {
 		switch r := v.(type) {
+		// nolint:staticcheck
 		case webhook.RegistrationV1:
 			r.Config.Secret = "<obfuscated>"
-			webhooks[i] = r
+			streams[i] = r
 		case webhook.RegistrationV2:
 			for i := range r.Webhooks {
 				r.Webhooks[i].Secret = "<obfuscated>"
 			}
-			webhooks[i] = r
+			streams[i] = r
 		}
 	}
 }
 
-type webhookValidator struct {
+type wrpEventStreamValidator struct {
 	now func() time.Time
 }
 
-func (wv webhookValidator) setV1Defaults(r *webhook.RegistrationV1, requestOriginHost string) {
+// nolint:staticcheck
+func (wv wrpEventStreamValidator) setV1Defaults(r *webhook.RegistrationV1, requestOriginHost string) {
 	if len(r.Matcher.DeviceID) == 0 {
 		r.Matcher.DeviceID = []string{".*"} // match anything
 	}
@@ -181,7 +185,8 @@ func (wv webhookValidator) setV1Defaults(r *webhook.RegistrationV1, requestOrigi
 	}
 }
 
-func (wv webhookValidator) setV2Defaults(r *webhook.RegistrationV2) {
+// nolint:unused
+func (wv wrpEventStreamValidator) setV2Defaults(r *webhook.RegistrationV2) {
 	//TODO: need to get registrationV2 defaults
 }
 
