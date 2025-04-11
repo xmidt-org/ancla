@@ -25,7 +25,7 @@ func TestItemToSchema(t *testing.T) {
 		{
 			Description: "Err Marshaling",
 			InputItem: model.Item{
-				Data: map[string]interface{}{
+				Data: map[string]any{
 					"cannotUnmarshal": make(chan int),
 				},
 			},
@@ -91,23 +91,23 @@ func getExpiredItem() model.Item {
 	var expiresInSecs int64 = 0
 	return model.Item{
 		ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
-		Data: map[string]interface{}{
-			"wrp_event_stream_schema_v1": map[string]interface{}{
+		Data: map[string]any{
+			"wrp_event_stream_schema_v1": map[string]any{
 				"registered_from_address": "example.com",
-				"config": map[string]interface{}{
+				"config": map[string]any{
 					"url":          "example.com",
 					"content_type": "application/json",
 					"secret":       "superSecretXYZ",
 				},
-				"events": []interface{}{"online"},
-				"matcher": map[string]interface{}{
-					"device_id": []interface{}{"mac:aabbccddee.*"},
+				"events": []any{"online"},
+				"matcher": map[string]any{
+					"device_id": []any{"mac:aabbccddee.*"},
 				},
 				"failure_url": "example.com",
 				"duration":    "1ns",
 				"until":       "1970-01-01T00:00:01Z",
 			},
-			"PartnerIDs": []interface{}{},
+			"PartnerIDs": []any{},
 		},
 		TTL: &expiresInSecs,
 	}
@@ -200,40 +200,40 @@ func getTestItems() chrysom.Items {
 	return chrysom.Items{
 		model.Item{
 			ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
-			Data: map[string]interface{}{
-				"wrp_event_stream_schema_v1": map[string]interface{}{
+			Data: map[string]any{
+				"wrp_event_stream_schema_v1": map[string]any{
 					"registered_from_address": "example.com",
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"url":          "example.com",
 						"content_type": "application/json",
 						"secret":       "superSecretXYZ",
 					},
-					"events": []interface{}{"online"},
-					"matcher": map[string]interface{}{
-						"device_id": []interface{}{"mac:aabbccddee.*"},
+					"events": []any{"online"},
+					"matcher": map[string]any{
+						"device_id": []any{"mac:aabbccddee.*"},
 					},
 					"failure_url": "example.com",
 					"duration":    "10s",
 					"until":       "2021-01-02T15:04:10Z",
 				},
-				"PartnerIDs": []interface{}{"comcast"},
+				"PartnerIDs": []any{"comcast"},
 			},
 
 			TTL: &firstItemExpiresInSecs,
 		},
 		model.Item{
 			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
-			Data: map[string]interface{}{
-				"wrp_event_stream_schema_v1": map[string]interface{}{
+			Data: map[string]any{
+				"wrp_event_stream_schema_v1": map[string]any{
 					"registered_from_address": "example.com",
-					"config": map[string]interface{}{
+					"config": map[string]any{
 						"url":          "example.com",
 						"content_type": "application/json",
 						"secret":       "doNotShare:e=mc^2",
 					},
-					"events": []interface{}{"online"},
-					"matcher": map[string]interface{}{
-						"device_id": []interface{}{"mac:aabbccddee.*"},
+					"events": []any{"online"},
+					"matcher": map[string]any{
+						"device_id": []any{"mac:aabbccddee.*"},
 					},
 					"failure_url": "example.com",
 					"duration":    "20s",

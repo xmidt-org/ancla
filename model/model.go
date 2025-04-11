@@ -21,7 +21,7 @@ type Item struct {
 	ID string `json:"id"`
 
 	// Data is the JSON object to be stored. Opaque to argus.
-	Data map[string]interface{} `json:"data"`
+	Data map[string]any `json:"data"`
 
 	// TTL is the time to live in storage, specified in seconds.
 	// Optional. When not set, items don't expire.

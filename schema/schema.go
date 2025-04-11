@@ -55,7 +55,7 @@ func SchemaToItem(now func() time.Time, manifest Manifest) (model.Item, error) {
 		return model.Item{}, err
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if err = json.Unmarshal(encodedSchema, &data); err != nil {
 		return model.Item{}, err
 	}

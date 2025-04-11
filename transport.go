@@ -43,7 +43,7 @@ type addWRPEventStreamRequest struct {
 	internalWebook schema.Manifest
 }
 
-func encodeGetAllWRPEventStreamsResponse(ctx context.Context, rw http.ResponseWriter, response interface{}) error {
+func encodeGetAllWRPEventStreamsResponse(ctx context.Context, rw http.ResponseWriter, response any) error {
 	manifests := response.([]schema.Manifest)
 	streams := schema.SchemasToWRPEventStreams(manifests)
 	if streams == nil {
@@ -76,7 +76,7 @@ func addWRPEventStreamRequestDecoder(config transportConfig) kithttp.DecodeReque
 		opts = append(opts, webhook.AlwaysValid())
 	}
 
-	return func(c context.Context, r *http.Request) (request interface{}, err error) {
+	return func(c context.Context, r *http.Request) (request any, err error) {
 		requestPayload, err := io.ReadAll(r.Body)
 		if err != nil {
 			return nil, err
@@ -146,7 +146,7 @@ func addWRPEventStreamRequestDecoder(config transportConfig) kithttp.DecodeReque
 	}
 }
 
-func encodeAddWRPEventStreamResponse(ctx context.Context, rw http.ResponseWriter, _ interface{}) error {
+func encodeAddWRPEventStreamResponse(ctx context.Context, rw http.ResponseWriter, _ any) error {
 	rw.Header().Set(contentTypeHeader, jsonContentType)
 	rw.Write([]byte(`{"message": "Success"}`))
 	return nil
@@ -207,7 +207,7 @@ func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEnco
 		w.WriteHeader(code)
 
 		json.NewEncoder(w).Encode(
-			map[string]interface{}{
+			map[string]any{
 				"message": err.Error(),
 			})
 	}
