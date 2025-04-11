@@ -222,7 +222,7 @@ func TestAddWRPEventStreamRequestDecoder(t *testing.T) {
 			r = r.WithContext(tc.Context)
 			r.RemoteAddr = "example.com:443"
 
-			var decodedRequest interface{}
+			var decodedRequest any
 			if tc.WrongContext {
 				decodedRequest, err = decode(context.Background(), r)
 			} else {

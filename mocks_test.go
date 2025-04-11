@@ -179,8 +179,8 @@ func (m *mockGauge) Describe(ch chan<- *prometheus.Desc) {
 	m.Called()
 }
 
-func interfacify(vals []string) []interface{} {
-	transformed := make([]interface{}, len(vals))
+func interfacify(vals []string) []any {
+	transformed := make([]any, len(vals))
 	for i, val := range vals {
 		transformed[i] = val
 	}

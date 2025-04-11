@@ -337,9 +337,9 @@ func TestPushItem(t *testing.T) {
 
 	validItem := model.Item{
 		ID: "252f10c83610ebca1a059c0bae8255eba2f95be4d1d7bcfa89d7248a82d9f111",
-		Data: map[string]interface{}{
+		Data: map[string]any{
 			"field0": float64(0),
-			"nested": map[string]interface{}{
+			"nested": map[string]any{
 				"response": "wow",
 			},
 		}}
@@ -347,7 +347,7 @@ func TestPushItem(t *testing.T) {
 	tcs := []testCase{
 		{
 			Description: "Item ID Missing",
-			Item:        model.Item{Data: map[string]interface{}{}},
+			Item:        model.Item{Data: map[string]any{}},
 			ExpectedErr: ErrItemIDEmpty,
 		},
 		{
@@ -617,8 +617,8 @@ func getRemoveItemValidPayload() []byte {
 func getRemoveItemHappyOutput() model.Item {
 	return model.Item{
 		ID: "7e8c5f378b4addbaebc70897c4478cca06009e3e360208ebd073dbee4b3774e7",
-		Data: map[string]interface{}{
-			"words": []interface{}{"Hello", "World"},
+		Data: map[string]any{
+			"words": []any{"Hello", "World"},
 			"year":  float64(2021),
 		},
 		TTL: aws.Int64(100),
@@ -642,8 +642,8 @@ func getItemsHappyOutput() Items {
 	return Items{
 		{
 			ID: "7e8c5f378b4addbaebc70897c4478cca06009e3e360208ebd073dbee4b3774e7",
-			Data: map[string]interface{}{
-				"words": []interface{}{"Hello", "World"},
+			Data: map[string]any{
+				"words": []any{"Hello", "World"},
 				"year":  float64(2021),
 			},
 			TTL: aws.Int64(255),

@@ -10,14 +10,14 @@ import (
 )
 
 func newAddWRPEventStreamEndpoint(s Service) endpoint.Endpoint {
-	return func(ctx context.Context, request interface{}) (interface{}, error) {
+	return func(ctx context.Context, request any) (any, error) {
 		r := request.(*addWRPEventStreamRequest)
 		return nil, s.Add(ctx, r.owner, r.internalWebook)
 	}
 }
 
 func newGetAllWRPEventStreamsEndpoint(s Service) endpoint.Endpoint {
-	return func(ctx context.Context, _ interface{}) (interface{}, error) {
+	return func(ctx context.Context, _ any) (any, error) {
 		return s.GetAll(ctx)
 	}
 }
