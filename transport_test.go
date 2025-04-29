@@ -16,13 +16,22 @@ import (
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/xmidt-org/argus/store"
-	"github.com/xmidt-org/bascule"
-	"github.com/xmidt-org/sallust"
+	"github.com/xmidt-org/ancla/auth"
+	"github.com/xmidt-org/ancla/schema"
+	webhook "github.com/xmidt-org/webhook-schema"
+	"go.uber.org/zap"
+)
+
+var (
+	mockNow = func() time.Time {
+		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
+	}
 )
 
 func TestErrorEncoder(t *testing.T) {
-	mockHandlerConfig := HandlerConfig{GetLogger: sallust.Get}
+	mockHandlerConfig := HandlerConfig{GetLogger: func(context.Context) *zap.Logger {
+		return zap.NewNop()
+	}}
 
 	type testCase struct {
 		Description  string
@@ -39,7 +48,7 @@ func TestErrorEncoder(t *testing.T) {
 		},
 		{
 			Description:  "Coded request",
-			InputErr:     store.BadRequestErr{Message: "invalid param"},
+			InputErr:     BadRequestErr{Message: "invalid param"},
 			HConfig:      mockHandlerConfig,
 			ExpectedCode: 400,
 		},
@@ -48,6 +57,7 @@ func TestErrorEncoder(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			recorder := httptest.NewRecorder()
+			// TODO: remove gokit from errorEncoder and then update TestErrorEncoder tests
 			e := errorEncoder(tc.HConfig.GetLogger)
 			e(context.Background(), tc.InputErr, recorder)
 			assert.Equal(tc.ExpectedCode, recorder.Code)
@@ -57,71 +67,26 @@ func TestErrorEncoder(t *testing.T) {
 	}
 }
 
-func TestEncodeWebhookResponse(t *testing.T) {
+func TestEncodeWRPEventStreamResponse(t *testing.T) {
 	assert := assert.New(t)
 	recorder := httptest.NewRecorder()
-	encodeAddWebhookResponse(context.Background(), recorder, nil)
+	encodeAddWRPEventStreamResponse(context.Background(), recorder, nil)
 	assert.JSONEq(`{"message": "Success"}`, recorder.Body.String())
 	assert.Equal(200, recorder.Code)
 }
 
-func TestGetOwner(t *testing.T) {
+func TestEncodeGetAllWRPEventStreamsResponse(t *testing.T) {
 	type testCase struct {
-		Description   string
-		Token         bascule.Token
-		ExpectedOwner string
-	}
-
-	tcs := []testCase{
-		{
-			Description:   "No auth token",
-			Token:         nil,
-			ExpectedOwner: "",
-		},
-		{
-			Description:   "jwt token",
-			Token:         bascule.NewToken("jwt", "sub-value-001", nil),
-			ExpectedOwner: "sub-value-001",
-		},
-		{
-			Description:   "basic token",
-			Token:         bascule.NewToken("basic", "user-001", nil),
-			ExpectedOwner: "user-001",
-		},
-
-		{
-			Description:   "unsupported",
-			Token:         bascule.NewToken("badType", "principalVal", nil),
-			ExpectedOwner: "",
-		},
-	}
-	for _, tc := range tcs {
-		assert := assert.New(t)
-		var ctx = context.Background()
-		// nolint:typecheck
-		if tc.Token != nil {
-			auth := bascule.Authentication{
-				Token: tc.Token,
-			}
-			ctx = bascule.WithAuthentication(ctx, auth)
-		}
-		owner := getOwner(ctx)
-		assert.Equal(tc.ExpectedOwner, owner)
-	}
-}
-
-func TestEncodeGetAllWebhooksResponse(t *testing.T) {
-	type testCase struct {
-		Description           string
-		InputInternalWebhooks []InternalWebhook
-		ExpectedJSONResp      string
-		ExpectedErr           error
+		Description      string
+		InputSchemas     []schema.Manifest
+		ExpectedJSONResp string
+		ExpectedErr      error
 	}
 	tcs := []testCase{
 		{
-			Description:           "Two webhooks",
-			InputInternalWebhooks: encodeGetAllInput(),
-			ExpectedJSONResp:      encodeGetAllOutput(),
+			Description:      "Two wrpEventStreams",
+			InputSchemas:     encodeGetAllInput(),
+			ExpectedJSONResp: encodeGetAllOutput(),
 		},
 		{
 			Description:      "Nil",
@@ -137,7 +102,7 @@ func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			recorder := httptest.NewRecorder()
-			err := encodeGetAllWebhooksResponse(context.Background(), recorder, tc.InputInternalWebhooks)
+			err := encodeGetAllWRPEventStreamsResponse(context.Background(), recorder, tc.InputSchemas)
 			assert.Nil(err)
 			assert.Equal("application/json", recorder.Header().Get("Content-Type"))
 			assert.JSONEq(tc.ExpectedJSONResp, recorder.Body.String())
@@ -145,133 +110,93 @@ func TestEncodeGetAllWebhooksResponse(t *testing.T) {
 	}
 }
 
-func TestAddWebhookRequestDecoder(t *testing.T) {
+func TestAddWRPEventStreamRequestDecoder(t *testing.T) {
 	type testCase struct {
 		Description            string
 		InputPayload           string
 		ExpectedErr            error
-		ExpectedDecodedRequest *addWebhookRequest
+		ExpectedDecodedRequest *addWRPEventStreamRequest
 		ReadBodyFail           bool
-		Validator              Validator
+		Validator              webhook.Validators
 		ExpectedStatusCode     int
-		Auth                   string
+		Context                context.Context
 		WrongContext           bool
 		DisablePartnerIDs      bool
 	}
 
+	var (
+		ctxEmpty                   = context.Background()
+		ctxWithoutPartnerIDs       = auth.SetPrincipal(ctxEmpty, "owner-from-auth")
+		ctxWithPrincipalPartnerIDs = auth.SetPartnerIDs(auth.SetPrincipal(ctxEmpty, "owner-from-auth"), []string{"comcast"})
+	)
+
 	tcs := []testCase{
 		{
 			Description:            "Normal happy path",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "jwt",
+			InputPayload:           addWRPEventStreamDecoderInput(),
+			ExpectedDecodedRequest: addWRPEventStreamDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			Context:                ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:            "Normal happy path using Duration",
-			InputPayload:           addWebhookDecoderDurationInput(),
-			ExpectedDecodedRequest: addWebhookDecoderDurationOutput(true),
-			Validator:              Validators{},
-			Auth:                   "jwt",
+			InputPayload:           addWRPEventStreamDecoderDurationInput(),
+			ExpectedDecodedRequest: addWRPEventStreamDecoderDurationOutput(true),
+			Validator:              webhook.Validators{},
+			Context:                ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:            "No validator provided",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Auth:                   "jwt",
+			InputPayload:           addWRPEventStreamDecoderInput(),
+			ExpectedDecodedRequest: addWRPEventStreamDecoderOutput(true),
+			Context:                ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:            "Do not check PartnerIDs",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "jwt",
+			InputPayload:           addWRPEventStreamDecoderInput(),
+			ExpectedDecodedRequest: addWRPEventStreamDecoderOutput(false),
+			Validator:              webhook.Validators{},
+			Context:                ctxWithoutPartnerIDs,
 			DisablePartnerIDs:      true,
 		},
 		{
-			Description:            "Auth token not present failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			ExpectedErr:            errAuthNotPresent,
-			WrongContext:           true,
-		},
-		{
-			Description:            "Auth token is nil failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			ExpectedErr:            errAuthTokenIsNil,
-		},
-		{
-			Description:            "jwt auth token has no allowedPartners failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "jwtnopartners",
-			ExpectedErr:            errPartnerIDsDoNotExist,
-		},
-		{
-			Description:            "jwt partners do not cast failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "jwtpartnersdonotcast",
+			Description:            "unable to retrieve PartnerIDs failure",
+			InputPayload:           addWRPEventStreamDecoderInput(),
+			ExpectedDecodedRequest: addWRPEventStreamDecoderOutput(true),
+			Validator:              webhook.Validators{},
+			Context:                ctxWithoutPartnerIDs,
 			ExpectedErr:            errGettingPartnerIDs,
 		},
 		{
-			Description:            "auth is not jwt or basic failure",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "authnotbasicorjwt",
-			ExpectedErr:            errAuthIsNotOfTypeBasicOrJWT,
-		},
-		{
-			Description:            "basic auth",
-			InputPayload:           addWebhookDecoderInput(),
-			ExpectedDecodedRequest: addWebhookDecoderOutput(true),
-			Validator:              Validators{},
-			Auth:                   "basic",
-		},
-		{
-			Description:        "Failed to JSON Unmarshal",
-			InputPayload:       "{",
-			ExpectedErr:        errFailedWebhookUnmarshal,
-			Validator:          Validators{},
-			ExpectedStatusCode: 400,
-			Auth:               "jwt",
-		},
-		{
 			Description:        "Failed to JSON Unmarshal Type Error",
-			InputPayload:       addWebhookDecoderUnmarshalingErrorInput(false),
-			ExpectedErr:        errFailedWebhookUnmarshal,
-			Validator:          Validators{},
+			InputPayload:       addWRPEventStreamDecoderUnmarshalingErrorInput(false),
+			ExpectedErr:        errFailedWRPEventStreamUnmarshal,
+			Validator:          webhook.Validators{},
 			ExpectedStatusCode: 400,
-			Auth:               "jwt",
+			Context:            ctxWithPrincipalPartnerIDs,
 		},
 		{
 			Description:        "Failed to JSON Unmarshal Invalid Duration Error",
-			InputPayload:       addWebhookDecoderUnmarshalingErrorInput(true),
-			ExpectedErr:        errFailedWebhookUnmarshal,
-			Validator:          Validators{},
+			InputPayload:       addWRPEventStreamDecoderUnmarshalingErrorInput(true),
+			ExpectedErr:        errFailedWRPEventStreamUnmarshal,
+			Validator:          webhook.Validators{},
 			ExpectedStatusCode: 400,
-			Auth:               "jwt",
+			Context:            ctxWithPrincipalPartnerIDs,
 		},
 		{
-			Description:  "Webhook validation Failure",
-			InputPayload: addWebhookDecoderInput(),
-			Validator:    Validators{mockValidator()},
+			Description:  "EventStream validation Failure",
+			InputPayload: addWRPEventStreamDecoderInput(),
+			Validator:    mockValidator(),
+			Context:      ctxWithPrincipalPartnerIDs,
 			ExpectedErr:  errMockValidatorFail,
-			Auth:         "jwt",
 		},
 		{
 			Description:        "Request Body Read Failure",
 			ExpectedErr:        errReadBodyFail,
 			ReadBodyFail:       true,
-			Validator:          Validators{},
+			Validator:          webhook.Validators{},
+			Context:            ctxWithPrincipalPartnerIDs,
 			ExpectedStatusCode: 0,
-			Auth:               "jwt",
 		},
 	}
 
@@ -287,50 +212,17 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 				v:                 tc.Validator,
 				disablePartnerIDs: tc.DisablePartnerIDs,
 			}
-			decode := addWebhookRequestDecoder(config)
-			var auth bascule.Authentication
-
-			switch tc.Auth {
-			case "basic":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("basic", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			case "jwt":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{"allowedResources": map[string]interface{}{"allowedPartners": "comcast"}})),
-				}
-			case "jwtnopartners":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			case "jwtpartnersdonotcast":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("jwt", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{"allowedResources": map[string]interface{}{"allowedPartners": nil}})),
-				}
-			case "authnotbasicorjwt":
-				auth = bascule.Authentication{
-					Token: bascule.NewToken("spongebob", "owner-from-auth", bascule.NewAttributes(
-						map[string]interface{}{})),
-				}
-			}
-
-			r, err := http.NewRequestWithContext(bascule.WithAuthentication(context.Background(), auth),
-				http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
+			decode := addWRPEventStreamRequestDecoder(config)
+			var err error
+			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.InputPayload))
 			require.Nil(err)
 			if tc.ReadBodyFail {
 				r.Body = errReader{}
 			}
+			r = r.WithContext(tc.Context)
+			r.RemoteAddr = "example.com:443"
 
-			if tc.Auth == "basic" {
-				r.Header[DefaultBasicPartnerIDsHeader] = []string{"comcast"}
-			}
-			r.RemoteAddr = "original-requester.example.net:443"
-
-			var decodedRequest interface{}
+			var decodedRequest any
 			if tc.WrongContext {
 				decodedRequest, err = decode(context.Background(), r)
 			} else {
@@ -359,11 +251,12 @@ func TestAddWebhookRequestDecoder(t *testing.T) {
 	}
 }
 
-func addWebhookDecoderInput() string {
+func addWRPEventStreamDecoderInput() string {
 	return `
 		{
+			"registered_from_address": "example.com:443",
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "superSecretXYZ"
 			},
@@ -371,17 +264,18 @@ func addWebhookDecoderInput() string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
+			"failure_url": "example.com",
+			"duration": "0s",
 			"until": "2021-01-02T15:04:10Z"
 		}
 	`
 }
-func addWebhookDecoderDurationInput() string {
+func addWRPEventStreamDecoderDurationInput() string {
 	return `
 		{
+			"registered_from_address": "example.com:443",
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "superSecretXYZ"
 			},
@@ -389,18 +283,18 @@ func addWebhookDecoderDurationInput() string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 300
+			"failure_url": "example.com",
+			"duration": "300s"
 		}
 	`
 }
 
-func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
+func addWRPEventStreamDecoderUnmarshalingErrorInput(duration bool) string {
 	if duration {
 		return `
 		{
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "superSecretXYZ"
 			},
@@ -408,7 +302,7 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
+			"failure_url": "example.com",
 			"duration": "hehe",
 			"until": "2021-01-02T15:04:10Z"
 		}
@@ -417,7 +311,7 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 	return `
 		{
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": 5,
 				"secret": "superSecretXYZ"
 			},
@@ -425,99 +319,107 @@ func addWebhookDecoderUnmarshalingErrorInput(duration bool) string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
+			"failure_url": "example.com",
+			"duration": 0s,
 			"until": "2021-01-02T15:04:10Z"
 		}
 	`
 }
 
-func addWebhookDecoderOutput(withPIDs bool) *addWebhookRequest {
+func addWRPEventStreamDecoderOutput(withPIDs bool) *addWRPEventStreamRequest {
 	if withPIDs {
-		return &addWebhookRequest{
+		return &addWRPEventStreamRequest{
 			owner: "owner-from-auth",
-			internalWebook: InternalWebhook{
-				Webhook: Webhook{
-					Address: "original-requester.example.net:443",
-					Config: DeliveryConfig{
-						URL:         "http://deliver-here-0.example.net",
+			internalWebook: &schema.ManifestV1{
+				// nolint:staticcheck
+				Registration: webhook.RegistrationV1{
+					Address: "example.com:443",
+					// nolint:staticcheck
+					Config: webhook.DeliveryConfig{
+						ReceiverURL: "example.com:443",
 						ContentType: "application/json",
 						Secret:      "superSecretXYZ",
 					},
 					Events: []string{"online"},
-					Matcher: MetadataMatcherConfig{
+					Matcher: webhook.MetadataMatcherConfig{
 						DeviceID: []string{"mac:aabbccddee.*"},
 					},
-					FailureURL: "http://contact-here-when-fails.example.net",
-					Duration:   0,
+					FailureURL: "example.com",
+					Duration:   webhook.CustomDuration(0 * time.Second),
 					Until:      getRefTime().Add(10 * time.Second),
 				},
 				PartnerIDs: []string{"comcast"},
 			},
 		}
 	}
-	return &addWebhookRequest{
+	return &addWRPEventStreamRequest{
 		owner: "owner-from-auth",
-		internalWebook: InternalWebhook{
-			Webhook: Webhook{
-				Address: "original-requester.example.net:443",
-				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+		internalWebook: &schema.ManifestV1{
+			// nolint:staticcheck
+			Registration: webhook.RegistrationV1{
+				Address: "example.com:443",
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
 				Events: []string{"online"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
-				Duration:   0,
+				FailureURL: "example.com",
+				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(10 * time.Second),
 			},
 			PartnerIDs: []string{},
 		},
 	}
 }
-func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
+func addWRPEventStreamDecoderDurationOutput(withPIDs bool) *addWRPEventStreamRequest {
 	if withPIDs {
-		return &addWebhookRequest{
+		return &addWRPEventStreamRequest{
 			owner: "owner-from-auth",
-			internalWebook: InternalWebhook{
-				Webhook: Webhook{
-					Address: "original-requester.example.net:443",
-					Config: DeliveryConfig{
-						URL:         "http://deliver-here-0.example.net",
+			internalWebook: &schema.ManifestV1{
+				// nolint:staticcheck
+				Registration: webhook.RegistrationV1{
+					Address: "example.com:443",
+					// nolint:staticcheck
+					Config: webhook.DeliveryConfig{
+						ReceiverURL: "example.com:443",
 						ContentType: "application/json",
 						Secret:      "superSecretXYZ",
 					},
 					Events: []string{"online"},
-					Matcher: MetadataMatcherConfig{
+					Matcher: webhook.MetadataMatcherConfig{
 						DeviceID: []string{"mac:aabbccddee.*"},
 					},
-					FailureURL: "http://contact-here-when-fails.example.net",
-					Duration:   5 * time.Minute,
+					FailureURL: "example.com",
+					Duration:   webhook.CustomDuration(5 * time.Minute),
 					Until:      getRefTime().Add(5 * time.Minute),
 				},
 				PartnerIDs: []string{"comcast"},
 			},
 		}
 	}
-	return &addWebhookRequest{
+	return &addWRPEventStreamRequest{
 		owner: "owner-from-auth",
-		internalWebook: InternalWebhook{
-			Webhook: Webhook{
-				Address: "original-requester.example.net:443",
-				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+		internalWebook: &schema.ManifestV1{
+			// nolint:staticcheck
+			Registration: webhook.RegistrationV1{
+				Address: "example.com:443",
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
 				Events: []string{"online"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
-				Duration:   5 * time.Minute,
+				FailureURL: "example.com",
+				Duration:   webhook.CustomDuration(5 * time.Minute),
 				Until:      getRefTime().Add(5 * time.Minute),
 			},
 			PartnerIDs: []string{},
@@ -525,13 +427,15 @@ func addWebhookDecoderDurationOutput(withPIDs bool) *addWebhookRequest {
 	}
 }
 
-func encodeGetAllInput() []InternalWebhook {
-	return []InternalWebhook{
-		{
-			Webhook: Webhook{
-				Address: "http://original-requester.example.net",
-				Config: DeliveryConfig{
-					URL:         "http://deliver-here-0.example.net",
+func encodeGetAllInput() []schema.Manifest {
+	return []schema.Manifest{
+		&schema.ManifestV1{
+			// nolint:staticcheck
+			Registration: webhook.RegistrationV1{
+				Address: "example.com:443",
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 					ContentType: "application/json",
 					Secret:      "superSecretXYZ",
 				},
@@ -541,17 +445,20 @@ func encodeGetAllInput() []InternalWebhook {
 				}{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
+				FailureURL: "example.com",
+				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(10 * time.Second),
 			},
 			PartnerIDs: []string{"comcast"},
 		},
-		{
-			Webhook: Webhook{
-				Address: "http://original-requester.example.net",
-				Config: DeliveryConfig{
+		&schema.ManifestV1{
+			// nolint:staticcheck
+			Registration: webhook.RegistrationV1{
+				Address: "example.com:443",
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
 					ContentType: "application/json",
-					URL:         "http://deliver-here-1.example.net",
+					ReceiverURL: "example.com:443",
 					Secret:      "doNotShare:e=mc^2",
 				},
 				Events: []string{"online"},
@@ -560,12 +467,14 @@ func encodeGetAllInput() []InternalWebhook {
 				}{
 					DeviceID: []string{"mac:aabbccddee.*"},
 				},
-				FailureURL: "http://contact-here-when-fails.example.net",
+				FailureURL: "example.com",
+				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(20 * time.Second),
 			},
 			PartnerIDs: []string{"comcast"},
 		},
 	}
+
 }
 
 // once we move to go1.16 we could just embed this from a JSON file
@@ -574,9 +483,9 @@ func encodeGetAllOutput() string {
 	return `
 	[
 		{
-			"registered_from_address": "http://original-requester.example.net",
+			"registered_from_address": "example.com:443",
 			"config": {
-				"url": "http://deliver-here-0.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "<obfuscated>"
 			},
@@ -584,14 +493,14 @@ func encodeGetAllOutput() string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
+			"failure_url": "example.com",
+			"duration": "0s",
 			"until": "2021-01-02T15:04:10Z"
 		},
 		{
-			"registered_from_address": "http://original-requester.example.net",
+			"registered_from_address": "example.com:443",
 			"config": {
-				"url": "http://deliver-here-1.example.net",
+				"url": "example.com:443",
 				"content_type": "application/json",
 				"secret": "<obfuscated>"
 			},
@@ -599,90 +508,104 @@ func encodeGetAllOutput() string {
 			"matcher": {
 				"device_id": ["mac:aabbccddee.*"]
 			},
-			"failure_url": "http://contact-here-when-fails.example.net",
-			"duration": 0,
+			"failure_url": "example.com",
+			"duration": "0s",
 			"until": "2021-01-02T15:04:20Z"
 		}
 	]
 	`
 }
 
-func TestSetWebhookDefaults(t *testing.T) {
+func TestSetWRPEventStreamDefaults(t *testing.T) {
 	tcs := []struct {
-		desc            string
-		webhook         Webhook
-		remoteAddr      string
-		expectedWebhook Webhook
+		desc string
+		// nolint:staticcheck
+		registration *webhook.RegistrationV1
+		remoteAddr   string
+		// nolint:staticcheck
+		expectedRegistration *webhook.RegistrationV1
 	}{
 		{
 			desc: "No Until, Address, or DeviceID",
-			webhook: Webhook{
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			// nolint:staticcheck
+			registration: &webhook.RegistrationV1{
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 				},
 				Events:   []string{"online", "offline"},
-				Matcher:  MetadataMatcherConfig{},
-				Duration: 5 * time.Minute,
+				Matcher:  webhook.MetadataMatcherConfig{},
+				Duration: webhook.CustomDuration(5 * time.Minute),
 			},
-			remoteAddr: "http://original-requester.example.net",
-			expectedWebhook: Webhook{
-				Address: "http://original-requester.example.net",
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			remoteAddr: "example.com:443",
+			// nolint:staticcheck
+			expectedRegistration: &webhook.RegistrationV1{
+				Address: "example.com:443",
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 				},
 				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"}},
-				Duration: 5 * time.Minute,
+				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
 		},
 		{
 			desc: "No Address or Request Address",
-			webhook: Webhook{
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			// nolint:staticcheck
+			registration: &webhook.RegistrationV1{
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 				},
 				Events:   []string{"online", "offline"},
-				Matcher:  MetadataMatcherConfig{},
-				Duration: 5 * time.Minute,
+				Matcher:  webhook.MetadataMatcherConfig{},
+				Duration: webhook.CustomDuration(5 * time.Minute),
 			},
-			expectedWebhook: Webhook{
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			// nolint:staticcheck
+			expectedRegistration: &webhook.RegistrationV1{
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 				},
 				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"}},
-				Duration: 5 * time.Minute,
+				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
 		},
 		{
 			desc: "All values set",
-			webhook: Webhook{
-				Address: "requester.example.net:443",
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			// nolint:staticcheck
+			registration: &webhook.RegistrationV1{
+				Address: "example.com:443",
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 				},
 				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"},
 				},
-				Duration: 5 * time.Minute,
+				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
-			remoteAddr: "requester.example.net:443",
-			expectedWebhook: Webhook{
-				Address: "requester.example.net:443",
-				Config: DeliveryConfig{
-					URL: "https://deliver-here.example.net",
+			remoteAddr: "example.com:443",
+			// nolint:staticcheck
+			expectedRegistration: &webhook.RegistrationV1{
+				Address: "example.com:443",
+				// nolint:staticcheck
+				Config: webhook.DeliveryConfig{
+					ReceiverURL: "example.com:443",
 				},
 				Events: []string{"online", "offline"},
-				Matcher: MetadataMatcherConfig{
+				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"},
 				},
-				Duration: 5 * time.Minute,
+				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
 		},
@@ -690,12 +613,27 @@ func TestSetWebhookDefaults(t *testing.T) {
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			w := webhookValidator{
+			v := wrpEventStreamValidator{
 				now: mockNow,
 			}
-			webhook := tc.webhook
-			w.setWebhookDefaults(&webhook, tc.remoteAddr)
-			assert.Equal(tc.expectedWebhook, webhook)
+			v.setV1Defaults(tc.registration, tc.remoteAddr)
+			assert.Equal(tc.expectedRegistration, tc.registration)
 		})
 	}
+}
+
+type BadRequestErr struct {
+	Message string
+}
+
+func (bre BadRequestErr) Error() string {
+	return bre.Message
+}
+
+func (bre BadRequestErr) SanitizedError() string {
+	return bre.Message
+}
+
+func (bre BadRequestErr) StatusCode() int {
+	return http.StatusBadRequest
 }

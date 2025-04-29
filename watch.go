@@ -5,23 +5,24 @@ package ancla
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/xmidt-org/ancla/schema"
 )
 
-// Watch is the interface for listening for webhook subcription updates.
+// Watch is the interface for listening for wrpEventStream subcription updates.
 // Updates represent the latest known list of subscriptions.
 type Watch interface {
-	Update([]InternalWebhook)
+	Update([]schema.Manifest)
 }
 
 // WatchFunc allows bare functions to pass as Watches.
-type WatchFunc func([]InternalWebhook)
+type WatchFunc func([]schema.Manifest)
 
-func (f WatchFunc) Update(update []InternalWebhook) {
+func (f WatchFunc) Update(update []schema.Manifest) {
 	f(update)
 }
 
-func webhookListSizeWatch(s prometheus.Gauge) Watch {
-	return WatchFunc(func(webhooks []InternalWebhook) {
-		s.Set(float64(len(webhooks)))
+func wrpEventStreamListSizeWatch(s prometheus.Gauge) Watch {
+	return WatchFunc(func(streams []schema.Manifest) {
+		s.Set(float64(len(streams)))
 	})
 }

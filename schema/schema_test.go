@@ -1,134 +1,147 @@
 // SPDX-FileCopyrightText: 2022 Comcast Cable Communications Management, LLC
 // SPDX-License-Identifier: Apache-2.0
-package ancla
+
+package schema
 
 import (
-	"context"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/ancla/schema"
-	webhook "github.com/xmidt-org/webhook-schema"
+	"github.com/xmidt-org/webhook-schema"
 )
 
-func TestAdd(t *testing.T) {
-	type pushItemResults struct {
-		result chrysom.PushResult
-		err    error
-	}
-	type testCase struct {
-		Description     string
-		Owner           string
-		PushItemResults pushItemResults
-		ExpectedErr     error
-	}
-
-	tcs := []testCase{
+func TestItemToSchema(t *testing.T) {
+	items := getTestItems()
+	manifests := getTestSchemas()
+	tcs := []struct {
+		Description    string
+		InputItem      model.Item
+		ExpectedSchema Manifest
+		ShouldErr      bool
+	}{
 		{
-			Description: "PushItem fails",
-			PushItemResults: pushItemResults{
-				err: errors.New("push item failed"),
+			Description: "Err Marshaling",
+			InputItem: model.Item{
+				Data: map[string]any{
+					"cannotUnmarshal": make(chan int),
+				},
 			},
-			ExpectedErr: errFailedWRPEventStreamPush,
+			ShouldErr: true,
 		},
 		{
-			Description: "Unknown push result",
-			PushItemResults: pushItemResults{
-				result: chrysom.UnknownPushResult,
-			},
-			ExpectedErr: errNonSuccessPushResult,
-		},
-		{
-			Description: "Item created",
-			PushItemResults: pushItemResults{
-				result: chrysom.CreatedPushResult,
-			},
-		},
-		{
-			Description: "Item update",
-			PushItemResults: pushItemResults{
-				result: chrysom.UpdatedPushResult,
-			},
-		},
-	}
-
-	inputManifest := getTestSchemas()[0]
-	for _, tc := range tcs {
-		t.Run(tc.Description, func(t *testing.T) {
-			assert := assert.New(t)
-			m := new(mockPushReader)
-			svc := service{
-				argus: m,
-				now:   time.Now,
-			}
-			// nolint:typecheck
-			m.On("PushItem", context.TODO(), tc.Owner, mock.Anything).Return(tc.PushItemResults.result, tc.PushItemResults.err)
-			err := svc.Add(context.TODO(), tc.Owner, inputManifest)
-			if tc.ExpectedErr != nil {
-				assert.True(errors.Is(err, tc.ExpectedErr))
-			}
-			// nolint:typecheck
-			m.AssertExpectations(t)
-		})
-	}
-}
-
-func TestAllSchemas(t *testing.T) {
-	type testCase struct {
-		Description     string
-		GetItemsResp    chrysom.Items
-		GetItemsErr     error
-		ExpectedSchemas []schema.Manifest
-		ExpectedErr     error
-	}
-
-	tcs := []testCase{
-		{
-			Description: "Fetching argus wrpEventStreams fails",
-			GetItemsErr: errors.New("db failed"),
-			ExpectedErr: errFailedWRPEventStreamsFetch,
-		},
-		{
-			Description:     "wrpEventStreams fetch success",
-			GetItemsResp:    getTestItems(),
-			ExpectedSchemas: getTestSchemas(),
+			Description:    "Success",
+			InputItem:      items[0],
+			ExpectedSchema: manifests[0],
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
-			m := new(mockPushReader)
-
-			svc := service{
-				argus: m,
+			m, err := ItemToSchema(tc.InputItem)
+			if tc.ShouldErr {
+				assert.Error(err)
 			}
-			// nolint:typecheck
-			m.On("GetItems", context.TODO(), "").Return(tc.GetItemsResp, tc.GetItemsErr)
-			manifests, err := svc.GetAll(context.TODO())
-
-			if tc.ExpectedErr != nil {
-				assert.True(errors.Is(err, tc.ExpectedErr))
-				assert.Empty(manifests)
-			} else {
-				assert.EqualValues(tc.ExpectedSchemas, manifests)
-			}
-
-			// nolint:typecheck
-			m.AssertExpectations(t)
+			assert.Equal(tc.ExpectedSchema, m)
 		})
 	}
 }
 
-func getTestSchemas() []schema.Manifest {
-	var reg []schema.Manifest
+func TestSchemaToItem(t *testing.T) {
 	refTime := getRefTime()
-	reg = append(reg, &schema.ManifestV1{
+	fixedNow := func() time.Time {
+		return refTime
+	}
+	items := getTestItems()
+	manifests := getTestSchemas()
+	tcs := []struct {
+		Description  string
+		InputSchema  Manifest
+		ExpectedItem model.Item
+		ShouldErr    bool
+	}{
+		{
+			Description:  "Expired item",
+			InputSchema:  getExpiredSchema(),
+			ExpectedItem: getExpiredItem(),
+		},
+		{
+			Description:  "Happy path",
+			InputSchema:  manifests[0],
+			ExpectedItem: items[0],
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.Description, func(t *testing.T) {
+			assert := assert.New(t)
+			item, err := SchemaToItem(fixedNow, tc.InputSchema)
+			if tc.ShouldErr {
+				assert.Error(err)
+			}
+			assert.Equal(tc.ExpectedItem, item)
+		})
+	}
+}
+
+func getExpiredItem() model.Item {
+	var expiresInSecs int64 = 0
+	return model.Item{
+		ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
+		Data: map[string]any{
+			"wrp_event_stream_schema_v1": map[string]any{
+				"registered_from_address": "example.com",
+				"config": map[string]any{
+					"url":          "example.com",
+					"content_type": "application/json",
+					"secret":       "superSecretXYZ",
+				},
+				"events": []any{"online"},
+				"matcher": map[string]any{
+					"device_id": []any{"mac:aabbccddee.*"},
+				},
+				"failure_url": "example.com",
+				"duration":    "1ns",
+				"until":       "1970-01-01T00:00:01Z",
+			},
+			"PartnerIDs": []any{},
+		},
+		TTL: &expiresInSecs,
+	}
+}
+
+func getExpiredSchema() Manifest {
+	return &ManifestV1{
+		// nolint:staticcheck
+		Registration: webhook.RegistrationV1{
+			Address: "example.com",
+			// nolint:staticcheck
+			Config: webhook.DeliveryConfig{
+				ReceiverURL: "example.com",
+				ContentType: "application/json",
+				Secret:      "superSecretXYZ",
+			},
+			Events: []string{"online"},
+			Matcher: struct {
+				DeviceID []string `json:"device_id"`
+			}{
+				DeviceID: []string{"mac:aabbccddee.*"},
+			},
+			FailureURL: "example.com",
+			Duration:   webhook.CustomDuration(1),
+			Until:      time.Unix(1, 0).UTC(),
+		},
+		PartnerIDs: []string{},
+	}
+}
+
+func getTestSchemas() []Manifest {
+	var reg []Manifest
+	refTime := getRefTime()
+	reg = append(reg, &ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",
@@ -147,7 +160,7 @@ func getTestSchemas() []schema.Manifest {
 			Until:      refTime.Add(10 * time.Second),
 		},
 		PartnerIDs: []string{"comcast"},
-	}, &schema.ManifestV1{
+	}, &ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
 			Address: "example.com",

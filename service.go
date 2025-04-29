@@ -9,128 +9,60 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xmidt-org/argus/chrysom"
-	"github.com/xmidt-org/sallust"
-	"go.uber.org/zap"
+	"github.com/xmidt-org/ancla/chrysom"
+	"github.com/xmidt-org/ancla/schema"
 )
 
 const errFmt = "%w: %v"
 
 var (
-	errNonSuccessPushResult    = errors.New("got a push result but was not of success type")
-	errFailedWebhookPush       = errors.New("failed to add webhook to registry")
-	errFailedWebhookConversion = errors.New("failed to convert webhook to argus item")
-	errFailedItemConversion    = errors.New("failed to convert argus item to webhook")
-	errFailedWebhooksFetch     = errors.New("failed to fetch webhooks")
+	errNonSuccessPushResult           = errors.New("got a push result but was not of success type")
+	errFailedWRPEventStreamPush       = errors.New("failed to add wrpEventStream to registry")
+	errFailedWRPEventStreamConversion = errors.New("failed to convert wrpEventStream to argus item")
+	errFailedItemConversion           = errors.New("failed to convert argus item to wrpEventStream")
+	errFailedWRPEventStreamsFetch     = errors.New("failed to fetch wrpEventStreams")
 )
 
-// Service describes the core operations around webhook subscriptions.
-// Initialize() provides a service ready to use and the controls around watching for updates.
+// Service describes the core operations around wrpEventStream subscriptions.
 type Service interface {
-	// Add adds the given owned webhook to the current list of webhooks. If the operation
+	// Add adds the given owned wrpEventStream to the current list of wrpEventStreams. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, iw InternalWebhook) error
+	Add(ctx context.Context, owner string, iw schema.Manifest) error
 
-	// GetAll lists all the current registered webhooks.
-	GetAll(ctx context.Context) ([]InternalWebhook, error)
+	// GetAll lists all the current registered wrpEventStreams.
+	GetAll(ctx context.Context) ([]schema.Manifest, error)
 }
 
-// Config contains information needed to initialize the Argus Client service.
+// Config contains information needed to initialize the Argus database client.
 type Config struct {
-	BasicClientConfig chrysom.BasicClientConfig
-
-	// Logger for this package.
-	// Gets passed to Argus config before initializing the client.
-	// (Optional). Defaults to a no op logger.
-	Logger *zap.Logger
-
-	// JWTParserType establishes which parser type will be used by the JWT token
-	// acquirer used by Argus. Options include 'simple' and 'raw'.
-	// Simple: parser assumes token payloads have the following structure: https://github.com/xmidt-org/bascule/blob/c011b128d6b95fa8358228535c63d1945347adaa/acquire/bearer.go#L77
-	// Raw: parser assumes all of the token payload == JWT token
-	// (Optional). Defaults to 'simple'
-	JWTParserType jwtAcquireParserType
-
-	// DisablePartnerIDs, if true, will allow webhooks to register without
-	// checking the validity of the partnerIDs in the request
+	// DisablePartnerIDs, if true, will allow wrpEventStreams to register without
+	// checking the validity of the partnerIDs in the request.
 	DisablePartnerIDs bool
 
-	// Validation provides options for validating the webhook's URL and TTL
+	// Validation provides options for validating the wrpEventStream's URL and TTL
 	// related fields. Some validation happens regardless of the configuration:
 	// URLs must be a valid URL structure, the Matcher.DeviceID values must
 	// compile into regular expressions, and the Events field must have at
 	// least one value and all values must compile into regular expressions.
-	Validation ValidatorConfig
-}
-
-// ListenerConfig contains information needed to initialize the Listener Client service.
-type ListenerConfig struct {
-	Config chrysom.ListenerClientConfig
-
-	// Logger for this package.
-	// Gets passed to Argus config before initializing the client.
-	// (Optional). Defaults to a no op logger.
-	Logger *zap.Logger
-
-	// Measures for instrumenting this package.
-	// Gets passed to Argus config before initializing the client.
-	Measures Measures
+	Validation schema.SchemaURLValidatorConfig
 }
 
 type service struct {
-	argus  chrysom.PushReader
-	logger *zap.Logger
-	config Config
-	now    func() time.Time
+	// argus is the Argus database client.
+	argus chrysom.PushReader
+	now   func() time.Time
 }
 
-// NewService builds the Argus client service from the given configuration.
-func NewService(cfg Config, getLogger func(context.Context) *zap.Logger) (*service, error) {
-	if cfg.Logger == nil {
-		cfg.Logger = sallust.Default()
-	}
-	prepArgusBasicClientConfig(&cfg)
-	basic, err := chrysom.NewBasicClient(cfg.BasicClientConfig, getLogger)
+// Add adds the given owned wrpEventStream to the current list of wrpEventStreams. If the operation
+// succeeds, a non-nil error is returned.
+func (s *service) Add(ctx context.Context, owner string, manifest schema.Manifest) error {
+	item, err := schema.SchemaToItem(s.now, manifest)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create chrysom basic client: %v", err)
-	}
-	svc := &service{
-		logger: cfg.Logger,
-		argus:  basic,
-		config: cfg,
-		now:    time.Now,
-	}
-	return svc, nil
-}
-
-// StartListener builds the Argus listener client service from the given configuration.
-// It allows adding watchers for the internal subscription state. Call the returned
-// function when you are done watching for updates.
-func (s *service) StartListener(cfg ListenerConfig, setLogger func(context.Context, *zap.Logger) context.Context, watches ...Watch) (func(), error) {
-	if cfg.Logger == nil {
-		cfg.Logger = sallust.Default()
-	}
-	prepArgusListenerClientConfig(&cfg, watches...)
-	m := &chrysom.Measures{
-		Polls: cfg.Measures.ChrysomPollsTotalCounterName,
-	}
-	listener, err := chrysom.NewListenerClient(cfg.Config, setLogger, m, s.argus)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chrysom listener client: %v", err)
-	}
-
-	listener.Start(context.Background())
-	return func() { listener.Stop(context.Background()) }, nil
-}
-
-func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) error {
-	item, err := InternalWebhookToItem(s.now, iw)
-	if err != nil {
-		return fmt.Errorf(errFmt, errFailedWebhookConversion, err)
+		return fmt.Errorf(errFmt, errFailedWRPEventStreamConversion, err)
 	}
 	result, err := s.argus.PushItem(ctx, owner, item)
 	if err != nil {
-		return fmt.Errorf(errFmt, errFailedWebhookPush, err)
+		return fmt.Errorf(errFmt, errFailedWRPEventStreamPush, err)
 	}
 
 	if result == chrysom.CreatedPushResult || result == chrysom.UpdatedPushResult {
@@ -139,48 +71,31 @@ func (s *service) Add(ctx context.Context, owner string, iw InternalWebhook) err
 	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
 }
 
-// GetAll returns all webhooks found on the configured webhooks partition
+// GetAll returns all wrpEventStreams found on the configured wrpEventStreams partition
 // of Argus.
-func (s *service) GetAll(ctx context.Context) ([]InternalWebhook, error) {
+func (s *service) GetAll(ctx context.Context) ([]schema.Manifest, error) {
 	items, err := s.argus.GetItems(ctx, "")
 	if err != nil {
-		return nil, fmt.Errorf(errFmt, errFailedWebhooksFetch, err)
+		return nil, fmt.Errorf(errFmt, errFailedWRPEventStreamsFetch, err)
 	}
 
-	iws := make([]InternalWebhook, len(items))
+	manifests := make([]schema.Manifest, len(items))
 
 	for i, item := range items {
-		webhook, err := ItemToInternalWebhook(item)
+		m, err := schema.ItemToSchema(item)
 		if err != nil {
 			return nil, fmt.Errorf(errFmt, errFailedItemConversion, err)
 		}
-		iws[i] = webhook
+		manifests[i] = m
 	}
 
-	return iws, nil
+	return manifests, nil
 }
 
-func prepArgusBasicClientConfig(cfg *Config) error {
-	p, err := newJWTAcquireParser(cfg.JWTParserType)
-	if err != nil {
-		return err
+// NewService returns an ancla client used to interact with an Argus database.
+func NewService(client chrysom.PushReader) *service {
+	return &service{
+		argus: client,
+		now:   time.Now,
 	}
-	cfg.BasicClientConfig.Auth.JWT.GetToken = p.token
-	cfg.BasicClientConfig.Auth.JWT.GetExpiration = p.expiration
-	return nil
-}
-
-func prepArgusListenerClientConfig(cfg *ListenerConfig, watches ...Watch) {
-	logger := cfg.Logger
-	watches = append(watches, webhookListSizeWatch(cfg.Measures.WebhookListSizeGaugeName))
-	cfg.Config.Listener = chrysom.ListenerFunc(func(items chrysom.Items) {
-		iws, err := ItemsToInternalWebhooks(items)
-		if err != nil {
-			logger.Error("Failed to convert items to webhooks", zap.Error(err))
-			return
-		}
-		for _, watch := range watches {
-			watch.Update(iws)
-		}
-	})
 }

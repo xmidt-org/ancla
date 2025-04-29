@@ -9,27 +9,28 @@ import (
 	"time"
 
 	kithttp "github.com/go-kit/kit/transport/http"
+	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
 )
 
-// NewAddWebhookHandler returns an HTTP handler for adding
-// a webhook registration.
-func NewAddWebhookHandler(s Service, config HandlerConfig) http.Handler {
+// NewAddWRPEventStreamHandler returns an HTTP handler for adding
+// a wrpEventStream registration.
+func NewAddWRPEventStreamHandler(s Service, config HandlerConfig) http.Handler {
 	return kithttp.NewServer(
-		newAddWebhookEndpoint(s),
-		addWebhookRequestDecoder(newTransportConfig(config)),
-		encodeAddWebhookResponse,
+		newAddWRPEventStreamEndpoint(s),
+		addWRPEventStreamRequestDecoder(newTransportConfig(config)),
+		encodeAddWRPEventStreamResponse,
 		kithttp.ServerErrorEncoder(errorEncoder(config.GetLogger)),
 	)
 }
 
-// NewGetAllWebhooksHandler returns an HTTP handler for fetching
-// all the currently registered webhooks.
-func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
+// NewGetAllWRPEventStreamsHandler returns an HTTP handler for fetching
+// all the currently registered wrpEventStreams.
+func NewGetAllWRPEventStreamsHandler(s Service, config HandlerConfig) http.Handler {
 	return kithttp.NewServer(
-		newGetAllWebhooksEndpoint(s),
+		newGetAllWRPEventStreamsEndpoint(s),
 		kithttp.NopRequestDecoder,
-		encodeGetAllWebhooksResponse,
+		encodeGetAllWRPEventStreamsResponse,
 		kithttp.ServerErrorEncoder(errorEncoder(config.GetLogger)),
 	)
 }
@@ -37,7 +38,7 @@ func NewGetAllWebhooksHandler(s Service, config HandlerConfig) http.Handler {
 // HandlerConfig contains configuration for all components that handlers depend on
 // from the service to the transport layers.
 type HandlerConfig struct {
-	V                 Validator
+	V                 webhook.Validators
 	DisablePartnerIDs bool
 	GetLogger         func(context.Context) *zap.Logger
 }
