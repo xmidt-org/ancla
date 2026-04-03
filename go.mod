@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/go-kit/kit v0.13.0
 	github.com/prometheus/client_golang v1.20.4
-	github.com/prometheus/client_model v0.6.1
+	github.com/prometheus/client_model v0.6.2
 	github.com/stretchr/testify v1.10.0
 	github.com/xmidt-org/httpaux v0.4.2
 	github.com/xmidt-org/touchstone v0.1.7
@@ -30,6 +30,6 @@ require (
 	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
