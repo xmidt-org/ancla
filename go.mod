@@ -13,7 +13,7 @@ require (
 	github.com/xmidt-org/urlegit v0.1.28
 	github.com/xmidt-org/webhook-schema v0.1.1-0.20250408163841-a0762984a7fb
 	go.uber.org/fx v1.24.0
-	go.uber.org/zap v1.27.0
+	go.uber.org/zap v1.27.1
 )
 
 require (
