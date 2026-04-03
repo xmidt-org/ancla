@@ -5,7 +5,7 @@ Provides a configurable wrpEventStream registry component for XMiDT services. Ap
 [![codecov.io](http://codecov.io/github/xmidt-org/ancla/coverage.svg?branch=main)](http://codecov.io/github/xmidt-org/ancla?branch=main)
 [![Go Report Card](https://goreportcard.com/badge/github.com/xmidt-org/ancla)](https://goreportcard.com/report/github.com/xmidt-org/ancla)
 [![Apache V2 License](http://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/xmidt-org/ancla/blob/main/LICENSE)
-[![GitHub Release](https://img.shields.io/github/release/xmidt-org/ancla.svg)](CHANGELOG.md)
+[![GitHub Release](https://img.shields.io/github/release/xmidt-org/ancla.svg)](https://github.com/xmidt-org/ancla/releases)
 [![GoDoc](https://pkg.go.dev/badge/github.com/xmidt-org/ancla)](https://pkg.go.dev/github.com/xmidt-org/ancla)
 
 ## Maintenance Instructions
