@@ -7,7 +7,7 @@ require (
 	github.com/go-kit/kit v0.13.0
 	github.com/prometheus/client_golang v1.20.4
 	github.com/prometheus/client_model v0.6.2
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/xmidt-org/httpaux v0.4.2
 	github.com/xmidt-org/touchstone v0.1.7
 	github.com/xmidt-org/urlegit v0.1.28
