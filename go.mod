@@ -12,7 +12,7 @@ require (
 	github.com/xmidt-org/touchstone v0.1.7
 	github.com/xmidt-org/urlegit v0.1.28
 	github.com/xmidt-org/webhook-schema v0.1.1-0.20250408163841-a0762984a7fb
-	go.uber.org/fx v1.23.0
+	go.uber.org/fx v1.24.0
 	go.uber.org/zap v1.27.0
 )
 
@@ -27,7 +27,7 @@ require (
 	github.com/prometheus/common v0.59.1 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	go.uber.org/dig v1.18.0 // indirect
+	go.uber.org/dig v1.19.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
