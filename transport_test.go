@@ -459,7 +459,7 @@ func encodeGetAllInput() []schema.Manifest {
 				Config: webhook.DeliveryConfig{
 					ContentType: "application/json",
 					ReceiverURL: "example.com:443",
-					Secret:      "doNotShare:e=mc^2",
+					Secret:      NOT_A_SECRET,
 				},
 				Events: []string{"online"},
 				Matcher: struct {

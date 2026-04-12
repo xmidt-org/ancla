@@ -82,7 +82,7 @@ func (c *ListenerClient) Start(ctx context.Context) error {
 	}
 
 	c.ticker.Reset(c.pullInterval)
-	go func() {
+	go func() { // nolint:gosec
 		for {
 			select {
 			case <-c.shutdown:
