@@ -16,6 +16,8 @@ import (
 	webhook "github.com/xmidt-org/webhook-schema"
 )
 
+const NOT_A_SECRET = "doNotShare:e=mc^2" // nolint:gosec
+
 func TestAdd(t *testing.T) {
 	type pushItemResults struct {
 		result chrysom.PushResult
@@ -155,7 +157,7 @@ func getTestSchemas() []schema.Manifest {
 			Config: webhook.DeliveryConfig{
 				ReceiverURL: "example.com",
 				ContentType: "application/json",
-				Secret:      "doNotShare:e=mc^2",
+				Secret:      NOT_A_SECRET, // nolint:gosec
 			},
 			Events: []string{"online"},
 			Matcher: webhook.MetadataMatcherConfig{
@@ -216,7 +218,7 @@ func getTestItems() chrysom.Items {
 					"config": map[string]any{
 						"url":          "example.com",
 						"content_type": "application/json",
-						"secret":       "doNotShare:e=mc^2",
+						"secret":       NOT_A_SECRET,
 					},
 					"events": []any{"online"},
 					"matcher": map[string]any{
