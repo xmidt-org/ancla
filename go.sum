@@ -34,8 +34,8 @@ github.com/xmidt-org/httpaux v0.4.4 h1:yFhN31QArGtoTaaFtjHTMVkj58bLSPio0QVYP0V8Y
 github.com/xmidt-org/httpaux v0.4.4/go.mod h1:48yhfIAFOEQlK8IxwxmSODaL7fT/l3DRpBBoItbwNPc=
 github.com/xmidt-org/touchstone v0.1.8 h1:jpA7j2pPtuP6hFr/LcT25cvfYkztWOp3Tj1ZCvqIvMw=
 github.com/xmidt-org/touchstone v0.1.8/go.mod h1:3nKZJlgWCDDThy/djXF2/wiwmRyCcDBSWBrSuUSy3ME=
-github.com/xmidt-org/urlegit v0.1.30 h1:AyUKU61v+ogLogL0jLWEMK5+JPQIm6qGXm3fki5cTB0=
-github.com/xmidt-org/urlegit v0.1.30/go.mod h1:DEGESAo1y0mgrp6S46SeTn037tML3b9tk90e4G2Kwpk=
+github.com/xmidt-org/urlegit v0.1.31 h1:1e1SKFG5v9xjEUZrZpkkN6Njc4EefIJpaO0tEou4ThY=
+github.com/xmidt-org/urlegit v0.1.31/go.mod h1:dBxr5GgVGhASxE7hFZuuN/oTL41VGJiiMRbHj/4Cb5c=
 github.com/xmidt-org/webhook-schema v0.2.3 h1:5NOtKv3PBJKswhtXXd1zANqjorfUFM+9akGEnGS5KlY=
 github.com/xmidt-org/webhook-schema v0.2.3/go.mod h1:7tLZZgMuqY3hAwjDzVmgFg2PJZpWUYdI2FsjkWrRzDw=
 go.uber.org/dig v1.19.0 h1:BACLhebsYdpQ7IROQ1AGPjrXcP5dF80U3gKoFzbaq/4=
