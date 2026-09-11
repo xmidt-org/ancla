@@ -27,8 +27,8 @@ var (
 )
 
 const (
-	contentTypeHeader string = "Content-Type"
-	jsonContentType   string = "application/json"
+	contentTypeHeader = "Content-Type"
+	jsonContentType   = "application/json"
 )
 
 type transportConfig struct {

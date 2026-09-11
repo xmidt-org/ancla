@@ -21,7 +21,7 @@ var (
 	mockJitter     = 5 * time.Second
 	buildAllConfig = SchemaURLValidatorConfig{
 		URL: URLVConfig{
-			Schemes:       []string{"https"},
+			Schemes:       []string{testHTTPSScheme},
 			AllowLoopback: false,
 		},
 		IP: IPVConfig{
@@ -48,7 +48,7 @@ var (
 	}
 	buildNoneConfig = SchemaURLValidatorConfig{
 		URL: URLVConfig{
-			Schemes:       []string{"https", "http"},
+			Schemes:       []string{testHTTPSScheme, testHTTPScheme},
 			AllowLoopback: true,
 		},
 		IP: IPVConfig{
@@ -65,7 +65,7 @@ var (
 	}
 	badBuildAllConfig = SchemaURLValidatorConfig{
 		URL: URLVConfig{
-			Schemes:       []string{"https"},
+			Schemes:       []string{testHTTPSScheme},
 			AllowLoopback: false,
 		},
 		IP: IPVConfig{
@@ -104,7 +104,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			config: SchemaURLValidatorConfig{
 				URL: URLVConfig{
 					AllowLoopback: true,
-					Schemes:       []string{"https"},
+					Schemes:       []string{testHTTPSScheme},
 				},
 			},
 		},
@@ -113,7 +113,7 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			config: SchemaURLValidatorConfig{
 				URL: URLVConfig{
 					AllowLoopback: false,
-					Schemes:       []string{"https", "http"},
+					Schemes:       []string{testHTTPSScheme, testHTTPScheme},
 				},
 			},
 		},

@@ -13,7 +13,31 @@ import (
 	"github.com/xmidt-org/webhook-schema"
 )
 
-const NOT_A_SECRET = "doNotShare:e=mc^2" // nolint:gosec
+const (
+	testOffline          = "offline"
+	testOnline           = "online"
+	testMac              = "mac:aabbccddee.*"
+	testURL              = "example.com"
+	testPartnerID        = "comcast"
+	testDurationField    = "duration"
+	testFailureURLField  = "failure_url"
+	testMatcherField     = "matcher"
+	testDeviceIDField    = "device_id"
+	testContentType      = "application/json"
+	testUntilField       = "until"
+	testEventsField      = "events"
+	testURLField         = "url"
+	testContentTypeField = "content_type"
+	testSecretField      = "secret"
+	testConfigField      = "config"
+	TestRegField         = "registered_from_address"
+	TestWRPEventField    = "wrp_event_stream_schema_v1"
+	testHTTPSScheme      = "https"
+	testHTTPScheme       = "http"
+
+	// nolint:gosec
+	NOT_A_SECRET = "superSecretXYZ"
+)
 
 func TestItemToSchema(t *testing.T) {
 	items := getTestItems()
@@ -94,20 +118,20 @@ func getExpiredItem() model.Item {
 	return model.Item{
 		ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 		Data: map[string]any{
-			"wrp_event_stream_schema_v1": map[string]any{
-				"registered_from_address": "example.com",
-				"config": map[string]any{
-					"url":          "example.com",
-					"content_type": "application/json",
-					"secret":       "superSecretXYZ",
+			TestWRPEventField: map[string]any{
+				TestRegField: testURL,
+				testConfigField: map[string]any{
+					testURLField:         testURL,
+					testContentTypeField: testContentType,
+					testSecretField:      NOT_A_SECRET,
 				},
-				"events": []any{"online"},
-				"matcher": map[string]any{
-					"device_id": []any{"mac:aabbccddee.*"},
+				testEventsField: []any{testOnline},
+				testMatcherField: map[string]any{
+					testDeviceIDField: []any{testMac},
 				},
-				"failure_url": "example.com",
-				"duration":    "1ns",
-				"until":       "1970-01-01T00:00:01Z",
+				testFailureURLField: testURL,
+				testDurationField:   "1ns",
+				testUntilField:      "1970-01-01T00:00:01Z",
 			},
 			"PartnerIDs": []any{},
 		},
@@ -119,20 +143,20 @@ func getExpiredSchema() Manifest {
 	return &ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
-			Address: "example.com",
+			Address: testURL,
 			// nolint:staticcheck
 			Config: webhook.DeliveryConfig{
-				ReceiverURL: "example.com",
-				ContentType: "application/json",
-				Secret:      "superSecretXYZ",
+				ReceiverURL: testURL,
+				ContentType: testContentType,
+				Secret:      NOT_A_SECRET,
 			},
-			Events: []string{"online"},
+			Events: []string{testOnline},
 			Matcher: struct {
 				DeviceID []string `json:"device_id"`
 			}{
-				DeviceID: []string{"mac:aabbccddee.*"},
+				DeviceID: []string{testMac},
 			},
-			FailureURL: "example.com",
+			FailureURL: testURL,
 			Duration:   webhook.CustomDuration(1),
 			Until:      time.Unix(1, 0).UTC(),
 		},
@@ -146,37 +170,37 @@ func getTestSchemas() []Manifest {
 	reg = append(reg, &ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
-			Address: "example.com",
+			Address: testURL,
 			// nolint:staticcheck
 			Config: webhook.DeliveryConfig{
-				ReceiverURL: "example.com",
-				ContentType: "application/json",
-				Secret:      "superSecretXYZ",
+				ReceiverURL: testURL,
+				ContentType: testContentType,
+				Secret:      NOT_A_SECRET,
 			},
-			Events: []string{"online"},
+			Events: []string{testOnline},
 			Matcher: webhook.MetadataMatcherConfig{
-				DeviceID: []string{"mac:aabbccddee.*"},
+				DeviceID: []string{testMac},
 			},
-			FailureURL: "example.com",
+			FailureURL: testURL,
 			Duration:   webhook.CustomDuration(10 * time.Second),
 			Until:      refTime.Add(10 * time.Second),
 		},
-		PartnerIDs: []string{"comcast"},
+		PartnerIDs: []string{testPartnerID},
 	}, &ManifestV1{
 		// nolint:staticcheck
 		Registration: webhook.RegistrationV1{
-			Address: "example.com",
+			Address: testURL,
 			// nolint:staticcheck
 			Config: webhook.DeliveryConfig{
-				ReceiverURL: "example.com",
-				ContentType: "application/json",
+				ReceiverURL: testURL,
+				ContentType: testContentType,
 				Secret:      NOT_A_SECRET,
 			},
-			Events: []string{"online"},
+			Events: []string{testOnline},
 			Matcher: webhook.MetadataMatcherConfig{
-				DeviceID: []string{"mac:aabbccddee.*"},
+				DeviceID: []string{testMac},
 			},
-			FailureURL: "example.com",
+			FailureURL: testURL,
 			Duration:   webhook.CustomDuration(20 * time.Second),
 			Until:      refTime.Add(20 * time.Second),
 		},
@@ -203,22 +227,22 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
 			Data: map[string]any{
-				"wrp_event_stream_schema_v1": map[string]any{
-					"registered_from_address": "example.com",
-					"config": map[string]any{
-						"url":          "example.com",
-						"content_type": "application/json",
-						"secret":       "superSecretXYZ",
+				TestWRPEventField: map[string]any{
+					TestRegField: testURL,
+					testConfigField: map[string]any{
+						testURLField:         testURL,
+						testContentTypeField: testContentType,
+						testSecretField:      NOT_A_SECRET,
 					},
-					"events": []any{"online"},
-					"matcher": map[string]any{
-						"device_id": []any{"mac:aabbccddee.*"},
+					testEventsField: []any{testOnline},
+					testMatcherField: map[string]any{
+						testDeviceIDField: []any{testMac},
 					},
-					"failure_url": "example.com",
-					"duration":    "10s",
-					"until":       "2021-01-02T15:04:10Z",
+					testFailureURLField: testURL,
+					testDurationField:   "10s",
+					testUntilField:      "2021-01-02T15:04:10Z",
 				},
-				"PartnerIDs": []any{"comcast"},
+				"PartnerIDs": []any{testPartnerID},
 			},
 
 			TTL: &firstItemExpiresInSecs,
@@ -226,20 +250,20 @@ func getTestItems() chrysom.Items {
 		model.Item{
 			ID: "c97b4d17f7eb406720a778f73eecf419438659091039a312bebba4570e80a778",
 			Data: map[string]any{
-				"wrp_event_stream_schema_v1": map[string]any{
-					"registered_from_address": "example.com",
-					"config": map[string]any{
-						"url":          "example.com",
-						"content_type": "application/json",
-						"secret":       NOT_A_SECRET,
+				TestWRPEventField: map[string]any{
+					TestRegField: testURL,
+					testConfigField: map[string]any{
+						testURLField:         testURL,
+						testContentTypeField: testContentType,
+						testSecretField:      NOT_A_SECRET,
 					},
-					"events": []any{"online"},
-					"matcher": map[string]any{
-						"device_id": []any{"mac:aabbccddee.*"},
+					testEventsField: []any{testOnline},
+					testMatcherField: map[string]any{
+						testDeviceIDField: []any{testMac},
 					},
-					"failure_url": "example.com",
-					"duration":    "20s",
-					"until":       "2021-01-02T15:04:20Z",
+					testDurationField:   testURL,
+					testFailureURLField: "20s",
+					testUntilField:      "2021-01-02T15:04:20Z",
 				},
 				"partnerids": []string{},
 			},
