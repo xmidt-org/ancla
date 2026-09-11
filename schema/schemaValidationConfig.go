@@ -4,10 +4,16 @@
 package schema
 
 import (
+	"errors"
 	"time"
 
 	"github.com/xmidt-org/urlegit"
 	webhook "github.com/xmidt-org/webhook-schema"
+	"go.uber.org/multierr"
+)
+
+var (
+	ErrSchemaValidatorBuilder = errors.New("failed to build schema validator")
 )
 
 // SchemaURLValidatorConfig provides options for validating the wrpEventStream's URL and TTL
@@ -78,7 +84,12 @@ func (config *SchemaURLValidatorConfig) BuildURLChecker() (*urlegit.Checker, err
 }
 
 // BuildOptions translates the configuration into a list of options to be used to validate the registration
-func (config *SchemaURLValidatorConfig) BuildOptions(checker *urlegit.Checker) []webhook.Option {
+func (config *SchemaURLValidatorConfig) BuildOptions() ([]webhook.Option, error) {
+	checker, err := config.BuildURLChecker()
+	if err != nil {
+		return nil, multierr.Append(ErrSchemaValidatorBuilder, err)
+	}
+
 	var opts []webhook.Option
 	if config.BuildOpts.AtLeastOneEvent {
 		opts = append(opts, webhook.AtLeastOneEvent())
@@ -104,5 +115,6 @@ func (config *SchemaURLValidatorConfig) BuildOptions(checker *urlegit.Checker) [
 	if config.BuildOpts.CheckUntil {
 		opts = append(opts, webhook.Until(config.TTL.Now, config.TTL.Jitter, config.TTL.Max))
 	}
-	return opts
+
+	return opts, nil
 }
