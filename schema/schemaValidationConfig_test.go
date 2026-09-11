@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/xmidt-org/urlegit"
 )
 
 var (
@@ -63,14 +63,41 @@ var (
 			Now:    mockNow,
 		},
 	}
+	badBuildAllConfig = SchemaURLValidatorConfig{
+		URL: URLVConfig{
+			Schemes:       []string{"https"},
+			AllowLoopback: false,
+		},
+		IP: IPVConfig{
+			Allow: false,
+		},
+		Domain: DomainVConfig{
+			AllowSpecialUseDomains: true,
+			ForbiddenDomains:       []string{"example...com."},
+		},
+		TTL: TTLVConfig{
+			Max:    mockMax,
+			Jitter: mockJitter,
+			Now:    mockNow,
+		},
+		BuildOpts: BuildOptions{
+			AtLeastOneEvent:                true,
+			EventRegexMustCompile:          true,
+			DeviceIDRegexMustCompile:       true,
+			ValidateRegistrationDuration:   true,
+			ProvideReceiverURLValidator:    true,
+			ProvideFailureURLValidator:     true,
+			ProvideAlternativeURLValidator: true,
+			CheckUntil:                     true,
+		},
+	}
 )
 
 func TestBuildValidURLFuncs(t *testing.T) {
 	tcs := []struct {
-		desc              string
-		config            SchemaURLValidatorConfig
-		expectedErr       error
-		expectedFuncCount int
+		desc        string
+		config      SchemaURLValidatorConfig
+		expectedErr error
 	}{
 		{
 			desc: "HTTPSOnly only",
@@ -80,7 +107,6 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					Schemes:       []string{"https"},
 				},
 			},
-			expectedFuncCount: 1,
 		},
 		{
 			desc: "AllowLoopback only",
@@ -90,7 +116,6 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					Schemes:       []string{"https", "http"},
 				},
 			},
-			expectedFuncCount: 2,
 		},
 		{
 			desc: "AllowIp Only",
@@ -99,7 +124,6 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					Allow: false,
 				},
 			},
-			expectedFuncCount: 2,
 		},
 		{
 			desc: "AllowSpecialUseHosts Only",
@@ -108,7 +132,6 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					AllowSpecialUseDomains: false,
 				},
 			},
-			expectedFuncCount: 2,
 		},
 		{
 			desc: "AllowSpecialuseIPS Only",
@@ -117,7 +140,6 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					Allow: true,
 				},
 			},
-			expectedFuncCount: 2,
 		},
 		{
 			desc: "Forbidden Subnets",
@@ -127,7 +149,6 @@ func TestBuildValidURLFuncs(t *testing.T) {
 					ForbiddenSubnets: []string{"10.0.0.0/8"},
 				},
 			},
-			expectedFuncCount: 1,
 		},
 		{
 			desc: "Forbidden Domains",
@@ -139,18 +160,22 @@ func TestBuildValidURLFuncs(t *testing.T) {
 			},
 		},
 		{
-			desc: "Build None",
+			desc: "Invalid Forbidden Domains",
 			config: SchemaURLValidatorConfig{
-				URL: buildNoneConfig.URL,
+				Domain: DomainVConfig{
+					AllowSpecialUseDomains: true,
+					ForbiddenDomains:       []string{"example...com."},
+				},
 			},
-			expectedFuncCount: 1,
+			expectedErr: urlegit.ErrInvalidInput,
 		},
 		{
-			desc: "Build All",
-			config: SchemaURLValidatorConfig{
-				URL: buildAllConfig.URL,
-			},
-			expectedFuncCount: 5,
+			desc:   "Build None",
+			config: buildNoneConfig,
+		},
+		{
+			desc:   "Build All",
+			config: buildAllConfig,
 		},
 	}
 	for _, tc := range tcs {
@@ -161,18 +186,52 @@ func TestBuildValidURLFuncs(t *testing.T) {
 				assert.True(errors.Is(err, tc.expectedErr),
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 						err, tc.expectedErr))
-				assert.Nil(vals)
+
 				return
 			}
-			require.NoError(t, err)
+
+			assert.NoError(err)
+			assert.NotZero(vals)
 		})
 	}
 }
 
 func TestBuildOptions(t *testing.T) {
-	checker, err := buildAllConfig.BuildURLChecker()
-	assert.NoError(t, err)
-	opts := buildAllConfig.BuildOptions(checker)
-	assert.NotNil(t, opts)
-	assert.Len(t, opts, 8)
+	tcs := []struct {
+		desc         string
+		config       SchemaURLValidatorConfig
+		optionsCount int
+		expectedErr  error
+	}{
+		{
+			desc:        "Invalid Forbidden Domains",
+			config:      badBuildAllConfig,
+			expectedErr: urlegit.ErrInvalidInput,
+		},
+		{
+			desc:   "Build None",
+			config: buildNoneConfig,
+		},
+		{
+			desc:         "Build All",
+			config:       buildAllConfig,
+			optionsCount: 8,
+		},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			opts, err := tc.config.BuildOptions()
+			if tc.expectedErr != nil {
+				assert.True(errors.Is(err, tc.expectedErr),
+					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
+						err, tc.expectedErr))
+
+				return
+			}
+
+			assert.NoError(err)
+			assert.Len(opts, tc.optionsCount)
+		})
+	}
 }
