@@ -25,6 +25,8 @@ import (
 const (
 	failingURL = "nowhere://"
 	bucket     = "bucket-name"
+	testURL    = "example.com"
+	testOwner  = "HappyCaseOwner"
 )
 
 var (
@@ -115,13 +117,13 @@ func TestSendRequest(t *testing.T) {
 		{
 			Description: "New Request failure",
 			Method:      "what method?",
-			URL:         "example.com",
+			URL:         testURL,
 			ExpectedErr: errNewRequestFailure,
 		},
 		{
 			Description: "Auth decorator failure",
 			Method:      http.MethodGet,
-			URL:         "example.com",
+			URL:         testURL,
 			MockError:   errFails,
 			ExpectedErr: ErrAuthDecoratorFailure,
 		},
@@ -134,9 +136,9 @@ func TestSendRequest(t *testing.T) {
 		{
 			Description: "Happy path",
 			Method:      http.MethodPut,
-			URL:         "example.com",
+			URL:         testURL,
 			Body:        []byte("testing"),
-			Owner:       "HappyCaseOwner",
+			Owner:       testOwner,
 			ExpectedResponse: response{
 				Code: http.StatusOK,
 				Body: []byte("testing"),
@@ -146,9 +148,9 @@ func TestSendRequest(t *testing.T) {
 		{
 			Description: "Happy path (no auth)",
 			Method:      http.MethodPut,
-			URL:         "example.com",
+			URL:         testURL,
 			Body:        []byte("testing"),
-			Owner:       "HappyCaseOwner",
+			Owner:       testOwner,
 			ExpectedResponse: response{
 				Code: http.StatusOK,
 				Body: []byte("testing"),
@@ -157,9 +159,9 @@ func TestSendRequest(t *testing.T) {
 		{
 			Description: "Happy path with default http client",
 			Method:      http.MethodPut,
-			URL:         "example.com",
+			URL:         testURL,
 			Body:        []byte("testing"),
-			Owner:       "HappyCaseOwner",
+			Owner:       testOwner,
 			ExpectedResponse: response{
 				Code: http.StatusOK,
 				Body: []byte("testing"),
@@ -228,27 +230,31 @@ func TestGetItems(t *testing.T) {
 
 	tcs := []testCase{
 		{
-
+			// nolint:goconst
 			Description: "Make request failure",
 			ExpectedErr: ErrAuthDecoratorFailure,
 			MockError:   errFails,
 		},
 		{
+			// nolint:goconst
 			Description:         "Do request failure",
 			ShouldDoRequestFail: true,
 			ExpectedErr:         errDoRequestFailure,
 		},
 		{
+			// nolint:goconst
 			Description:  "Unauthorized",
 			ResponseCode: http.StatusForbidden,
 			ExpectedErr:  ErrFailedAuthentication,
 		},
 		{
+			// nolint:goconst
 			Description:  "Bad request",
 			ResponseCode: http.StatusBadRequest,
 			ExpectedErr:  ErrBadRequest,
 		},
 		{
+			// nolint:goconst
 			Description:  "Other non-success",
 			ResponseCode: http.StatusInternalServerError,
 			ExpectedErr:  errNonSuccessResponse,
@@ -356,6 +362,7 @@ func TestPushItem(t *testing.T) {
 			ExpectedErr: ErrItemDataEmpty,
 		},
 		{
+			// nolint:goconst
 			Description: "Make request failure",
 			Item:        validItem,
 			ExpectedErr: ErrAuthDecoratorFailure,
@@ -482,6 +489,7 @@ func TestRemoveItem(t *testing.T) {
 
 	tcs := []testCase{
 		{
+			// nolint:goconst
 			Description: "Make request failure",
 			ExpectedErr: ErrAuthDecoratorFailure,
 			MockError:   errFails,

@@ -22,6 +22,32 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	testOffline          = "offline"
+	testOnline           = "online"
+	testMac              = "mac:aabbccddee.*"
+	testURL              = "example.com"
+	testURL443           = "example.com:443"
+	testOwner            = "owner-from-auth"
+	testPartnerID        = "comcast"
+	testDurationField    = "duration"
+	testFailureURLField  = "failure_url"
+	testMatcherField     = "matcher"
+	testDeviceIDField    = "device_id"
+	testContentType      = "application/json"
+	testUntilField       = "until"
+	testEventsField      = "events"
+	testURLField         = "url"
+	testContentTypeField = "content_type"
+	testSecretField      = "secret"
+	testConfigField      = "config"
+	TestRegField         = "registered_from_address"
+	TestWRPEventField    = "wrp_event_stream_schema_v1"
+
+	// nolint:gosec
+	NOT_A_SECRET = "superSecretXYZ"
+)
+
 var (
 	mockNow = func() time.Time {
 		return time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
@@ -62,7 +88,7 @@ func TestErrorEncoder(t *testing.T) {
 			e(context.Background(), tc.InputErr, recorder)
 			assert.Equal(tc.ExpectedCode, recorder.Code)
 			assert.JSONEq(fmt.Sprintf(`{"message": "%s"}`, tc.InputErr.Error()), recorder.Body.String())
-			assert.Equal("application/json", recorder.Header().Get("Content-Type"))
+			assert.Equal(testContentType, recorder.Header().Get("Content-Type"))
 		})
 	}
 }
@@ -104,7 +130,7 @@ func TestEncodeGetAllWRPEventStreamsResponse(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			err := encodeGetAllWRPEventStreamsResponse(context.Background(), recorder, tc.InputSchemas)
 			assert.Nil(err)
-			assert.Equal("application/json", recorder.Header().Get("Content-Type"))
+			assert.Equal(testContentType, recorder.Header().Get("Content-Type"))
 			assert.JSONEq(tc.ExpectedJSONResp, recorder.Body.String())
 		})
 	}
@@ -126,8 +152,8 @@ func TestAddWRPEventStreamRequestDecoder(t *testing.T) {
 
 	var (
 		ctxEmpty                   = context.Background()
-		ctxWithoutPartnerIDs       = auth.SetPrincipal(ctxEmpty, "owner-from-auth")
-		ctxWithPrincipalPartnerIDs = auth.SetPartnerIDs(auth.SetPrincipal(ctxEmpty, "owner-from-auth"), []string{"comcast"})
+		ctxWithoutPartnerIDs       = auth.SetPrincipal(ctxEmpty, testOwner)
+		ctxWithPrincipalPartnerIDs = auth.SetPartnerIDs(auth.SetPrincipal(ctxEmpty, testOwner), []string{testPartnerID})
 	)
 
 	tcs := []testCase{
@@ -220,7 +246,7 @@ func TestAddWRPEventStreamRequestDecoder(t *testing.T) {
 				r.Body = errReader{}
 			}
 			r = r.WithContext(tc.Context)
-			r.RemoteAddr = "example.com:443"
+			r.RemoteAddr = testURL443
 
 			var decodedRequest any
 			if tc.WrongContext {
@@ -270,6 +296,7 @@ func addWRPEventStreamDecoderInput() string {
 		}
 	`
 }
+
 func addWRPEventStreamDecoderDurationInput() string {
 	return `
 		{
@@ -329,46 +356,46 @@ func addWRPEventStreamDecoderUnmarshalingErrorInput(duration bool) string {
 func addWRPEventStreamDecoderOutput(withPIDs bool) *addWRPEventStreamRequest {
 	if withPIDs {
 		return &addWRPEventStreamRequest{
-			owner: "owner-from-auth",
+			owner: testOwner,
 			internalWebook: &schema.ManifestV1{
 				// nolint:staticcheck
 				Registration: webhook.RegistrationV1{
-					Address: "example.com:443",
+					Address: testURL443,
 					// nolint:staticcheck
 					Config: webhook.DeliveryConfig{
-						ReceiverURL: "example.com:443",
-						ContentType: "application/json",
-						Secret:      "superSecretXYZ",
+						ReceiverURL: testURL443,
+						ContentType: testContentType,
+						Secret:      NOT_A_SECRET,
 					},
-					Events: []string{"online"},
+					Events: []string{testOnline},
 					Matcher: webhook.MetadataMatcherConfig{
-						DeviceID: []string{"mac:aabbccddee.*"},
+						DeviceID: []string{testMac},
 					},
-					FailureURL: "example.com",
+					FailureURL: testURL,
 					Duration:   webhook.CustomDuration(0 * time.Second),
 					Until:      getRefTime().Add(10 * time.Second),
 				},
-				PartnerIDs: []string{"comcast"},
+				PartnerIDs: []string{testPartnerID},
 			},
 		}
 	}
 	return &addWRPEventStreamRequest{
-		owner: "owner-from-auth",
+		owner: testOwner,
 		internalWebook: &schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
-				Address: "example.com:443",
+				Address: testURL443,
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
-					ContentType: "application/json",
-					Secret:      "superSecretXYZ",
+					ReceiverURL: testURL443,
+					ContentType: testContentType,
+					Secret:      NOT_A_SECRET,
 				},
-				Events: []string{"online"},
+				Events: []string{testOnline},
 				Matcher: webhook.MetadataMatcherConfig{
-					DeviceID: []string{"mac:aabbccddee.*"},
+					DeviceID: []string{testMac},
 				},
-				FailureURL: "example.com",
+				FailureURL: testURL,
 				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(10 * time.Second),
 			},
@@ -379,46 +406,46 @@ func addWRPEventStreamDecoderOutput(withPIDs bool) *addWRPEventStreamRequest {
 func addWRPEventStreamDecoderDurationOutput(withPIDs bool) *addWRPEventStreamRequest {
 	if withPIDs {
 		return &addWRPEventStreamRequest{
-			owner: "owner-from-auth",
+			owner: testOwner,
 			internalWebook: &schema.ManifestV1{
 				// nolint:staticcheck
 				Registration: webhook.RegistrationV1{
-					Address: "example.com:443",
+					Address: testURL443,
 					// nolint:staticcheck
 					Config: webhook.DeliveryConfig{
-						ReceiverURL: "example.com:443",
-						ContentType: "application/json",
-						Secret:      "superSecretXYZ",
+						ReceiverURL: testURL443,
+						ContentType: testContentType,
+						Secret:      NOT_A_SECRET,
 					},
-					Events: []string{"online"},
+					Events: []string{testOnline},
 					Matcher: webhook.MetadataMatcherConfig{
-						DeviceID: []string{"mac:aabbccddee.*"},
+						DeviceID: []string{testMac},
 					},
-					FailureURL: "example.com",
+					FailureURL: testURL,
 					Duration:   webhook.CustomDuration(5 * time.Minute),
 					Until:      getRefTime().Add(5 * time.Minute),
 				},
-				PartnerIDs: []string{"comcast"},
+				PartnerIDs: []string{testPartnerID},
 			},
 		}
 	}
 	return &addWRPEventStreamRequest{
-		owner: "owner-from-auth",
+		owner: testOwner,
 		internalWebook: &schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
-				Address: "example.com:443",
+				Address: testURL443,
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
-					ContentType: "application/json",
-					Secret:      "superSecretXYZ",
+					ReceiverURL: testURL443,
+					ContentType: testContentType,
+					Secret:      NOT_A_SECRET,
 				},
-				Events: []string{"online"},
+				Events: []string{testOnline},
 				Matcher: webhook.MetadataMatcherConfig{
-					DeviceID: []string{"mac:aabbccddee.*"},
+					DeviceID: []string{testMac},
 				},
-				FailureURL: "example.com",
+				FailureURL: testURL,
 				Duration:   webhook.CustomDuration(5 * time.Minute),
 				Until:      getRefTime().Add(5 * time.Minute),
 			},
@@ -432,46 +459,46 @@ func encodeGetAllInput() []schema.Manifest {
 		&schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
-				Address: "example.com:443",
+				Address: testURL443,
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
-					ContentType: "application/json",
-					Secret:      "superSecretXYZ",
+					ReceiverURL: testURL443,
+					ContentType: testContentType,
+					Secret:      NOT_A_SECRET,
 				},
-				Events: []string{"online"},
+				Events: []string{testOnline},
 				Matcher: struct {
 					DeviceID []string `json:"device_id"`
 				}{
-					DeviceID: []string{"mac:aabbccddee.*"},
+					DeviceID: []string{testMac},
 				},
-				FailureURL: "example.com",
+				FailureURL: testURL,
 				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(10 * time.Second),
 			},
-			PartnerIDs: []string{"comcast"},
+			PartnerIDs: []string{testPartnerID},
 		},
 		&schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
-				Address: "example.com:443",
+				Address: testURL443,
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ContentType: "application/json",
-					ReceiverURL: "example.com:443",
+					ContentType: testContentType,
+					ReceiverURL: testURL443,
 					Secret:      NOT_A_SECRET,
 				},
-				Events: []string{"online"},
+				Events: []string{testOnline},
 				Matcher: struct {
 					DeviceID []string `json:"device_id"`
 				}{
-					DeviceID: []string{"mac:aabbccddee.*"},
+					DeviceID: []string{testMac},
 				},
-				FailureURL: "example.com",
+				FailureURL: testURL,
 				Duration:   webhook.CustomDuration(0 * time.Second),
 				Until:      getRefTime().Add(20 * time.Second),
 			},
-			PartnerIDs: []string{"comcast"},
+			PartnerIDs: []string{testPartnerID},
 		},
 	}
 
@@ -531,21 +558,21 @@ func TestSetWRPEventStreamDefaults(t *testing.T) {
 			registration: &webhook.RegistrationV1{
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
+					ReceiverURL: testURL443,
 				},
-				Events:   []string{"online", "offline"},
+				Events:   []string{testOnline, testOffline},
 				Matcher:  webhook.MetadataMatcherConfig{},
 				Duration: webhook.CustomDuration(5 * time.Minute),
 			},
-			remoteAddr: "example.com:443",
+			remoteAddr: testURL443,
 			// nolint:staticcheck
 			expectedRegistration: &webhook.RegistrationV1{
-				Address: "example.com:443",
+				Address: testURL443,
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
+					ReceiverURL: testURL443,
 				},
-				Events: []string{"online", "offline"},
+				Events: []string{testOnline, testOffline},
 				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"}},
 				Duration: webhook.CustomDuration(5 * time.Minute),
@@ -558,9 +585,9 @@ func TestSetWRPEventStreamDefaults(t *testing.T) {
 			registration: &webhook.RegistrationV1{
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
+					ReceiverURL: testURL443,
 				},
-				Events:   []string{"online", "offline"},
+				Events:   []string{testOnline, testOffline},
 				Matcher:  webhook.MetadataMatcherConfig{},
 				Duration: webhook.CustomDuration(5 * time.Minute),
 			},
@@ -568,9 +595,9 @@ func TestSetWRPEventStreamDefaults(t *testing.T) {
 			expectedRegistration: &webhook.RegistrationV1{
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
+					ReceiverURL: testURL443,
 				},
-				Events: []string{"online", "offline"},
+				Events: []string{testOnline, testOffline},
 				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"}},
 				Duration: webhook.CustomDuration(5 * time.Minute),
@@ -581,27 +608,27 @@ func TestSetWRPEventStreamDefaults(t *testing.T) {
 			desc: "All values set",
 			// nolint:staticcheck
 			registration: &webhook.RegistrationV1{
-				Address: "example.com:443",
+				Address: testURL443,
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
+					ReceiverURL: testURL443,
 				},
-				Events: []string{"online", "offline"},
+				Events: []string{testOnline, testOffline},
 				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"},
 				},
 				Duration: webhook.CustomDuration(5 * time.Minute),
 				Until:    mockNow().Add(5 * time.Minute),
 			},
-			remoteAddr: "example.com:443",
+			remoteAddr: testURL443,
 			// nolint:staticcheck
 			expectedRegistration: &webhook.RegistrationV1{
-				Address: "example.com:443",
+				Address: testURL443,
 				// nolint:staticcheck
 				Config: webhook.DeliveryConfig{
-					ReceiverURL: "example.com:443",
+					ReceiverURL: testURL443,
 				},
-				Events: []string{"online", "offline"},
+				Events: []string{testOnline, testOffline},
 				Matcher: webhook.MetadataMatcherConfig{
 					DeviceID: []string{".*"},
 				},
