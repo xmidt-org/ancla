@@ -117,7 +117,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 	defer close()
 
 	t.Run("ParallelGroup", func(t *testing.T) {
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			testNumber := i
 			t.Run(strconv.Itoa(testNumber), func(t *testing.T) {
 				t.Parallel()
@@ -145,7 +145,7 @@ func TestListenerStartStopPairsSerial(t *testing.T) {
 	assert.Nil(t, err)
 	defer close()
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		testNumber := i
 		t.Run(strconv.Itoa(testNumber), func(t *testing.T) {
 			assert := assert.New(t)
