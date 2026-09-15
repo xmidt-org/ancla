@@ -11,18 +11,20 @@ import (
 // Watch is the interface for listening for wrpEventStream subcription updates.
 // Updates represent the latest known list of subscriptions.
 type Watch interface {
-	Update([]schema.Manifest)
+	Update([]schema.Manifest) error
 }
 
 // WatchFunc allows bare functions to pass as Watches.
-type WatchFunc func([]schema.Manifest)
+type WatchFunc func([]schema.Manifest) error
 
-func (f WatchFunc) Update(update []schema.Manifest) {
-	f(update)
+func (f WatchFunc) Update(update []schema.Manifest) error {
+	return f(update)
 }
 
 func wrpEventStreamListSizeWatch(s prometheus.Gauge) Watch {
-	return WatchFunc(func(streams []schema.Manifest) {
+	return WatchFunc(func(streams []schema.Manifest) error {
 		s.Set(float64(len(streams)))
+
+		return nil
 	})
 }

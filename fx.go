@@ -4,11 +4,15 @@
 package ancla
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/schema"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/fx"
+	"go.uber.org/multierr"
 )
 
 type ServiceIn struct {
@@ -50,7 +54,6 @@ func ProvideDefaultListenerWatchers(in DefaultListenersIn) DefaultListenerOut {
 type ListenerIn struct {
 	fx.In
 
-	Shutdowner fx.Shutdowner
 	// Watchers are called by the Listener when new wrpEventStreams are fetched.
 	Watchers []Watch `group:"watchers"`
 }
@@ -64,17 +67,26 @@ type ListenerOut struct {
 
 func ProvideListener(in ListenerIn) ListenerOut {
 	return ListenerOut{
-		Option: chrysom.Listener(chrysom.ListenerFunc(func(items chrysom.Items) {
+		Option: chrysom.Listener(chrysom.ListenerFunc(func(ctx context.Context, items chrysom.Items) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+
 			manifests, err := schema.ItemsToSchemas(items)
 			if err != nil {
-				in.Shutdowner.Shutdown(fx.ExitCode(1))
-
-				return
+				return fmt.Errorf("listener failure: %w", err)
 			}
 
+			var errs error
 			for _, watch := range in.Watchers {
-				watch.Update(manifests)
+				multierr.Append(errs, watch.Update(manifests))
 			}
+
+			if errs != nil {
+				return fmt.Errorf("listener failure: %d watcher(s) failed: %w", len(multierr.Errors(errs)), errs)
+			}
+
+			return nil
 		})),
 	}
 }

@@ -39,7 +39,6 @@ func ProvideBasicClient(in ProvideBasicClientIn) (ProvideBasicClientOut, error) 
 	}, err
 }
 
-// ListenerConfig contains config data for polling the Argus client.
 type ListenerClientIn struct {
 	fx.In
 
