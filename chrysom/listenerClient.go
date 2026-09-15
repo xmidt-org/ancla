@@ -92,13 +92,17 @@ func (c *ListenerClient) Start(ctx context.Context) error {
 				ctx := c.setLogger(context.Background(), logger)
 				items, err := c.reader.GetItems(ctx, "")
 				if err == nil {
-					c.listener.Update(items)
+					if err := c.listener.Update(ctx, items); err != nil {
+						logger.Error("listner failure", zap.Error(err))
+					}
 				} else {
 					outcome = FailureOutcome
 					logger.Error("Failed to get items for listeners", zap.Error(err))
 				}
+
 				c.pollsTotalCounter.With(prometheus.Labels{
 					OutcomeLabel: outcome}).Add(1)
+				c.ticker.Reset(c.pullInterval)
 			}
 		}
 	}()

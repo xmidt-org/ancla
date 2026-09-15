@@ -19,8 +19,9 @@ import (
 )
 
 var (
-	mockListener = ListenerFunc((func(_ Items) {
+	mockListener = ListenerFunc((func(_ context.Context, _ Items) error {
 		time.Sleep(time.Millisecond * 100)
+		return nil
 	}))
 	pollsTotalCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -116,7 +117,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 	defer close()
 
 	t.Run("ParallelGroup", func(t *testing.T) {
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			testNumber := i
 			t.Run(strconv.Itoa(testNumber), func(t *testing.T) {
 				t.Parallel()
@@ -125,7 +126,7 @@ func TestListenerStartStopPairsParallel(t *testing.T) {
 				if errStart != nil {
 					assert.Equal(ErrListenerNotStopped, errStart)
 				}
-				client.listener.Update(Items{})
+				assert.NoError(client.listener.Update(context.Background(), Items{}))
 				time.Sleep(time.Millisecond * 400)
 				errStop := client.Stop(context.Background())
 				if errStop != nil {
@@ -144,7 +145,7 @@ func TestListenerStartStopPairsSerial(t *testing.T) {
 	assert.Nil(t, err)
 	defer close()
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		testNumber := i
 		t.Run(strconv.Itoa(testNumber), func(t *testing.T) {
 			assert := assert.New(t)
