@@ -16,6 +16,8 @@ import (
 	webhook "github.com/xmidt-org/webhook-schema"
 )
 
+var errNilItemData = errors.New("item data is nil")
+
 type Manifest interface {
 	GetId() string
 	GetUntil() time.Time
@@ -74,13 +76,17 @@ func ItemToSchema(i model.Item) (Manifest, error) {
 		errs error
 	)
 
+	if i.Data == nil {
+		return nil, errNilItemData
+	}
+
 	encodedSchema, err := json.Marshal(i.Data)
 	if err != nil {
 		return nil, err
 	}
 
 	err = json.Unmarshal(encodedSchema, &v2)
-	if err == nil && v2.Registration.CanonicalName != "" {
+	if err == nil && v2 != nil && v2.Registration.CanonicalName != "" {
 		return v2, nil
 	} else if err != nil {
 		errs = errors.Join(errs, fmt.Errorf("%T Unmarshal error: %s", v2, err))

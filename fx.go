@@ -67,26 +67,32 @@ type ListenerOut struct {
 
 func ProvideListener(in ListenerIn) ListenerOut {
 	return ListenerOut{
-		Option: chrysom.Listener(chrysom.ListenerFunc(func(ctx context.Context, items chrysom.Items) error {
-			if err := ctx.Err(); err != nil {
-				return err
-			}
+		Option: chrysom.Listener(newListener(in.Watchers)),
+	}
+}
 
-			manifests, err := schema.ItemsToSchemas(items)
-			if err != nil {
-				return fmt.Errorf("listener failure: %w", err)
-			}
+// newListener returns a chrysom listener that converts fetched items into
+// manifests and fans them out to every watcher.
+func newListener(watchers []Watch) chrysom.ListenerFunc {
+	return func(ctx context.Context, items chrysom.Items) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 
-			var errs error
-			for _, watch := range in.Watchers {
-				multierr.Append(errs, watch.Update(manifests))
-			}
+		manifests, err := schema.ItemsToSchemas(items)
+		if err != nil {
+			return fmt.Errorf("listener failure: %w", err)
+		}
 
-			if errs != nil {
-				return fmt.Errorf("listener failure: %d watcher(s) failed: %w", len(multierr.Errors(errs)), errs)
-			}
+		var errs error
+		for _, watch := range watchers {
+			errs = multierr.Append(errs, watch.Update(manifests))
+		}
 
-			return nil
-		})),
+		if errs != nil {
+			return fmt.Errorf("listener failure: %d watcher(s) failed: %w", len(multierr.Errors(errs)), errs)
+		}
+
+		return nil
 	}
 }

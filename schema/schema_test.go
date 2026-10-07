@@ -4,10 +4,13 @@
 package schema
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/webhook-schema"
@@ -32,6 +35,7 @@ const (
 	testConfigField      = "config"
 	TestRegField         = "registered_from_address"
 	TestWRPEventField    = "wrp_event_stream_schema_v1"
+	testNotAnObject      = "not an object"
 	testHTTPSScheme      = "https"
 	testHTTPScheme       = "http"
 
@@ -270,4 +274,149 @@ func getTestItems() chrysom.Items {
 			TTL: &secondItemExpiresInSecs,
 		},
 	}
+}
+
+// badManifest cannot be marshaled as JSON.
+type badManifest struct {
+	Ch chan int
+}
+
+func (badManifest) GetId() string       { return "bad" }
+func (badManifest) GetUntil() time.Time { return time.Time{} }
+
+// arrayManifest marshals to a JSON array instead of an object.
+type arrayManifest struct{}
+
+func (arrayManifest) GetId() string                { return "array" }
+func (arrayManifest) GetUntil() time.Time          { return time.Time{} }
+func (arrayManifest) MarshalJSON() ([]byte, error) { return []byte(`[1, 2]`), nil }
+
+func getTestV2Schema() *ManifestV2 {
+	return &ManifestV2{
+		PartnerIds: []string{testPartnerID},
+		Registration: webhook.RegistrationV2{
+			CanonicalName: "test-v2",
+			Address:       testURL,
+			Webhooks: []webhook.Webhook{{
+				ReceiverURLs: []string{"https://" + testURL},
+				Secret:       NOT_A_SECRET,
+			}},
+			Expires: getRefTime().Add(10 * time.Second),
+		},
+	}
+}
+
+func TestManifestAccessors(t *testing.T) {
+	assert := assert.New(t)
+	refTime := getRefTime()
+
+	v1 := getTestSchemas()[0]
+	assert.Equal(testURL, v1.GetId())
+	assert.Equal(refTime.Add(10*time.Second), v1.GetUntil())
+
+	v2 := getTestV2Schema()
+	assert.Equal("test-v2", v2.GetId())
+	assert.Equal(refTime.Add(10*time.Second), v2.GetUntil())
+}
+
+func TestSchemaToItemFailures(t *testing.T) {
+	tcs := []struct {
+		desc     string
+		manifest Manifest
+	}{
+		{desc: "marshal failure", manifest: badManifest{}},
+		{desc: "unmarshal failure", manifest: arrayManifest{}},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			item, err := SchemaToItem(time.Now, tc.manifest)
+			assert.Error(err)
+			assert.Equal(model.Item{}, item)
+		})
+	}
+}
+
+func TestSchemaToItemV2(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+	v2 := getTestV2Schema()
+
+	item, err := SchemaToItem(getRefTime, v2)
+	require.NoError(err)
+	require.NotNil(item.TTL)
+	assert.Equal(int64(10), *item.TTL)
+	assert.Equal(fmt.Sprintf("%x", sha256.Sum256([]byte("test-v2"))), item.ID)
+
+	back, err := ItemToSchema(item)
+	require.NoError(err)
+	assert.Equal(v2, back)
+}
+
+func TestItemToSchemaFailures(t *testing.T) {
+	tcs := []struct {
+		desc string
+		item model.Item
+	}{
+		{
+			desc: "nil data",
+			item: model.Item{},
+		},
+		{
+			desc: "v2 unmarshal failure then v1 unmarshal failure",
+			item: model.Item{Data: map[string]any{
+				"wrp_event_stream_schema_v2": testNotAnObject,
+				TestWRPEventField:            testNotAnObject,
+			}},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			m, err := ItemToSchema(tc.item)
+			assert.Error(err)
+			assert.Nil(m)
+		})
+	}
+}
+
+func TestItemToSchemaV2FailureFallsBackToV1(t *testing.T) {
+	assert := assert.New(t)
+	items := getTestItems()
+	item := items[0]
+	item.Data["wrp_event_stream_schema_v2"] = testNotAnObject
+
+	m, err := ItemToSchema(item)
+	assert.NoError(err)
+	assert.Equal(getTestSchemas()[0], m)
+}
+
+func TestItemsToSchemas(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	ms, err := ItemsToSchemas(getTestItems()[:1])
+	require.NoError(err)
+	assert.Equal(getTestSchemas()[:1], ms)
+
+	ms, err = ItemsToSchemas(nil)
+	require.NoError(err)
+	assert.Equal([]Manifest{}, ms)
+
+	ms, err = ItemsToSchemas(chrysom.Items{model.Item{}})
+	assert.Error(err)
+	assert.Nil(ms)
+}
+
+func TestSchemasToWRPEventStreams(t *testing.T) {
+	assert := assert.New(t)
+	v1 := getTestSchemas()[0].(*ManifestV1)
+	v2 := getTestV2Schema()
+
+	out := SchemasToWRPEventStreams([]Manifest{v1, v2, badManifest{}})
+	assert.Equal([]any{v1.Registration, v2.Registration}, out)
+
+	assert.Equal([]any{}, SchemasToWRPEventStreams(nil))
 }

@@ -6,6 +6,8 @@ package ancla
 import (
 	"context"
 	"errors"
+	"net/http"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -19,6 +21,7 @@ import (
 var (
 	errReadBodyFail      = errors.New("read test error")
 	errMockValidatorFail = errors.New("validation error")
+	errWriteFail         = errors.New("write test error")
 )
 
 type mockPushReader struct {
@@ -212,3 +215,26 @@ func (mockOption) Validate(mock any) error {
 func (mockOption) String() string {
 	return "mockOption"
 }
+
+// badManifest cannot be marshaled as JSON.
+type badManifest struct {
+	Ch chan int
+}
+
+func (badManifest) GetId() string       { return "bad" }
+func (badManifest) GetUntil() time.Time { return time.Time{} }
+
+// failingResponseWriter fails every Write.
+type failingResponseWriter struct {
+	header http.Header
+}
+
+func (f *failingResponseWriter) Header() http.Header {
+	if f.header == nil {
+		f.header = http.Header{}
+	}
+	return f.header
+}
+
+func (f *failingResponseWriter) Write([]byte) (int, error) { return 0, errWriteFail }
+func (f *failingResponseWriter) WriteHeader(int)           {}
