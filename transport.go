@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"time"
 
-	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/xmidt-org/ancla/auth"
 	"github.com/xmidt-org/ancla/schema"
 	"github.com/xmidt-org/httpaux/erraux"
@@ -31,6 +30,25 @@ const (
 	jsonContentType   = "application/json"
 )
 
+// decodeRequestFunc extracts a typed request from an *http.Request.
+type decodeRequestFunc func(context.Context, *http.Request) (any, error)
+
+// encodeResponseFunc writes a successful response.
+type encodeResponseFunc func(context.Context, http.ResponseWriter, any) error
+
+// errorEncoderFunc writes an error response.
+type errorEncoderFunc func(context.Context, error, http.ResponseWriter)
+
+// statusCoder is implemented by errors that carry an HTTP status code.
+type statusCoder interface {
+	StatusCode() int
+}
+
+// nopRequestDecoder is a decodeRequestFunc for endpoints that take no input.
+func nopRequestDecoder(context.Context, *http.Request) (any, error) {
+	return nil, nil
+}
+
 type transportConfig struct {
 	now                   func() time.Time
 	v                     webhook.Validators
@@ -45,11 +63,8 @@ type addWRPEventStreamRequest struct {
 
 func encodeGetAllWRPEventStreamsResponse(ctx context.Context, rw http.ResponseWriter, response any) error {
 	manifests := response.([]schema.Manifest)
+	// SchemasToWRPEventStreams never returns nil, so an empty list encodes as "[]".
 	streams := schema.SchemasToWRPEventStreams(manifests)
-	if streams == nil {
-		// prefer JSON output to be "[]" instead of "<nil>"
-		streams = []any{}
-	}
 	obfuscateSecrets(streams)
 	encodedWRPEventStreams, err := json.Marshal(&streams)
 	if err != nil {
@@ -61,7 +76,7 @@ func encodeGetAllWRPEventStreamsResponse(ctx context.Context, rw http.ResponseWr
 	return err
 }
 
-func addWRPEventStreamRequestDecoder(config transportConfig) kithttp.DecodeRequestFunc {
+func addWRPEventStreamRequestDecoder(config transportConfig) decodeRequestFunc {
 	wv := wrpEventStreamValidator{
 		now: config.now,
 	}
@@ -190,11 +205,11 @@ func (wv wrpEventStreamValidator) setV2Defaults(r *webhook.RegistrationV2) {
 	//TODO: need to get registrationV2 defaults
 }
 
-func errorEncoder(getLogger func(context.Context) *zap.Logger) kithttp.ErrorEncoder {
+func errorEncoder(getLogger func(context.Context) *zap.Logger) errorEncoderFunc {
 	return func(ctx context.Context, err error, w http.ResponseWriter) {
 		w.Header().Set(contentTypeHeader, jsonContentType)
 		code := http.StatusInternalServerError
-		var sc kithttp.StatusCoder
+		var sc statusCoder
 		if errors.As(err, &sc) {
 			code = sc.StatusCode()
 		}

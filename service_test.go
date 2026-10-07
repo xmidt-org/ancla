@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
 	"github.com/xmidt-org/ancla/schema"
@@ -231,4 +232,38 @@ func getTestItems() chrysom.Items {
 			TTL: &secondItemExpiresInSecs,
 		},
 	}
+}
+
+func TestAddConversionFailure(t *testing.T) {
+	assert := assert.New(t)
+	m := new(mockPushReader)
+	svc := service{argus: m, now: time.Now}
+	err := svc.Add(context.TODO(), "owner", badManifest{})
+	assert.ErrorIs(err, errFailedWRPEventStreamConversion)
+	// nolint:typecheck
+	m.AssertExpectations(t)
+}
+
+func TestGetAllConversionFailure(t *testing.T) {
+	assert := assert.New(t)
+	m := new(mockPushReader)
+	svc := service{argus: m}
+	// nolint:typecheck
+	m.On("GetItems", context.TODO(), "").Return(chrysom.Items{
+		model.Item{Data: map[string]any{TestWRPEventField: "not an object"}},
+	}, nil)
+	manifests, err := svc.GetAll(context.TODO())
+	assert.ErrorIs(err, errFailedItemConversion)
+	assert.Nil(manifests)
+	// nolint:typecheck
+	m.AssertExpectations(t)
+}
+
+func TestNewService(t *testing.T) {
+	require := require.New(t)
+	m := new(mockPushReader)
+	svc := NewService(m)
+	require.NotNil(svc)
+	require.Equal(m, svc.argus)
+	require.NotNil(svc.now)
 }

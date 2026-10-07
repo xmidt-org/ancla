@@ -658,3 +658,48 @@ func getItemsHappyOutput() Items {
 		},
 	}
 }
+
+func TestClientValidatorBadStoreURL(t *testing.T) {
+	_, err := NewBasicClient(append(requiredClientOptions, StoreBaseURL("://missing-scheme")))
+	assert.ErrorIs(t, err, ErrMisconfiguredClient)
+}
+
+func TestPushItemMarshalFailure(t *testing.T) {
+	require := require.New(t)
+	client, err := NewBasicClient(requiredClientOptions)
+	require.NoError(err)
+
+	result, err := client.PushItem(context.Background(), testOwner, model.Item{
+		ID:   "id",
+		Data: map[string]any{"bad": make(chan int)},
+	})
+	require.ErrorIs(err, errJSONMarshal)
+	require.Equal(NilPushResult, result)
+}
+
+func TestRemoveItemEmptyID(t *testing.T) {
+	require := require.New(t)
+	client, err := NewBasicClient(requiredClientOptions)
+	require.NoError(err)
+
+	item, err := client.RemoveItem(context.Background(), "", testOwner)
+	require.ErrorIs(err, ErrItemIDEmpty)
+	require.Equal(model.Item{}, item)
+}
+
+func TestSendRequestBodyReadFailure(t *testing.T) {
+	require := require.New(t)
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		// Promise more bytes than are sent so the client's body read fails.
+		rw.Header().Set("Content-Length", "100")
+		rw.WriteHeader(http.StatusOK)
+		rw.Write([]byte("short"))
+	}))
+	defer server.Close()
+
+	client, err := NewBasicClient(append(requiredClientOptions, StoreBaseURL(server.URL)))
+	require.NoError(err)
+
+	_, err = client.sendRequest(context.Background(), testOwner, http.MethodGet, server.URL, nil)
+	require.ErrorIs(err, errReadingBodyFailure)
+}

@@ -6,6 +6,7 @@ package ancla
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/auth"
@@ -23,6 +23,7 @@ import (
 )
 
 const (
+	testSuccess          = "success"
 	testOffline          = "offline"
 	testOnline           = "online"
 	testMac              = "mac:aabbccddee.*"
@@ -83,7 +84,6 @@ func TestErrorEncoder(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			recorder := httptest.NewRecorder()
-			// TODO: remove gokit from errorEncoder and then update TestErrorEncoder tests
 			e := errorEncoder(tc.HConfig.GetLogger)
 			e(context.Background(), tc.InputErr, recorder)
 			assert.Equal(tc.ExpectedCode, recorder.Code)
@@ -186,6 +186,14 @@ func TestAddWRPEventStreamRequestDecoder(t *testing.T) {
 			DisablePartnerIDs:      true,
 		},
 		{
+			Description:            "No principal in context",
+			InputPayload:           addWRPEventStreamDecoderInput(),
+			ExpectedDecodedRequest: addWRPEventStreamDecoderOutputNoOwner(),
+			Validator:              webhook.Validators{},
+			Context:                ctxEmpty,
+			DisablePartnerIDs:      true,
+		},
+		{
 			Description:            "unable to retrieve PartnerIDs failure",
 			InputPayload:           addWRPEventStreamDecoderInput(),
 			ExpectedDecodedRequest: addWRPEventStreamDecoderOutput(true),
@@ -260,7 +268,7 @@ func TestAddWRPEventStreamRequestDecoder(t *testing.T) {
 					fmt.Errorf("error [%v] doesn't contain error [%v] in its err chain",
 						err, tc.ExpectedErr))
 				if tc.ExpectedStatusCode != 0 {
-					var s kithttp.StatusCoder
+					var s statusCoder
 					isCoder := errors.As(err, &s)
 					require.True(isCoder, "error isn't StatusCoder as expected")
 					require.Equal(tc.ExpectedStatusCode, s.StatusCode())
@@ -403,6 +411,12 @@ func addWRPEventStreamDecoderOutput(withPIDs bool) *addWRPEventStreamRequest {
 		},
 	}
 }
+func addWRPEventStreamDecoderOutputNoOwner() *addWRPEventStreamRequest {
+	out := addWRPEventStreamDecoderOutput(false)
+	out.owner = ""
+	return out
+}
+
 func addWRPEventStreamDecoderDurationOutput(withPIDs bool) *addWRPEventStreamRequest {
 	if withPIDs {
 		return &addWRPEventStreamRequest{
@@ -663,4 +677,125 @@ func (bre BadRequestErr) SanitizedError() string {
 
 func (bre BadRequestErr) StatusCode() int {
 	return http.StatusBadRequest
+}
+
+func addWRPEventStreamDecoderV2Input() string {
+	return `
+		{
+			"canonical_name": "test-v2",
+			"registered_from_address": "example.com:443",
+			"webhooks": [
+				{
+					"receiver_urls": ["https://example.com"],
+					"secret": "superSecretXYZ"
+				}
+			],
+			"matcher": [{"field": "device_id", "regex": ".*"}],
+			"expires": "2021-01-02T15:04:10Z"
+		}
+	`
+}
+
+func addWRPEventStreamDecoderV2Output(t *testing.T) *addWRPEventStreamRequest {
+	var reg webhook.RegistrationV2
+	require.NoError(t, json.Unmarshal([]byte(addWRPEventStreamDecoderV2Input()), &reg))
+	return &addWRPEventStreamRequest{
+		owner: testOwner,
+		internalWebook: &schema.ManifestV2{
+			PartnerIds:   []string{testPartnerID},
+			Registration: reg,
+		},
+	}
+}
+
+func TestAddWRPEventStreamRequestDecoderV2(t *testing.T) {
+	ctx := auth.SetPartnerIDs(auth.SetPrincipal(context.Background(), testOwner), []string{testPartnerID})
+
+	tcs := []struct {
+		desc               string
+		validator          webhook.Validators
+		expectedErr        error
+		expectedStatusCode int
+	}{
+		{
+			desc:      "V2 happy path",
+			validator: webhook.Validators{},
+		},
+		{
+			desc:               "V2 validation failure",
+			validator:          mockValidator(),
+			expectedErr:        errMockValidatorFail,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert := assert.New(t)
+			require := require.New(t)
+			decode := addWRPEventStreamRequestDecoder(transportConfig{now: getRefTime, v: tc.validator})
+
+			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(addWRPEventStreamDecoderV2Input()))
+			require.NoError(err)
+			r = r.WithContext(ctx)
+
+			decoded, err := decode(r.Context(), r)
+			if tc.expectedErr != nil {
+				assert.ErrorIs(err, tc.expectedErr)
+				var s statusCoder
+				require.ErrorAs(err, &s)
+				assert.Equal(tc.expectedStatusCode, s.StatusCode())
+				return
+			}
+
+			require.NoError(err)
+			assert.EqualValues(addWRPEventStreamDecoderV2Output(t), decoded)
+		})
+	}
+}
+
+func TestObfuscateSecrets(t *testing.T) {
+	assert := assert.New(t)
+	streams := []any{
+		// nolint:staticcheck
+		webhook.RegistrationV1{Config: webhook.DeliveryConfig{Secret: NOT_A_SECRET}},
+		webhook.RegistrationV2{Webhooks: []webhook.Webhook{{Secret: NOT_A_SECRET}, {Secret: NOT_A_SECRET}}},
+		"something else",
+	}
+
+	obfuscateSecrets(streams)
+
+	// nolint:staticcheck
+	v1 := streams[0].(webhook.RegistrationV1)
+	assert.Equal("<obfuscated>", v1.Config.Secret)
+	v2 := streams[1].(webhook.RegistrationV2)
+	for _, w := range v2.Webhooks {
+		assert.Equal("<obfuscated>", w.Secret)
+	}
+	assert.Equal("something else", streams[2])
+}
+
+func TestEncodeGetAllWRPEventStreamsResponseV2(t *testing.T) {
+	assert := assert.New(t)
+	recorder := httptest.NewRecorder()
+	manifests := []schema.Manifest{
+		&schema.ManifestV2{Registration: webhook.RegistrationV2{
+			CanonicalName: "test-v2",
+			Webhooks:      []webhook.Webhook{{Secret: NOT_A_SECRET}},
+		}},
+	}
+
+	assert.NoError(encodeGetAllWRPEventStreamsResponse(context.Background(), recorder, manifests))
+
+	var out []map[string]any
+	assert.NoError(json.Unmarshal(recorder.Body.Bytes(), &out))
+	assert.Len(out, 1)
+	assert.Equal("test-v2", out[0]["canonical_name"])
+	hooks := out[0]["webhooks"].([]any)
+	assert.Equal("<obfuscated>", hooks[0].(map[string]any)["secret"])
+}
+
+func TestEncodeGetAllWRPEventStreamsResponseWriteFailure(t *testing.T) {
+	err := encodeGetAllWRPEventStreamsResponse(context.Background(), &failingResponseWriter{}, []schema.Manifest(nil))
+	assert.ErrorIs(t, err, errWriteFail)
 }
