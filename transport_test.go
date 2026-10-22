@@ -696,9 +696,28 @@ func addWRPEventStreamDecoderV2Input() string {
 	`
 }
 
-func addWRPEventStreamDecoderV2Output(t *testing.T) *addWRPEventStreamRequest {
+// addWRPEventStreamDecoderV2NoMatcherInput is a v2 registration with no
+// field the v1 schema would refuse: nothing but the v2-only fields tells
+// the two schemas apart.
+func addWRPEventStreamDecoderV2NoMatcherInput() string {
+	return `
+		{
+			"canonical_name": "test-v2",
+			"registered_from_address": "example.com:443",
+			"webhooks": [
+				{
+					"receiver_urls": ["https://example.com"],
+					"secret": "superSecretXYZ"
+				}
+			],
+			"expires": "2021-01-02T15:04:10Z"
+		}
+	`
+}
+
+func addWRPEventStreamDecoderV2Output(t *testing.T, input string) *addWRPEventStreamRequest {
 	var reg webhook.RegistrationV2
-	require.NoError(t, json.Unmarshal([]byte(addWRPEventStreamDecoderV2Input()), &reg))
+	require.NoError(t, json.Unmarshal([]byte(input), &reg))
 	return &addWRPEventStreamRequest{
 		owner: testOwner,
 		internalWebook: &schema.ManifestV2{
@@ -713,18 +732,33 @@ func TestAddWRPEventStreamRequestDecoderV2(t *testing.T) {
 
 	tcs := []struct {
 		desc               string
+		input              string
 		validator          webhook.Validators
 		expectedErr        error
 		expectedStatusCode int
 	}{
 		{
 			desc:      "V2 happy path",
+			input:     addWRPEventStreamDecoderV2Input(),
+			validator: webhook.Validators{},
+		},
+		{
+			desc:      "V2 without a matcher",
+			input:     addWRPEventStreamDecoderV2NoMatcherInput(),
 			validator: webhook.Validators{},
 		},
 		{
 			desc:               "V2 validation failure",
+			input:              addWRPEventStreamDecoderV2Input(),
 			validator:          mockValidator(),
 			expectedErr:        errMockValidatorFail,
+			expectedStatusCode: http.StatusBadRequest,
+		},
+		{
+			desc:               "V2 with a field of the wrong type",
+			input:              `{"canonical_name": "test-v2", "webhooks": "not a list"}`,
+			validator:          webhook.Validators{},
+			expectedErr:        errFailedWRPEventStreamUnmarshal,
 			expectedStatusCode: http.StatusBadRequest,
 		},
 	}
@@ -735,7 +769,7 @@ func TestAddWRPEventStreamRequestDecoderV2(t *testing.T) {
 			require := require.New(t)
 			decode := addWRPEventStreamRequestDecoder(transportConfig{now: getRefTime, v: tc.validator})
 
-			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(addWRPEventStreamDecoderV2Input()))
+			r, err := http.NewRequest(http.MethodPost, "http://localhost:8080", bytes.NewBufferString(tc.input))
 			require.NoError(err)
 			r = r.WithContext(ctx)
 
@@ -749,7 +783,33 @@ func TestAddWRPEventStreamRequestDecoderV2(t *testing.T) {
 			}
 
 			require.NoError(err)
-			assert.EqualValues(addWRPEventStreamDecoderV2Output(t), decoded)
+			assert.EqualValues(addWRPEventStreamDecoderV2Output(t, tc.input), decoded)
+		})
+	}
+}
+
+func TestIsV2Registration(t *testing.T) {
+	tcs := []struct {
+		desc string
+		body string
+		v2   bool
+	}{
+		{desc: "v1", body: addWRPEventStreamDecoderInput()},
+		{desc: "v1 with an unknown field", body: `{"config": {"url": "https://example.com"}, "bogus": 1}`},
+		{desc: "empty object", body: `{}`},
+		{desc: "malformed", body: `{bad`},
+		{desc: "not an object", body: `[]`},
+		{desc: "v2", body: addWRPEventStreamDecoderV2Input(), v2: true},
+		{desc: "v2 without a matcher", body: addWRPEventStreamDecoderV2NoMatcherInput(), v2: true},
+		{desc: "canonical name only", body: `{"canonical_name": "x"}`, v2: true},
+		{desc: "webhooks only", body: `{"webhooks": []}`, v2: true},
+		{desc: "kafkas only", body: `{"kafkas": []}`, v2: true},
+		{desc: "a null v2 field", body: `{"canonical_name": null}`},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.desc, func(t *testing.T) {
+			assert.Equal(t, tc.v2, isV2Registration([]byte(tc.body)))
 		})
 	}
 }

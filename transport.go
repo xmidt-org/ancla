@@ -101,7 +101,6 @@ func addWRPEventStreamRequestDecoder(config transportConfig) decodeRequestFunc {
 			// nolint:staticcheck
 			v1       webhook.RegistrationV1
 			v2       webhook.RegistrationV2
-			errs     error
 			partners []string
 		)
 
@@ -119,46 +118,55 @@ func addWRPEventStreamRequestDecoder(config transportConfig) decodeRequestFunc {
 
 		}
 
-		err = json.Unmarshal(requestPayload, &v1)
-		if err == nil {
-			if err = opts.Validate(&v1); err != nil {
-				return nil, &erraux.Error{Err: err, Message: "failed wrpEventStream validation", Code: http.StatusBadRequest}
+		if isV2Registration(requestPayload) {
+			if err = json.Unmarshal(requestPayload, &v2); err != nil {
+				return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWRPEventStreamUnmarshal, err), Code: http.StatusBadRequest}
 			}
-			wv.setV1Defaults(&v1, r.RemoteAddr)
-			reg := &schema.ManifestV1{
-				PartnerIDs:   partners,
-				Registration: v1,
-			}
-
-			return &addWRPEventStreamRequest{
-				owner:          owner,
-				internalWebook: reg,
-			}, nil
-		}
-
-		errs = errors.Join(errs, err)
-		err = json.Unmarshal(requestPayload, &v2)
-		if err == nil {
 			if err = opts.Validate(&v2); err != nil {
 				return nil, &erraux.Error{Err: err, Message: "failed wrpEventStream validation", Code: http.StatusBadRequest}
 			}
 
-			reg := &schema.ManifestV2{
-				PartnerIds:   partners,
-				Registration: v2,
-			}
-
 			return &addWRPEventStreamRequest{
-				owner:          owner,
-				internalWebook: reg,
+				owner: owner,
+				internalWebook: &schema.ManifestV2{
+					PartnerIds:   partners,
+					Registration: v2,
+				},
 			}, nil
-
 		}
 
-		errs = errors.Join(errs, err)
+		if err = json.Unmarshal(requestPayload, &v1); err != nil {
+			return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWRPEventStreamUnmarshal, err), Code: http.StatusBadRequest}
+		}
+		if err = opts.Validate(&v1); err != nil {
+			return nil, &erraux.Error{Err: err, Message: "failed wrpEventStream validation", Code: http.StatusBadRequest}
+		}
+		wv.setV1Defaults(&v1, r.RemoteAddr)
 
-		return nil, &erraux.Error{Err: fmt.Errorf("%w: %v", errFailedWRPEventStreamUnmarshal, errs), Code: http.StatusBadRequest}
+		return &addWRPEventStreamRequest{
+			owner: owner,
+			internalWebook: &schema.ManifestV1{
+				PartnerIDs:   partners,
+				Registration: v1,
+			},
+		}, nil
 	}
+}
+
+// isV2Registration reports whether a registration body is in the v2 schema,
+// which is told apart by the fields only it has.  The v1 schema is the
+// default, as it was when it was the only one.
+func isV2Registration(body []byte) bool {
+	var probe struct {
+		CanonicalName *json.RawMessage `json:"canonical_name"`
+		Webhooks      *json.RawMessage `json:"webhooks"`
+		Kafkas        *json.RawMessage `json:"kafkas"`
+	}
+	if err := json.Unmarshal(body, &probe); err != nil {
+		return false
+	}
+
+	return probe.CanonicalName != nil || probe.Webhooks != nil || probe.Kafkas != nil
 }
 
 func encodeAddWRPEventStreamResponse(ctx context.Context, rw http.ResponseWriter, _ any) error {
