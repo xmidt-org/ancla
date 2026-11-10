@@ -8,7 +8,7 @@ require (
 	github.com/prometheus/client_model v0.6.3
 	github.com/stretchr/testify v1.12.1
 	github.com/xmidt-org/httpaux v0.4.5
-	github.com/xmidt-org/touchstone v0.1.8
+	github.com/xmidt-org/touchstone v0.1.9
 	github.com/xmidt-org/urlegit v0.1.31
 	github.com/xmidt-org/webhook-schema v0.2.6
 	go.uber.org/fx v1.24.0
@@ -20,11 +20,11 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/prometheus/common v0.72.0 // indirect
-	github.com/prometheus/procfs v0.22.0 // indirect
+	github.com/prometheus/common v0.72.1 // indirect
+	github.com/prometheus/procfs v0.23.0 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	go.uber.org/dig v1.19.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
