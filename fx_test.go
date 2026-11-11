@@ -20,6 +20,10 @@ func TestProvideService(t *testing.T) {
 	svc, err := ProvideService(ServiceIn{PushReader: new(mockPushReader)})
 	require.NoError(err)
 	require.NotNil(svc)
+
+	svc, err = ProvideService(ServiceIn{PushReader: new(mockPushReader), OutputFormat: schema.OutputV1})
+	require.NoError(err)
+	require.Equal(schema.OutputV1, svc.(*service).format)
 }
 
 func TestProvideDefaultListenerWatchers(t *testing.T) {

@@ -20,11 +20,15 @@ type ServiceIn struct {
 
 	// PushReader is the user provided db client.
 	PushReader chrysom.PushReader `optional:"true"`
+
+	// OutputFormat is the layout used to store v1 registrations.  Optional;
+	// defaults to schema.OutputLegacy.
+	OutputFormat schema.OutputFormat `optional:"true"`
 }
 
 // ProvideService provides the Argus client service from the given configuration.
 func ProvideService(in ServiceIn) (Service, error) {
-	return NewService(in.PushReader), nil
+	return NewService(in.PushReader, WithOutputFormat(in.OutputFormat)), nil
 }
 
 // TODO: Refactor and move Watch and ListenerInterface related code to chrysom.

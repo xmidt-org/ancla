@@ -112,9 +112,38 @@ func TestSchemaToItem(t *testing.T) {
 			if tc.ShouldErr {
 				assert.Error(err)
 			}
-			assert.Equal(tc.ExpectedItem, item)
+			assert.Equal(asWritten(tc.ExpectedItem), item)
 		})
 	}
+}
+
+// asWritten converts a fixture holding a v1 registration under the interim
+// "wrp_event_stream_schema_v1" key into the layout SchemaToItem writes: the
+// v0.3.12 layout, with the duration in nanoseconds.
+func asWritten(in model.Item) model.Item {
+	data := map[string]any{}
+	for k, v := range in.Data {
+		data[k] = v
+	}
+	reg, ok := data[TestWRPEventField].(map[string]any)
+	if !ok {
+		return in
+	}
+	delete(data, TestWRPEventField)
+
+	w := map[string]any{}
+	for k, v := range reg {
+		w[k] = v
+	}
+	d, err := time.ParseDuration(w[testDurationField].(string))
+	if err != nil {
+		panic(err)
+	}
+	w[testDurationField] = float64(d)
+	data["Webhook"] = w
+
+	in.Data = data
+	return in
 }
 
 func getExpiredItem() model.Item {
