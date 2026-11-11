@@ -28,3 +28,5 @@ require (
 	golang.org/x/sys v0.49.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
+
+retract [v0.4.0, v0.5.6] // stores webhooks in a layout that v0.3.12 readers cannot read; use v0.6.0 or later

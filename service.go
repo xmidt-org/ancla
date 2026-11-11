@@ -49,14 +49,25 @@ type Config struct {
 
 type service struct {
 	// argus is the Argus database client.
-	argus chrysom.PushReader
-	now   func() time.Time
+	argus  chrysom.PushReader
+	now    func() time.Time
+	format schema.OutputFormat
+}
+
+// ServiceOption configures a service.
+type ServiceOption func(*service)
+
+// WithOutputFormat selects the layout used to store v1 registrations.  The
+// default is schema.OutputLegacy, which every version of ancla can read.
+// Reads always understand every layout.
+func WithOutputFormat(f schema.OutputFormat) ServiceOption {
+	return func(s *service) { s.format = f }
 }
 
 // Add adds the given owned wrpEventStream to the current list of wrpEventStreams. If the operation
 // succeeds, a non-nil error is returned.
 func (s *service) Add(ctx context.Context, owner string, manifest schema.Manifest) error {
-	item, err := schema.SchemaToItem(s.now, manifest)
+	item, err := schema.SchemaToItemFormat(s.now, manifest, s.format)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWRPEventStreamConversion, err)
 	}
@@ -93,9 +104,14 @@ func (s *service) GetAll(ctx context.Context) ([]schema.Manifest, error) {
 }
 
 // NewService returns an ancla client used to interact with an Argus database.
-func NewService(client chrysom.PushReader) *service {
-	return &service{
+func NewService(client chrysom.PushReader, opts ...ServiceOption) *service {
+	s := &service{
 		argus: client,
 		now:   time.Now,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	return s
 }
