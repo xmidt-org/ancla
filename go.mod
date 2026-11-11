@@ -9,7 +9,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/xmidt-org/httpaux v0.4.6
 	github.com/xmidt-org/touchstone v0.1.9
-	github.com/xmidt-org/urlegit v0.1.31
+	github.com/xmidt-org/urlegit v0.1.32
 	github.com/xmidt-org/webhook-schema v0.2.6
 	go.uber.org/fx v1.24.0
 	go.uber.org/multierr v1.11.0
