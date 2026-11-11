@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/model"
-	"github.com/xmidt-org/ancla/schema"
 	"github.com/xmidt-org/webhook-schema"
 )
 
@@ -56,22 +55,6 @@ func (m *mockPushReader) RemoveItem(ctx context.Context, id, owner string) (mode
 	// nolint:typecheck
 	args := m.Called(ctx, id, owner)
 	return args.Get(0).(model.Item), args.Error(0)
-}
-
-type mockService struct {
-	mock.Mock
-}
-
-func (m *mockService) Add(ctx context.Context, owner string, manifest schema.Manifest) error {
-	// nolint:typecheck
-	args := m.Called(ctx, owner, manifest)
-	return args.Error(0)
-}
-
-func (m *mockService) GetAll(ctx context.Context) ([]schema.Manifest, error) {
-	// nolint:typecheck
-	args := m.Called(ctx)
-	return args.Get(0).([]schema.Manifest), args.Error(1)
 }
 
 type mockCounter struct {

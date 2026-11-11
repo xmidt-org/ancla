@@ -46,7 +46,7 @@ func provideDefaults() (out, error) {
 func TestProvide(t *testing.T) {
 	t.Run("Test anclafx.Provide() defaults", func(t *testing.T) {
 		var (
-			svc        ancla.Service
+			svc        *ancla.Registry
 			pushReader chrysom.PushReader
 			listener   *chrysom.ListenerClient
 		)

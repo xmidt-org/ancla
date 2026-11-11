@@ -27,7 +27,7 @@ two run different versions.
 
 | Package | Purpose |
 |---|---|
-| `ancla` | `Service` (`Add`, `GetAll`), the HTTP handlers, and `Watch` for following updates |
+| `ancla` | `Registry` (`Add`, `GetAll`, `GetAllByOwner`), the HTTP handlers, and `Watch` for following updates |
 | `ancla/anclafx` | [fx](https://github.com/uber-go/fx) module wiring everything together |
 | `ancla/chrysom` | Argus client: `GetItems`, `PushItem`, `RemoveItem`, plus a polling listener |
 | `ancla/schema` | the registration types and how they are converted to and from stored items |
@@ -64,7 +64,7 @@ app := fx.New(
 )
 ```
 
-This provides an `ancla.Service`, the Argus client, and a listener that polls
+This provides a `*ancla.Registry`, the Argus client, and a listener that polls
 Argus and calls every `Watch`.
 
 ### Without fx
@@ -78,20 +78,24 @@ if err != nil {
 	return err
 }
 
-svc := ancla.NewService(client)
+registry := ancla.NewRegistry(client)
 
-err = svc.Add(ctx, owner, &schema.ManifestV1{
+err = registry.Add(ctx, owner, &schema.ManifestV1{
 	PartnerIDs:   partners,
 	Registration: registration, // a webhook.RegistrationV1
 })
 
-manifests, err := svc.GetAll(ctx) // each is a *schema.ManifestV1 or *schema.ManifestV2
+manifests, err := registry.GetAll(ctx) // every owner's; each is a *schema.ManifestV1 or *schema.ManifestV2
+
+mine, err := registry.GetAllByOwner(ctx, owner) // only owner's; an empty owner is an error
 ```
 
 `ancla.NewAddWRPEventStreamHandler` and `ancla.NewGetAllWRPEventStreamsHandler`
 return ready-made `http.Handler`s for the two operations.  They read the
 principal and partner IDs that your authentication middleware stored with
-`auth.SetPrincipal` and `auth.SetPartnerIDs`.
+`auth.SetPrincipal` and `auth.SetPartnerIDs`.  Set `HandlerConfig.FilterByOwner`
+to have the list handler return only the caller's registrations; it answers
+401 if the request has no principal, and never falls back to listing everyone's.
 
 ## Storage layouts
 
@@ -108,7 +112,7 @@ know which version wrote an item.
 A v1 registration is written under `Webhook`, with the duration as integer
 nanoseconds, so that **every** version can read it, including v0.3.12.  To
 write the other layout, pass `ancla.WithOutputFormat(schema.OutputV1)` to
-`NewService`, or provide a `schema.OutputFormat` to fx.  The format only
+`NewRegistry`, or provide a `schema.OutputFormat` to fx.  The format only
 affects v1; a v2 registration has one layout.
 
 ### Compatibility

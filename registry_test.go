@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"testing"
 	"time"
 
@@ -64,7 +65,7 @@ func TestAdd(t *testing.T) {
 		t.Run(tc.Description, func(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
-			svc := service{
+			svc := Registry{
 				argus: m,
 				now:   time.Now,
 			}
@@ -107,7 +108,7 @@ func TestAllSchemas(t *testing.T) {
 			assert := assert.New(t)
 			m := new(mockPushReader)
 
-			svc := service{
+			svc := Registry{
 				argus: m,
 			}
 			// nolint:typecheck
@@ -238,7 +239,7 @@ func getTestItems() chrysom.Items {
 func TestAddConversionFailure(t *testing.T) {
 	assert := assert.New(t)
 	m := new(mockPushReader)
-	svc := service{argus: m, now: time.Now}
+	svc := Registry{argus: m, now: time.Now}
 	err := svc.Add(context.TODO(), "owner", badManifest{})
 	assert.ErrorIs(err, errFailedWRPEventStreamConversion)
 	// nolint:typecheck
@@ -248,7 +249,7 @@ func TestAddConversionFailure(t *testing.T) {
 func TestGetAllConversionFailure(t *testing.T) {
 	assert := assert.New(t)
 	m := new(mockPushReader)
-	svc := service{argus: m}
+	svc := Registry{argus: m}
 	// nolint:typecheck
 	m.On("GetItems", context.TODO(), "").Return(chrysom.Items{
 		model.Item{Data: map[string]any{TestWRPEventField: "not an object"}},
@@ -260,26 +261,30 @@ func TestGetAllConversionFailure(t *testing.T) {
 	m.AssertExpectations(t)
 }
 
-func TestNewService(t *testing.T) {
+func TestNewRegistry(t *testing.T) {
 	require := require.New(t)
 	m := new(mockPushReader)
-	svc := NewService(m)
+	svc := NewRegistry(m)
 	require.NotNil(svc)
 	require.Equal(m, svc.argus)
 	require.NotNil(svc.now)
 }
 
-// memStore is an in-memory store keyed by item ID, like Argus.
+// memStore is an in-memory store keyed by item ID, like Argus.  Items belong
+// to the owner that pushed them; an empty owner lists every owner's.
 type memStore struct {
-	items map[string]model.Item
+	items  map[string]model.Item
+	owners map[string]string
 }
 
-func (m *memStore) PushItem(_ context.Context, _ string, item model.Item) (chrysom.PushResult, error) {
+func (m *memStore) PushItem(_ context.Context, owner string, item model.Item) (chrysom.PushResult, error) {
 	if m.items == nil {
 		m.items = map[string]model.Item{}
+		m.owners = map[string]string{}
 	}
 	_, existed := m.items[item.ID]
 	m.items[item.ID] = item
+	m.owners[item.ID] = owner
 	if existed {
 		return chrysom.UpdatedPushResult, nil
 	}
@@ -290,10 +295,12 @@ func (m *memStore) RemoveItem(_ context.Context, id, _ string) (model.Item, erro
 	return m.items[id], nil
 }
 
-func (m *memStore) GetItems(_ context.Context, _ string) (chrysom.Items, error) {
+func (m *memStore) GetItems(_ context.Context, owner string) (chrysom.Items, error) {
 	out := chrysom.Items{}
-	for _, i := range m.items {
-		out = append(out, i)
+	for id, i := range m.items {
+		if owner == "" || m.owners[id] == owner {
+			out = append(out, i)
+		}
 	}
 	return out, nil
 }
@@ -313,9 +320,9 @@ func v1Manifest(url string) *schema.ManifestV1 {
 }
 
 // A v1 registration is stored in the v0.3.12 layout, and a v2 one is not.
-func TestServiceStoredLayout(t *testing.T) {
+func TestRegistryStoredLayout(t *testing.T) {
 	store := &memStore{}
-	svc := NewService(store)
+	svc := NewRegistry(store)
 	ctx := context.Background()
 
 	require.NoError(t, svc.Add(ctx, "o", v1Manifest("http://a.example.com")))
@@ -335,9 +342,9 @@ func TestServiceStoredLayout(t *testing.T) {
 
 // The store can hold items written by v0.3.12, by the interim releases, and
 // by this one.  GetAll must return all of them intact.
-func TestServiceGetAllMixedLayouts(t *testing.T) {
+func TestRegistryGetAllMixedLayouts(t *testing.T) {
 	store := &memStore{}
-	svc := NewService(store)
+	svc := NewRegistry(store)
 	ctx := context.Background()
 
 	require.NoError(t, svc.Add(ctx, "o", v1Manifest("http://new.example.com")))
@@ -375,22 +382,22 @@ func TestServiceGetAllMixedLayouts(t *testing.T) {
 	}, ids)
 }
 
-func TestServiceOutputFormat(t *testing.T) {
+func TestRegistryOutputFormat(t *testing.T) {
 	tcs := []struct {
 		name      string
-		opts      []ServiceOption
+		opts      []Option
 		wantKey   string
 		absentKey string
 	}{
 		{"default is legacy", nil, "Webhook", "wrp_event_stream_schema_v1"},
-		{"explicit legacy", []ServiceOption{WithOutputFormat(schema.OutputLegacy)}, "Webhook", "wrp_event_stream_schema_v1"},
-		{"v1", []ServiceOption{WithOutputFormat(schema.OutputV1)}, "wrp_event_stream_schema_v1", "Webhook"},
+		{"explicit legacy", []Option{WithOutputFormat(schema.OutputLegacy)}, "Webhook", "wrp_event_stream_schema_v1"},
+		{"v1", []Option{WithOutputFormat(schema.OutputV1)}, "wrp_event_stream_schema_v1", "Webhook"},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
 			store := &memStore{}
-			svc := NewService(store, tc.opts...)
+			svc := NewRegistry(store, tc.opts...)
 			require.NoError(t, svc.Add(context.Background(), "o", v1Manifest("http://a.example.com")))
 
 			require.Len(t, store.items, 1)
@@ -407,9 +414,67 @@ func TestServiceOutputFormat(t *testing.T) {
 	}
 }
 
-func TestServiceOutputFormatInvalid(t *testing.T) {
+func TestRegistryOutputFormatInvalid(t *testing.T) {
 	store := &memStore{}
-	svc := NewService(store, WithOutputFormat(schema.OutputFormat(99)))
+	svc := NewRegistry(store, WithOutputFormat(schema.OutputFormat(99)))
 	assert.ErrorIs(t, svc.Add(context.Background(), "o", v1Manifest("http://a.example.com")), errFailedWRPEventStreamConversion)
 	assert.Empty(t, store.items)
+}
+
+func TestRegistryGetAllByOwner(t *testing.T) {
+	store := &memStore{}
+	r := NewRegistry(store)
+	ctx := context.Background()
+
+	require.NoError(t, r.Add(ctx, "alice", v1Manifest("http://alice1.example.com")))
+	require.NoError(t, r.Add(ctx, "alice", v1Manifest("http://alice2.example.com")))
+	require.NoError(t, r.Add(ctx, "bob", v1Manifest("http://bob.example.com")))
+
+	ids := func(ms []schema.Manifest) []string {
+		var out []string
+		for _, m := range ms {
+			out = append(out, m.GetId())
+		}
+		return out
+	}
+
+	t.Run("only the owner's", func(t *testing.T) {
+		got, err := r.GetAllByOwner(ctx, "alice")
+		require.NoError(t, err)
+		assert.ElementsMatch(t, []string{"http://alice1.example.com", "http://alice2.example.com"}, ids(got))
+
+		got, err = r.GetAllByOwner(ctx, "bob")
+		require.NoError(t, err)
+		assert.Equal(t, []string{"http://bob.example.com"}, ids(got))
+	})
+
+	t.Run("an owner with nothing", func(t *testing.T) {
+		got, err := r.GetAllByOwner(ctx, "carol")
+		require.NoError(t, err)
+		assert.Empty(t, got)
+	})
+
+	t.Run("GetAll still lists everyone's", func(t *testing.T) {
+		got, err := r.GetAll(ctx)
+		require.NoError(t, err)
+		assert.Len(t, got, 3)
+	})
+
+	t.Run("an empty owner never lists everything", func(t *testing.T) {
+		got, err := r.GetAllByOwner(ctx, "")
+		assert.ErrorIs(t, err, ErrNoOwner)
+		assert.Nil(t, got)
+
+		var sc interface{ StatusCode() int }
+		require.ErrorAs(t, err, &sc)
+		assert.Equal(t, http.StatusUnauthorized, sc.StatusCode())
+	})
+
+	t.Run("fetch failure", func(t *testing.T) {
+		m := new(mockPushReader)
+		// nolint:typecheck
+		m.On("GetItems", mock.Anything, "alice").Return(chrysom.Items{}, errors.New("boom"))
+		_, err := NewRegistry(m).GetAllByOwner(ctx, "alice")
+		assert.ErrorIs(t, err, errFailedWRPEventStreamsFetch)
+	})
 }

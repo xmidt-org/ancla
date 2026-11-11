@@ -8,26 +8,39 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/xmidt-org/ancla/auth"
+	"github.com/xmidt-org/ancla/schema"
 	webhook "github.com/xmidt-org/webhook-schema"
 	"go.uber.org/zap"
 )
 
 // NewAddWRPEventStreamHandler returns an HTTP handler for adding
 // a wrpEventStream registration.
-func NewAddWRPEventStreamHandler(s Service, config HandlerConfig) http.Handler {
+func NewAddWRPEventStreamHandler(r *Registry, config HandlerConfig) http.Handler {
 	return newServer(
-		newAddWRPEventStreamEndpoint(s),
+		newAddWRPEventStreamEndpoint(r.Add),
 		addWRPEventStreamRequestDecoder(newTransportConfig(config)),
 		encodeAddWRPEventStreamResponse,
 		errorEncoder(config.GetLogger),
 	)
 }
 
-// NewGetAllWRPEventStreamsHandler returns an HTTP handler for fetching
-// all the currently registered wrpEventStreams.
-func NewGetAllWRPEventStreamsHandler(s Service, config HandlerConfig) http.Handler {
+// NewGetAllWRPEventStreamsHandler returns an HTTP handler for fetching the
+// currently registered wrpEventStreams: every owner's, or with
+// config.FilterByOwner only the caller's.
+func NewGetAllWRPEventStreamsHandler(r *Registry, config HandlerConfig) http.Handler {
+	list := r.GetAll
+	if config.FilterByOwner {
+		list = func(ctx context.Context) ([]schema.Manifest, error) {
+			// An absent principal is an empty owner, which GetAllByOwner
+			// refuses rather than listing everything.
+			owner, _ := auth.GetPrincipal(ctx)
+			return r.GetAllByOwner(ctx, owner)
+		}
+	}
+
 	return newServer(
-		newGetAllWRPEventStreamsEndpoint(s),
+		newGetAllWRPEventStreamsEndpoint(list),
 		nopRequestDecoder,
 		encodeGetAllWRPEventStreamsResponse,
 		errorEncoder(config.GetLogger),
@@ -39,7 +52,13 @@ func NewGetAllWRPEventStreamsHandler(s Service, config HandlerConfig) http.Handl
 type HandlerConfig struct {
 	V                 webhook.Validators
 	DisablePartnerIDs bool
-	GetLogger         func(context.Context) *zap.Logger
+
+	// FilterByOwner, if true, makes the get-all handler list only the
+	// wrpEventStreams owned by the principal in the request's context
+	// (see auth.SetPrincipal), and fail with 401 if there is none.  The
+	// default lists every owner's.
+	FilterByOwner bool
+	GetLogger     func(context.Context) *zap.Logger
 }
 
 func newTransportConfig(hConfig HandlerConfig) transportConfig {
