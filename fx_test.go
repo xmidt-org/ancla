@@ -15,15 +15,15 @@ import (
 	"github.com/xmidt-org/ancla/schema"
 )
 
-func TestProvideService(t *testing.T) {
+func TestProvideRegistry(t *testing.T) {
 	require := require.New(t)
-	svc, err := ProvideService(ServiceIn{PushReader: new(mockPushReader)})
+	svc, err := ProvideRegistry(RegistryIn{PushReader: new(mockPushReader)})
 	require.NoError(err)
 	require.NotNil(svc)
 
-	svc, err = ProvideService(ServiceIn{PushReader: new(mockPushReader), OutputFormat: schema.OutputV1})
+	svc, err = ProvideRegistry(RegistryIn{PushReader: new(mockPushReader), OutputFormat: schema.OutputV1})
 	require.NoError(err)
-	require.Equal(schema.OutputV1, svc.(*service).format)
+	require.Equal(schema.OutputV1, svc.format)
 }
 
 func TestProvideDefaultListenerWatchers(t *testing.T) {

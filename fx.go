@@ -15,7 +15,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-type ServiceIn struct {
+type RegistryIn struct {
 	fx.In
 
 	// PushReader is the user provided db client.
@@ -26,9 +26,9 @@ type ServiceIn struct {
 	OutputFormat schema.OutputFormat `optional:"true"`
 }
 
-// ProvideService provides the Argus client service from the given configuration.
-func ProvideService(in ServiceIn) (Service, error) {
-	return NewService(in.PushReader, WithOutputFormat(in.OutputFormat)), nil
+// ProvideRegistry provides the Registry from the given Argus client.
+func ProvideRegistry(in RegistryIn) (*Registry, error) {
+	return NewRegistry(in.PushReader, WithOutputFormat(in.OutputFormat)), nil
 }
 
 // TODO: Refactor and move Watch and ListenerInterface related code to chrysom.

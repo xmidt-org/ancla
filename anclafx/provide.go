@@ -15,7 +15,7 @@ func Provide() fx.Option {
 		Module,
 		fx.Invoke(chrysom.ProvideStartListenerClient),
 		fx.Provide(
-			ancla.ProvideService,
+			ancla.ProvideRegistry,
 			ancla.ProvideListener,
 			ancla.ProvideDefaultListenerWatchers,
 			chrysom.ProvideBasicClient,

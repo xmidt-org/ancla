@@ -10,10 +10,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/xmidt-org/ancla/auth"
+	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/schema"
 	"go.uber.org/zap"
 )
@@ -64,20 +67,20 @@ func TestNewAddWRPEventStreamHandler(t *testing.T) {
 			serviceErr:   errors.New("boom"),
 			expectAdd:    true,
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: `{"message": "boom"}`,
+			expectedBody: `{"message": "failed to add wrpEventStream to registry: boom"}`,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			m := new(mockService)
+			m := new(mockPushReader)
 			if tc.expectAdd {
 				// nolint:typecheck
-				m.On("Add", mock.Anything, testOwner, mock.Anything).Return(tc.serviceErr)
+				m.On("PushItem", mock.Anything, testOwner, mock.Anything).Return(chrysom.CreatedPushResult, tc.serviceErr)
 			}
 
-			h := NewAddWRPEventStreamHandler(m, testHandlerConfig())
+			h := NewAddWRPEventStreamHandler(NewRegistry(m), testHandlerConfig())
 
 			r := httptest.NewRequest(http.MethodPost, "/hooks", bytes.NewBufferString(tc.payload))
 			r = r.WithContext(tc.ctx)
@@ -100,7 +103,7 @@ func TestNewGetAllWRPEventStreamsHandler(t *testing.T) {
 	tcs := []struct {
 		desc         string
 		manifests    []schema.Manifest
-		serviceErr   error
+		fetchErr     error
 		expectedCode int
 		expectedBody string
 	}{
@@ -116,21 +119,31 @@ func TestNewGetAllWRPEventStreamsHandler(t *testing.T) {
 			expectedBody: `[]`,
 		},
 		{
-			desc:         "service failure is an internal error",
-			serviceErr:   errors.New("boom"),
+			desc:         "fetch failure is an internal error",
+			fetchErr:     errors.New("boom"),
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: `{"message": "boom"}`,
+			expectedBody: `{"message": "failed to fetch wrpEventStreams: boom"}`,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.desc, func(t *testing.T) {
 			assert := assert.New(t)
-			m := new(mockService)
-			// nolint:typecheck
-			m.On("GetAll", mock.Anything).Return(tc.manifests, tc.serviceErr)
 
-			h := NewGetAllWRPEventStreamsHandler(m, testHandlerConfig())
+			// Fixed items, in order: the fixtures share a URL, which a keyed
+			// store would collapse into one.
+			items := chrysom.Items{}
+			for _, m := range tc.manifests {
+				item, err := schema.SchemaToItem(time.Now, m)
+				assert.NoError(err)
+				items = append(items, item)
+			}
+			store := new(mockPushReader)
+			// nolint:typecheck
+			store.On("GetItems", mock.Anything, "").Return(items, tc.fetchErr)
+			reg := NewRegistry(store)
+
+			h := NewGetAllWRPEventStreamsHandler(reg, testHandlerConfig())
 
 			r := httptest.NewRequest(http.MethodGet, "/hooks", nil)
 			recorder := httptest.NewRecorder()
@@ -140,10 +153,57 @@ func TestNewGetAllWRPEventStreamsHandler(t *testing.T) {
 			assert.Equal(tc.expectedCode, recorder.Code)
 			assert.Equal(testContentType, recorder.Header().Get("Content-Type"))
 			assert.JSONEq(tc.expectedBody, recorder.Body.String())
-			// nolint:typecheck
-			m.AssertExpectations(t)
 		})
 	}
+}
+
+func TestGetAllHandlerFilterByOwner(t *testing.T) {
+	store := &memStore{}
+	reg := NewRegistry(store)
+	ctx := context.Background()
+	require.NoError(t, reg.Add(ctx, "alice", v1Manifest("http://alice.example.com")))
+	require.NoError(t, reg.Add(ctx, "bob", v1Manifest("http://bob.example.com")))
+
+	list := func(t *testing.T, filter bool, ctx context.Context) (int, string) {
+		t.Helper()
+		cfg := testHandlerConfig()
+		cfg.FilterByOwner = filter
+		r := httptest.NewRequest(http.MethodGet, "/hooks", nil).WithContext(ctx)
+		w := httptest.NewRecorder()
+		NewGetAllWRPEventStreamsHandler(reg, cfg).ServeHTTP(w, r)
+		return w.Code, w.Body.String()
+	}
+
+	t.Run("off lists everyone's, as before", func(t *testing.T) {
+		code, body := list(t, false, auth.SetPrincipal(ctx, "alice"))
+		assert.Equal(t, http.StatusOK, code)
+		assert.Contains(t, body, "alice.example.com")
+		assert.Contains(t, body, "bob.example.com")
+	})
+
+	t.Run("off needs no principal", func(t *testing.T) {
+		code, _ := list(t, false, ctx)
+		assert.Equal(t, http.StatusOK, code)
+	})
+
+	t.Run("on lists only the caller's", func(t *testing.T) {
+		code, body := list(t, true, auth.SetPrincipal(ctx, "alice"))
+		assert.Equal(t, http.StatusOK, code)
+		assert.Contains(t, body, "alice.example.com")
+		assert.NotContains(t, body, "bob.example.com")
+	})
+
+	t.Run("on with no principal fails closed", func(t *testing.T) {
+		code, body := list(t, true, ctx)
+		assert.Equal(t, http.StatusUnauthorized, code)
+		assert.NotContains(t, body, "example.com")
+	})
+
+	t.Run("on with an empty principal fails closed", func(t *testing.T) {
+		code, body := list(t, true, auth.SetPrincipal(ctx, ""))
+		assert.Equal(t, http.StatusUnauthorized, code)
+		assert.NotContains(t, body, "example.com")
+	})
 }
 
 func TestServerEncoderFailure(t *testing.T) {

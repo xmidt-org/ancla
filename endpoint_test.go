@@ -14,34 +14,34 @@ import (
 
 func TestNewAddWRPEventStreamEndpoint(t *testing.T) {
 	assert := assert.New(t)
-	m := new(mockService)
-	endpoint := newAddWRPEventStreamEndpoint(m)
+	errFake := errors.New("failed")
 	input := &addWRPEventStreamRequest{
 		owner:    "owner-val",
 		manifest: &schema.ManifestV1{},
 	}
 
-	errFake := errors.New("failed")
-	// nolint:typecheck
-	m.On("Add", context.Background(), "owner-val", input.manifest).Return(errFake)
+	var gotOwner string
+	var gotManifest schema.Manifest
+	endpoint := newAddWRPEventStreamEndpoint(func(_ context.Context, owner string, m schema.Manifest) error {
+		gotOwner, gotManifest = owner, m
+		return errFake
+	})
+
 	resp, err := endpoint(context.Background(), input)
 	assert.Nil(resp)
 	assert.Equal(errFake, err)
-	// nolint:typecheck
-	m.AssertExpectations(t)
+	assert.Equal("owner-val", gotOwner)
+	assert.Equal(input.manifest, gotManifest)
 }
 
 func TestGetAllWRPEventStreamsEndpoint(t *testing.T) {
 	assert := assert.New(t)
-	m := new(mockService)
-	endpoint := newGetAllWRPEventStreamsEndpoint(m)
-
 	respFake := []schema.Manifest{}
-	// nolint:typecheck
-	m.On("GetAll", context.Background()).Return(respFake, nil)
+	endpoint := newGetAllWRPEventStreamsEndpoint(func(context.Context) ([]schema.Manifest, error) {
+		return respFake, nil
+	})
+
 	resp, err := endpoint(context.Background(), nil)
 	assert.Nil(err)
 	assert.Equal(respFake, resp)
-	// nolint:typecheck
-	m.AssertExpectations(t)
 }

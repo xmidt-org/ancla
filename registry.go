@@ -7,13 +7,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/xmidt-org/ancla/chrysom"
 	"github.com/xmidt-org/ancla/schema"
+	"github.com/xmidt-org/httpaux/erraux"
 )
 
 const errFmt = "%w: %v"
+
+// ErrNoOwner is returned by GetAllByOwner when it is given an empty owner.
+// Listing with an empty owner would return every owner's wrpEventStreams, so
+// it fails instead.
+var ErrNoOwner = errors.New("an owner is required to list wrpEventStreams")
 
 var (
 	errNonSuccessPushResult           = errors.New("got a push result but was not of success type")
@@ -22,16 +29,6 @@ var (
 	errFailedItemConversion           = errors.New("failed to convert argus item to wrpEventStream")
 	errFailedWRPEventStreamsFetch     = errors.New("failed to fetch wrpEventStreams")
 )
-
-// Service describes the core operations around wrpEventStream subscriptions.
-type Service interface {
-	// Add adds the given owned wrpEventStream to the current list of wrpEventStreams. If the operation
-	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, manifest schema.Manifest) error
-
-	// GetAll lists all the current registered wrpEventStreams.
-	GetAll(ctx context.Context) ([]schema.Manifest, error)
-}
 
 // Config contains information needed to initialize the Argus database client.
 type Config struct {
@@ -47,31 +44,47 @@ type Config struct {
 	Validation schema.SchemaURLValidatorConfig
 }
 
-type service struct {
+// Registry stores wrpEventStream registrations in Argus and lists them.
+// Create one with NewRegistry.
+type Registry struct {
 	// argus is the Argus database client.
 	argus  chrysom.PushReader
 	now    func() time.Time
 	format schema.OutputFormat
 }
 
-// ServiceOption configures a service.
-type ServiceOption func(*service)
+// Option configures a Registry.
+type Option func(*Registry)
 
 // WithOutputFormat selects the layout used to store v1 registrations.  The
 // default is schema.OutputLegacy, which every version of ancla can read.
 // Reads always understand every layout.
-func WithOutputFormat(f schema.OutputFormat) ServiceOption {
-	return func(s *service) { s.format = f }
+func WithOutputFormat(f schema.OutputFormat) Option {
+	return func(r *Registry) { r.format = f }
 }
 
-// Add adds the given owned wrpEventStream to the current list of wrpEventStreams. If the operation
-// succeeds, a non-nil error is returned.
-func (s *service) Add(ctx context.Context, owner string, manifest schema.Manifest) error {
-	item, err := schema.SchemaToItemFormat(s.now, manifest, s.format)
+// NewRegistry returns a Registry that stores registrations using the given
+// Argus client.
+func NewRegistry(client chrysom.PushReader, opts ...Option) *Registry {
+	r := &Registry{
+		argus: client,
+		now:   time.Now,
+	}
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	return r
+}
+
+// Add adds the given owned wrpEventStream to the current list of
+// wrpEventStreams.  A nil error means it was stored.
+func (r *Registry) Add(ctx context.Context, owner string, manifest schema.Manifest) error {
+	item, err := schema.SchemaToItemFormat(r.now, manifest, r.format)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWRPEventStreamConversion, err)
 	}
-	result, err := s.argus.PushItem(ctx, owner, item)
+	result, err := r.argus.PushItem(ctx, owner, item)
 	if err != nil {
 		return fmt.Errorf(errFmt, errFailedWRPEventStreamPush, err)
 	}
@@ -82,16 +95,30 @@ func (s *service) Add(ctx context.Context, owner string, manifest schema.Manifes
 	return fmt.Errorf("%w: %s", errNonSuccessPushResult, result)
 }
 
-// GetAll returns all wrpEventStreams found on the configured wrpEventStreams partition
-// of Argus.
-func (s *service) GetAll(ctx context.Context) ([]schema.Manifest, error) {
-	items, err := s.argus.GetItems(ctx, "")
+// GetAll returns every owner's wrpEventStreams.  To list only one owner's, use
+// GetAllByOwner.
+func (r *Registry) GetAll(ctx context.Context) ([]schema.Manifest, error) {
+	return r.list(ctx, "")
+}
+
+// GetAllByOwner returns the wrpEventStreams that belong to owner.  An empty
+// owner is an error (ErrNoOwner, with status 401) and never lists everything.
+func (r *Registry) GetAllByOwner(ctx context.Context, owner string) ([]schema.Manifest, error) {
+	if owner == "" {
+		return nil, &erraux.Error{Err: ErrNoOwner, Code: http.StatusUnauthorized}
+	}
+
+	return r.list(ctx, owner)
+}
+
+// list fetches the items for owner, or every owner's if owner is empty.
+func (r *Registry) list(ctx context.Context, owner string) ([]schema.Manifest, error) {
+	items, err := r.argus.GetItems(ctx, owner)
 	if err != nil {
 		return nil, fmt.Errorf(errFmt, errFailedWRPEventStreamsFetch, err)
 	}
 
 	manifests := make([]schema.Manifest, len(items))
-
 	for i, item := range items {
 		m, err := schema.ItemToSchema(item)
 		if err != nil {
@@ -101,17 +128,4 @@ func (s *service) GetAll(ctx context.Context) ([]schema.Manifest, error) {
 	}
 
 	return manifests, nil
-}
-
-// NewService returns an ancla client used to interact with an Argus database.
-func NewService(client chrysom.PushReader, opts ...ServiceOption) *service {
-	s := &service{
-		argus: client,
-		now:   time.Now,
-	}
-	for _, opt := range opts {
-		opt(s)
-	}
-
-	return s
 }
