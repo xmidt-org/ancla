@@ -57,8 +57,8 @@ type transportConfig struct {
 }
 
 type addWRPEventStreamRequest struct {
-	owner          string
-	internalWebook schema.Manifest
+	owner    string
+	manifest schema.Manifest
 }
 
 func encodeGetAllWRPEventStreamsResponse(ctx context.Context, rw http.ResponseWriter, response any) error {
@@ -128,7 +128,7 @@ func addWRPEventStreamRequestDecoder(config transportConfig) decodeRequestFunc {
 
 			return &addWRPEventStreamRequest{
 				owner: owner,
-				internalWebook: &schema.ManifestV2{
+				manifest: &schema.ManifestV2{
 					PartnerIds:   partners,
 					Registration: v2,
 				},
@@ -145,7 +145,7 @@ func addWRPEventStreamRequestDecoder(config transportConfig) decodeRequestFunc {
 
 		return &addWRPEventStreamRequest{
 			owner: owner,
-			internalWebook: &schema.ManifestV1{
+			manifest: &schema.ManifestV1{
 				PartnerIDs:   partners,
 				Registration: v1,
 			},

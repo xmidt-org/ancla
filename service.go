@@ -27,7 +27,7 @@ var (
 type Service interface {
 	// Add adds the given owned wrpEventStream to the current list of wrpEventStreams. If the operation
 	// succeeds, a non-nil error is returned.
-	Add(ctx context.Context, owner string, iw schema.Manifest) error
+	Add(ctx context.Context, owner string, manifest schema.Manifest) error
 
 	// GetAll lists all the current registered wrpEventStreams.
 	GetAll(ctx context.Context) ([]schema.Manifest, error)

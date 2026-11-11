@@ -365,7 +365,7 @@ func addWRPEventStreamDecoderOutput(withPIDs bool) *addWRPEventStreamRequest {
 	if withPIDs {
 		return &addWRPEventStreamRequest{
 			owner: testOwner,
-			internalWebook: &schema.ManifestV1{
+			manifest: &schema.ManifestV1{
 				// nolint:staticcheck
 				Registration: webhook.RegistrationV1{
 					Address: testURL443,
@@ -389,7 +389,7 @@ func addWRPEventStreamDecoderOutput(withPIDs bool) *addWRPEventStreamRequest {
 	}
 	return &addWRPEventStreamRequest{
 		owner: testOwner,
-		internalWebook: &schema.ManifestV1{
+		manifest: &schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
 				Address: testURL443,
@@ -421,7 +421,7 @@ func addWRPEventStreamDecoderDurationOutput(withPIDs bool) *addWRPEventStreamReq
 	if withPIDs {
 		return &addWRPEventStreamRequest{
 			owner: testOwner,
-			internalWebook: &schema.ManifestV1{
+			manifest: &schema.ManifestV1{
 				// nolint:staticcheck
 				Registration: webhook.RegistrationV1{
 					Address: testURL443,
@@ -445,7 +445,7 @@ func addWRPEventStreamDecoderDurationOutput(withPIDs bool) *addWRPEventStreamReq
 	}
 	return &addWRPEventStreamRequest{
 		owner: testOwner,
-		internalWebook: &schema.ManifestV1{
+		manifest: &schema.ManifestV1{
 			// nolint:staticcheck
 			Registration: webhook.RegistrationV1{
 				Address: testURL443,
@@ -720,7 +720,7 @@ func addWRPEventStreamDecoderV2Output(t *testing.T, input string) *addWRPEventSt
 	require.NoError(t, json.Unmarshal([]byte(input), &reg))
 	return &addWRPEventStreamRequest{
 		owner: testOwner,
-		internalWebook: &schema.ManifestV2{
+		manifest: &schema.ManifestV2{
 			PartnerIds:   []string{testPartnerID},
 			Registration: reg,
 		},

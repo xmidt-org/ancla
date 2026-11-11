@@ -15,7 +15,7 @@ type endpoint func(ctx context.Context, request any) (any, error)
 func newAddWRPEventStreamEndpoint(s Service) endpoint {
 	return func(ctx context.Context, request any) (any, error) {
 		r := request.(*addWRPEventStreamRequest)
-		return nil, s.Add(ctx, r.owner, r.internalWebook)
+		return nil, s.Add(ctx, r.owner, r.manifest)
 	}
 }
 

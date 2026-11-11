@@ -17,13 +17,13 @@ func TestNewAddWRPEventStreamEndpoint(t *testing.T) {
 	m := new(mockService)
 	endpoint := newAddWRPEventStreamEndpoint(m)
 	input := &addWRPEventStreamRequest{
-		owner:          "owner-val",
-		internalWebook: &schema.ManifestV1{},
+		owner:    "owner-val",
+		manifest: &schema.ManifestV1{},
 	}
 
 	errFake := errors.New("failed")
 	// nolint:typecheck
-	m.On("Add", context.Background(), "owner-val", input.internalWebook).Return(errFake)
+	m.On("Add", context.Background(), "owner-val", input.manifest).Return(errFake)
 	resp, err := endpoint(context.Background(), input)
 	assert.Nil(resp)
 	assert.Equal(errFake, err)
