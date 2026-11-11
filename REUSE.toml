@@ -62,3 +62,9 @@ path = "AUTHORS"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "SPDX-FileCopyrightText: 2021 Comcast Cable Communications Management, LLC"
 SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
+path = "schema/testdata/v0.3.12_item.json"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "SPDX-FileCopyrightText: 2026 Comcast Cable Communications Management, LLC"
+SPDX-License-Identifier = "Apache-2.0"
